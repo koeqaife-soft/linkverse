@@ -1,5 +1,7 @@
 {
-    "cSpell.words": [
-        "dotenv"
-    ]
+    "cSpell.words": ["chacha", "decryptor", "dotenv", "encryptor", "postgrest", "SUPABASE", "urandom"],
+    "files.exclude": {
+        "**/__pycache__": true,
+        ".mypy_cache": true
+    }
 }

@@ -1,6 +1,15 @@
 from typing import overload
 import typing as t
 import json
+from dotenv import load_dotenv
+from quart import Quart
+import os
+
+
+load_dotenv()
+app = Quart(__name__)
+secret_key = os.environ["SECRET_KEY"]
+secret_refresh_key = os.environ["SECRET_REFRESH_KEY"]
 
 
 @overload
