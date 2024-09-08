@@ -4,9 +4,24 @@ from cryptography.hazmat.primitives import hashes
 import os
 from functools import lru_cache
 import string
+import base64
+import hmac
+import hashlib
 import asyncio
 
 BASE62_ALPHABET = string.digits + string.ascii_letters
+SECRET_KEY = os.environ["SIGNATURE_KEY"].encode()
+
+
+def generate_signature(data: str, key: bytes) -> str:
+    return base64.urlsafe_b64encode(
+        hmac.new(key, data.encode(), hashlib.sha256).digest()
+    ).decode()
+
+
+def verify_signature(token_payload: str, signature: str, key: bytes) -> bool:
+    expected_signature = generate_signature(token_payload, key)
+    return hmac.compare_digest(expected_signature, signature)
 
 
 def encode_base62(data: bytes) -> str:
