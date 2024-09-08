@@ -27,25 +27,25 @@ class Transaction:
 
 
 async def initialize_database(db: aiosqlite.Connection):
-    await db.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY,
-            username TEXT NOT NULL UNIQUE,
-            email TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            display_name TEXT,
-            avatar_url TEXT
-        );
+    async with Transaction(db):
+        await db.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY,
+                username TEXT NOT NULL UNIQUE,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                display_name TEXT,
+                avatar_url TEXT
+            );
 
-        CREATE TABLE IF NOT EXISTS auth_keys (
-            user_id INTEGER NOT NULL,
-            token_secret TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users(user_id)
-            ON DELETE CASCADE
-        );
+            CREATE TABLE IF NOT EXISTS auth_keys (
+                user_id INTEGER NOT NULL,
+                token_secret TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+                ON DELETE CASCADE
+            );
 
-        CREATE INDEX IF NOT EXISTS idx_user_id ON auth_keys(user_id);
-        """
-    )
-    await db.commit()
+            CREATE INDEX IF NOT EXISTS idx_user_id ON auth_keys(user_id);
+            """
+        )
