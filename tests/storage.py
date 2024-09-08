@@ -8,7 +8,7 @@ mime_type, _ = mimetypes.guess_type(file_path)
 print(mime_type)
 
 response = requests.post(
-    "http://localhost:6169/generate_upload_url",
+    "http://localhost:6169/v1/generate_upload_url",
     json={"file_name": file_name}
 )
 data = response.json()

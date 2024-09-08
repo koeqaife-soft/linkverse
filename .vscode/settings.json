@@ -1,5 +1,23 @@
 {
-    "cSpell.words": ["chacha", "decryptor", "dotenv", "encryptor", "postgrest", "SUPABASE", "urandom"],
+    "cSpell.words": [
+        "ANSICON",
+        "chacha",
+        "checkpw",
+        "CLICOLOR",
+        "colorlog",
+        "COLORTERM",
+        "decryptor",
+        "dotenv",
+        "encryptor",
+        "gensalt",
+        "hashpw",
+        "levelname",
+        "mintty",
+        "postgrest",
+        "SUPABASE",
+        "truecolor",
+        "urandom"
+    ],
     "files.exclude": {
         "**/__pycache__": true,
         ".mypy_cache": true

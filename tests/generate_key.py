@@ -1,7 +1,7 @@
 import os
 
 
-def generate_key(length: int = 16) -> str:
+def generate_key(length: int = 32) -> str:
     return os.urandom(length).hex()
 
 

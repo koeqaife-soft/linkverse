@@ -1,9 +1,9 @@
 import datetime
-import random
 import threading
 import time
 import enum
-from encryption import chacha20_decrypt, chacha20_encrypt
+import os
+from utils.encryption import chacha20_decrypt, chacha20_encrypt  # type: ignore
 
 
 class Action(enum.IntFlag):
@@ -16,18 +16,17 @@ class Action(enum.IntFlag):
 
 EPOCH = 1725513600000
 COUNTER_BITS = 12
-ACTION_BITS = 8
-UNIQUE_BITS = 8
+ACTION_BITS = 5
+PID_BITS = 5
 
-session_random = random.randint(1, 16)
+pid = os.getpid()
 last_timestamp = -1
 counter = 0
 lock = threading.Lock()
 
 
 def generate_id(
-    action: Action = Action.DEFAULT,
-    unique: int = session_random
+    action: Action = Action.DEFAULT
 ) -> int:
     global last_timestamp, counter
 
@@ -43,11 +42,11 @@ def generate_id(
 
         last_timestamp = timestamp
 
-        unique = unique & ((1 << UNIQUE_BITS) - 1)
+        _pid = pid & ((1 << PID_BITS) - 1)
 
         snowflake_id = (
-            (timestamp << (COUNTER_BITS + ACTION_BITS + UNIQUE_BITS)) |
-            (unique << (COUNTER_BITS + ACTION_BITS)) |
+            (timestamp << (COUNTER_BITS + ACTION_BITS + PID_BITS)) |
+            (_pid << (COUNTER_BITS + ACTION_BITS)) |
             (action << COUNTER_BITS) |
             counter
         )
@@ -55,45 +54,55 @@ def generate_id(
         return snowflake_id
 
 
-def parse_id(snowflake_id: int) -> tuple[int, Action, int, int]:
+def parse_id(snowflake_id: int) -> tuple[float, Action, int, int]:
     timestamp = (
-        (snowflake_id >> (COUNTER_BITS + ACTION_BITS + UNIQUE_BITS)) +
+        (snowflake_id >> (COUNTER_BITS + ACTION_BITS + PID_BITS)) +
         EPOCH
     )
 
     unique = (
         (snowflake_id >> (COUNTER_BITS + ACTION_BITS)) &
-        ((1 << UNIQUE_BITS) - 1)
+        ((1 << PID_BITS) - 1)
     )
 
     action = Action((snowflake_id >> COUNTER_BITS) & ((1 << ACTION_BITS) - 1))
 
     counter = snowflake_id & ((1 << COUNTER_BITS) - 1)
 
-    return timestamp, action, unique, counter
+    return timestamp/1000, action, unique, counter
 
 
-def generate_token(
+async def generate_token(
     user_id: int, key: bytes | str,
-    long_term: bool = False
+    long_term: bool = False,
+    secret: str = "12"
 ) -> str:
-    expiration = str(int((
+    expiration = int((
         datetime.datetime.now(datetime.UTC) +
-        (datetime.timedelta(hours=1) if not long_term
-         else datetime.timedelta(days=30))
-    ).timestamp()))
-    encrypted_user_id = chacha20_encrypt(str(user_id).encode(), key)
-    encrypted_exp = chacha20_encrypt(expiration.encode(), key)
-    token = f"{encrypted_user_id}.{encrypted_exp}"
-    return token
+        (datetime.timedelta(hours=24) if not long_term
+         else datetime.timedelta(days=7))
+    ).timestamp())
+    encrypted_user_id = await chacha20_encrypt(str(user_id).encode(), key)
+    encrypted_exp = await chacha20_encrypt(str(expiration).encode(), key)
+    encrypted_secret = await chacha20_encrypt(secret.encode(), key)
+    token = f"{encrypted_user_id}.{encrypted_exp}.{encrypted_secret}"
+    return f"LV {token}"
 
 
-def decode_token(token: str, key: bytes | str) -> dict:
+async def decode_token(token: str, key: bytes | str) -> dict:
     try:
-        encrypted_user_id, encrypted_expiration = token.split('.')
+        if "LV " in token:
+            token = token.removeprefix("LV ")
+        else:
+            return {
+                "success": False,
+                "msg": "INVALID_TOKEN"
+            }
+        enc_user_id, enc_expiration, enc_secret = token.split('.')
 
-        user_id = chacha20_decrypt(encrypted_user_id, key).decode()
-        expiration = chacha20_decrypt(encrypted_expiration, key).decode()
+        user_id = (await chacha20_decrypt(enc_user_id, key)).decode()
+        expiration = (await chacha20_decrypt(enc_expiration, key)).decode()
+        secret = (await chacha20_decrypt(enc_secret, key)).decode()
 
         expiration_timestamp = int(expiration)
         current_timestamp = int(
@@ -106,9 +115,11 @@ def decode_token(token: str, key: bytes | str) -> dict:
             "success": True,
             "user_id": int(user_id),
             "is_expired": is_expired,
-            "expiration_timestamp": expiration_timestamp
+            "expiration_timestamp": expiration_timestamp,
+            "secret": secret
         }
-    except Exception:
+    except ValueError:
         return {
-            "success": True
+            "success": False,
+            "msg": "DECODE_ERROR"
         }
