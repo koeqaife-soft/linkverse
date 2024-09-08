@@ -4,6 +4,7 @@ import time
 import enum
 import os
 from utils.encryption import chacha20_decrypt, chacha20_encrypt  # type: ignore
+from utils.encryption import verify_signature, generate_signature  # type: ignore # noqa
 
 
 class Action(enum.IntFlag):
@@ -14,6 +15,7 @@ class Action(enum.IntFlag):
     SESSION = 5
 
 
+SECRET_KEY = os.environ["SIGNATURE_KEY"].encode()
 EPOCH = 1725513600000
 COUNTER_BITS = 12
 ACTION_BITS = 5
@@ -82,24 +84,43 @@ async def generate_token(
         (datetime.timedelta(hours=24) if not long_term
          else datetime.timedelta(days=7))
     ).timestamp())
+
     encrypted_user_id = await chacha20_encrypt(str(user_id).encode(), key)
     encrypted_exp = await chacha20_encrypt(str(expiration).encode(), key)
     encrypted_secret = await chacha20_encrypt(secret.encode(), key)
-    token = f"{encrypted_user_id}.{encrypted_exp}.{encrypted_secret}"
+
+    token_payload = f"{encrypted_user_id}.{encrypted_exp}.{encrypted_secret}"
+    signature = generate_signature(token_payload, SECRET_KEY)
+
+    token = f"{token_payload}.{signature}"
     return f"LV {token}"
 
 
 async def decode_token(token: str, key: bytes | str) -> dict:
     try:
-        if "LV " in token:
-            token = token.removeprefix("LV ")
-        else:
+        if not token.startswith("LV "):
             return {
                 "success": False,
                 "msg": "INVALID_TOKEN"
             }
-        enc_user_id, enc_expiration, enc_secret = token.split('.')
 
+        token = token[3:]
+        token_parts = token.rsplit('.', 1)
+        if len(token_parts) != 2:
+            return {
+                "success": False,
+                "msg": "INVALID_TOKEN_FORMAT"
+            }
+
+        token_payload, signature = token_parts
+
+        if not verify_signature(token_payload, signature, SECRET_KEY):
+            return {
+                "success": False,
+                "msg": "INVALID_SIGNATURE"
+            }
+
+        enc_user_id, enc_expiration, enc_secret = token_payload.split('.')
         user_id = (await chacha20_decrypt(enc_user_id, key)).decode()
         expiration = (await chacha20_decrypt(enc_expiration, key)).decode()
         secret = (await chacha20_decrypt(enc_secret, key)).decode()
@@ -118,7 +139,7 @@ async def decode_token(token: str, key: bytes | str) -> dict:
             "expiration_timestamp": expiration_timestamp,
             "secret": secret
         }
-    except ValueError:
+    except (ValueError, IndexError):
         return {
             "success": False,
             "msg": "DECODE_ERROR"
