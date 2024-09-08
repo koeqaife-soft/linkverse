@@ -34,13 +34,13 @@ async def before():
     if url_rule[1] != "auth":
         headers = request.headers
         token = headers.get("Authorization")
-        _error = response(error=True, error_msg="UNAUTHORIZED"), 401
         if token is None:
-            return _error
+            return response(error=True, error_msg="UNAUTHORIZED"), 401
 
-        success = bool(await auth.check_token(token, db))
-        if not success:
-            return _error
+        result = await auth.check_token(token, db)
+        if not result.success:
+            error_msg = result.message or "UNAUTHORIZED"
+            return response(error=True, error_msg=error_msg)
 
 
 @app.route('/v1/generate_upload_url', methods=['POST'])

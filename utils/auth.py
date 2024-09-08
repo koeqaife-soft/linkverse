@@ -159,7 +159,9 @@ async def check_token(
 ) -> Status[None]:
     decoded = await decode_token(token, secret_key)
     if not decoded["success"] or decoded.get("is_expired"):
-        return Status(False)
+        return Status(False, message=decoded.get("msg"))
+    elif decoded["is_expired"]:
+        return Status(False, message="EXPIRED_TOKEN")
 
     result = await (await db.execute(
         """
@@ -169,6 +171,6 @@ async def check_token(
     )).fetchone()
 
     if result is None:
-        return Status(False)
+        return Status(False, message="INVALID_TOKEN")
 
     return Status(True)
