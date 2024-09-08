@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import traceback
 import uuid
 from quart import request
@@ -10,7 +9,6 @@ import utils.auth as auth
 from supabase import acreate_client
 from supabase.client import ClientOptions, AsyncClient
 from core import app, response
-import core
 import aiosqlite
 
 
