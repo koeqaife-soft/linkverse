@@ -30,7 +30,6 @@ async def handle_500(error):
 @app.before_request
 async def before():
     url_rule = str(request.url_rule).lstrip("/").split("/")
-    print(url_rule, url_rule[1])
     if url_rule[1] != "auth":
         headers = request.headers
         token = headers.get("Authorization")
