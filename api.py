@@ -1,3 +1,4 @@
+from core import app, response
 import asyncio
 import traceback
 import uuid
@@ -8,7 +9,6 @@ from utils.database import initialize_database
 import utils.auth as auth
 from supabase import acreate_client
 from supabase.client import ClientOptions, AsyncClient
-from core import app, response
 import aiosqlite
 
 
