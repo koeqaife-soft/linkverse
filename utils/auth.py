@@ -186,7 +186,7 @@ async def refresh(
         False, new_secret)
 
     refresh = await generate_token(
-        user_id, secret_key,
+        user_id, secret_refresh_key,
         True, new_secret
     )
 
