@@ -27,6 +27,22 @@ async def handle_500(error):
     return response(error=True, error_msg="INTERNAL_SERVER_ERROR"), 500
 
 
+@app.before_request
+async def before():
+    url_rule = str(request.url_rule).lstrip("/").split("/")
+    print(url_rule, url_rule[1])
+    if url_rule[1] != "auth":
+        headers = request.headers
+        token = headers.get("Authorization")
+        _error = response(error=True, error_msg="UNAUTHORIZED"), 401
+        if token is None:
+            return _error
+
+        success = bool(await auth.check_token(token, db))
+        if not success:
+            return _error
+
+
 @app.route('/v1/generate_upload_url', methods=['POST'])
 async def generate_upload_url():
     data = await request.get_json()
@@ -55,12 +71,16 @@ async def auth_register():
     username = data.get('username')
     email = data.get('email')
     password = data.get('password')
+
+    if username is None or email is None or password is None:
+        return response(error=True, error_msg="MISSING_DATA"), 400
+
     result = await auth.create_user(username, email, password, db)
     if not result.success:
         return response(error=True, error_msg=result.message), 400
 
     result = await auth.login(email, password, db)
-    if result.success:
+    if not result.success:
         return response(error=True, error_msg=result.message), 500
 
     return response(data=result.data), 200
@@ -68,7 +88,18 @@ async def auth_register():
 
 @app.route('/v1/auth/login', methods=['POST'])
 async def auth_login():
-    ...
+    data = await request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+
+    if email is None or password is None:
+        return response(error=True, error_msg="MISSING_DATA"), 400
+
+    result = await auth.login(email, password, db)
+    if not result.success:
+        return response(error=True, error_msg=result.message), 500
+
+    return response(data=result.data), 200
 
 
 async def main_task():
