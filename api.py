@@ -74,6 +74,10 @@ async def auth_register():
     if username is None or email is None or password is None:
         return response(error=True, error_msg="MISSING_DATA"), 400
 
+    result = await auth.check_username(username, db)
+    if not result.success:
+        return response(error=True, error_msg=result.message), 400
+
     result = await auth.create_user(username, email, password, db)
     if not result.success:
         return response(error=True, error_msg=result.message), 400
@@ -96,7 +100,22 @@ async def auth_login():
 
     result = await auth.login(email, password, db)
     if not result.success:
-        return response(error=True, error_msg=result.message), 500
+        return response(error=True, error_msg=result.message), 400
+
+    return response(data=result.data), 200
+
+
+@app.route('/v1/auth/refresh', methods=['POST'])
+async def auth_refresh():
+    data = await request.get_json()
+    token = data.get('refresh_token')
+
+    if token is None:
+        return response(error=True, error_msg="MISSING_DATA"), 400
+
+    result = await auth.refresh(token, db)
+    if not result.success:
+        return response(error=True, error_msg=result.message), 400
 
     return response(data=result.data), 200
 

@@ -138,8 +138,14 @@ async def login(
     if not (await check_password(result[0], password)):
         return Status(False, message="INCORRECT_PASSWORD")
     new_secret = generate_key()
-    access = await generate_token(result[1], secret_key, False, new_secret)
-    refresh = await generate_token(result[1], secret_key, True, new_secret)
+    access = await generate_token(
+        result[1], secret_key, False,
+        new_secret
+    )
+    refresh = await generate_token(
+        result[1], secret_refresh_key, True,
+        new_secret
+    )
     async with Transaction(db):
         await db.execute(
             """
@@ -153,12 +159,62 @@ async def login(
     })
 
 
+async def refresh(
+    refresh_token: str, db: aiosqlite.Connection
+) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
+    decoded = await decode_token(refresh_token, secret_refresh_key)
+    if not decoded["success"]:
+        return Status(False, message=decoded.get("msg"))
+    elif decoded["is_expired"]:
+        return Status(False, message="EXPIRED_TOKEN")
+
+    secret = decoded["secret"]
+    user_id = decoded["user_id"]
+    result = await (await db.execute(
+        """
+        SELECT user_id FROM auth_keys
+        WHERE user_id = ? AND token_secret = ?
+        """, (user_id, secret)
+    )).fetchone()
+
+    if result is None:
+        return Status(False, message="INVALID_TOKEN")
+
+    new_secret = generate_key()
+    access = await generate_token(
+        user_id, secret_key,
+        False, new_secret)
+
+    refresh = await generate_token(
+        user_id, secret_key,
+        True, new_secret
+    )
+
+    async with Transaction(db):
+        await db.execute(
+            """
+            INSERT INTO auth_keys (user_id, token_secret)
+            VALUES (?, ?)
+            """, (user_id, new_secret)
+        )
+        await db.execute(
+            """
+            DELETE FROM auth_keys
+            WHERE user_id = ? AND token_secret = ?;
+            """, (user_id, secret)
+        )
+
+    return Status(True, {
+        "access": access,
+        "refresh": refresh
+    })
+
+
 async def check_token(
-    token: str,
-    db: aiosqlite.Connection
+    token: str, db: aiosqlite.Connection
 ) -> Status[None]:
     decoded = await decode_token(token, secret_key)
-    if not decoded["success"] or decoded.get("is_expired"):
+    if not decoded["success"]:
         return Status(False, message=decoded.get("msg"))
     elif decoded["is_expired"]:
         return Status(False, message="EXPIRED_TOKEN")

@@ -27,3 +27,14 @@ response = requests.post(
 )
 
 print(response.text)
+
+token = input("Refresh> ")
+
+response = requests.post(
+    "http://localhost:6169/v1/auth/refresh",
+    json={
+        "refresh_token": token
+    }
+)
+
+print(response.text)
