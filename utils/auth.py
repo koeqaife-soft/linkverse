@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import os
 import re
 from utils.generation import parse_id, generate_id, Action
-from utils.generation import generate_token
+from utils.generation import generate_token, decode_token
 from utils.database import Transaction
 import hashlib
 import aiosqlite
@@ -151,3 +151,24 @@ async def login(
         "access": access,
         "refresh": refresh
     })
+
+
+async def check_token(
+    token: str,
+    db: aiosqlite.Connection
+) -> Status[None]:
+    decoded = await decode_token(token, secret_key)
+    if not decoded["success"] or decoded.get("is_expired"):
+        return Status(False)
+
+    result = await (await db.execute(
+        """
+        SELECT user_id FROM auth_keys
+        WHERE user_id = ? AND token_secret = ?
+        """, (decoded["user_id"], decoded["secret"])
+    )).fetchone()
+
+    if result is None:
+        return Status(False)
+
+    return Status(True)
