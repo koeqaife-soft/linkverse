@@ -10,8 +10,6 @@ T = t.TypeVar("T")
 
 load_dotenv()
 app = Quart(__name__)
-app.logger.info('Interesting')
-app.logger.warning('Easy Now')
 secret_key = os.environ["SECRET_KEY"]
 secret_refresh_key = os.environ["SECRET_REFRESH_KEY"]
 
