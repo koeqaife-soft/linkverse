@@ -10,7 +10,6 @@ import hashlib
 import asyncio
 
 BASE62_ALPHABET = string.digits + string.ascii_letters
-SECRET_KEY = os.environ["SIGNATURE_KEY"].encode()
 
 
 def generate_signature(data: str, key: bytes) -> str:
