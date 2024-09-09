@@ -4,7 +4,6 @@ from cryptography.hazmat.primitives import hashes
 import os
 from functools import lru_cache
 import string
-import base64
 import hmac
 import hashlib
 import asyncio
@@ -13,9 +12,9 @@ BASE62_ALPHABET = string.digits + string.ascii_letters
 
 
 def generate_signature(data: str, key: bytes) -> str:
-    return base64.urlsafe_b64encode(
+    return encode_base62(
         hmac.new(key, data.encode(), hashlib.sha256).digest()
-    ).decode()
+    )
 
 
 def verify_signature(token_payload: str, signature: str, key: bytes) -> bool:
