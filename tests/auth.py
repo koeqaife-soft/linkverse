@@ -10,30 +10,42 @@ def generate_random_string(length: int) -> str:
 
 
 async def register(username: str, email: str, password: str):
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            "http://localhost:6169/v1/auth/register",
-            json={
-                "username": username,
-                "email": email,
-                "password": password
-            }
-        ) as response:
-            response.raise_for_status()
-            return await response.text()
+    text = None
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "http://localhost:6169/v1/auth/register",
+                json={
+                    "username": username,
+                    "email": email,
+                    "password": password
+                }
+            ) as response:
+                text = await response.text()
+                response.raise_for_status()
+                return text
+    except Exception:
+        print(text)
+        raise
 
 
 async def login(email: str, password: str):
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            "http://localhost:6169/v1/auth/login",
-            json={
-                "email": email,
-                "password": password
-            }
-        ) as response:
-            response.raise_for_status()
-            return await response.text()
+    text = None
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "http://localhost:6169/v1/auth/login",
+                json={
+                    "email": email,
+                    "password": password
+                }
+            ) as response:
+                text = await response.text()
+                response.raise_for_status()
+                return text
+    except Exception:
+        print(text)
+        raise
 
 
 async def refresh(token: str):
