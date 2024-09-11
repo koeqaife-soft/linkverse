@@ -3,7 +3,8 @@ import threading
 import time
 import enum
 import os
-from utils.encryption import chacha20_decrypt, chacha20_encrypt  # type: ignore
+from utils.encryption import chacha20_decrypt as decrypt  # type: ignore
+from utils.encryption import chacha20_encrypt as encrypt  # type: ignore
 from utils.encryption import verify_signature, generate_signature  # type: ignore # noqa
 
 
@@ -18,8 +19,8 @@ class Action(enum.IntFlag):
 SECRET_KEY = os.environ["SIGNATURE_KEY"].encode()
 EPOCH = 1725513600000
 COUNTER_BITS = 12
-ACTION_BITS = 5
-PID_BITS = 5
+ACTION_BITS = 8
+PID_BITS = 8
 
 pid = os.getpid()
 last_timestamp = -1
@@ -85,9 +86,9 @@ async def generate_token(
          else datetime.timedelta(days=7))
     ).timestamp())
 
-    encrypted_user_id = await chacha20_encrypt(str(user_id).encode(), key)
-    encrypted_exp = await chacha20_encrypt(str(expiration).encode(), key)
-    encrypted_secret = await chacha20_encrypt(secret.encode(), key)
+    encrypted_user_id = await encrypt(str(user_id).encode(), key)
+    encrypted_exp = await encrypt(str(expiration).encode(), key)
+    encrypted_secret = await encrypt(secret.encode(), key)
 
     token_payload = f"{encrypted_user_id}.{encrypted_exp}.{encrypted_secret}"
     signature = generate_signature(token_payload, SECRET_KEY)
@@ -121,9 +122,9 @@ async def decode_token(token: str, key: bytes | str) -> dict:
             }
 
         enc_user_id, enc_expiration, enc_secret = token_payload.split('.')
-        user_id = (await chacha20_decrypt(enc_user_id, key)).decode()
-        expiration = (await chacha20_decrypt(enc_expiration, key)).decode()
-        secret = (await chacha20_decrypt(enc_secret, key)).decode()
+        user_id = (await decrypt(enc_user_id, key)).decode()
+        expiration = (await decrypt(enc_expiration, key)).decode()
+        secret = (await decrypt(enc_secret, key)).decode()
 
         expiration_timestamp = int(expiration)
         current_timestamp = int(
