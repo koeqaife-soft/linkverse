@@ -4,7 +4,7 @@ import os
 import re
 from utils.generation import parse_id, generate_id, Action
 from utils.generation import generate_token, decode_token
-from utils.database import Transaction, ConnectionPool
+from utils.database import Transaction
 import hashlib
 import aiosqlite
 import typing as t
@@ -85,8 +85,7 @@ async def check_password(stored: str, password: str) -> bool:
 
 async def create_user(
     username: str, email: str,
-    password: str, db: aiosqlite.Connection,
-    db_pool: ConnectionPool | None = None
+    password: str, db: aiosqlite.Connection
 ) -> Status[None]:
     result = await (await db.execute(
         """
@@ -98,7 +97,7 @@ async def create_user(
         return Status(False, message="USER_ALREADY_EXISTS")
     password_hash = await store_password(password)
     new_id = generate_id(Action.CREATE_USER)
-    async with Transaction(db_pool or db):
+    async with Transaction(db) as db:
         await db.execute(
             """
             INSERT INTO users (user_id, username, email, password_hash)
@@ -126,8 +125,7 @@ async def check_username(
 
 async def login(
     email: str, password: str,
-    db: aiosqlite.Connection,
-    db_pool: ConnectionPool | None = None
+    db: aiosqlite.Connection
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
     result = await (await db.execute(
         """
@@ -148,7 +146,7 @@ async def login(
         result[1], secret_refresh_key, True,
         new_secret
     )
-    async with Transaction(db_pool or db):
+    async with Transaction(db) as db:
         await db.execute(
             """
             INSERT INTO auth_keys (user_id, token_secret)
@@ -162,8 +160,7 @@ async def login(
 
 
 async def refresh(
-    refresh_token: str, db: aiosqlite.Connection,
-    db_pool: ConnectionPool | None = None
+    refresh_token: str, db: aiosqlite.Connection
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
     decoded = await decode_token(refresh_token, secret_refresh_key)
     if not decoded["success"]:
@@ -193,7 +190,7 @@ async def refresh(
         True, new_secret
     )
 
-    async with Transaction(db_pool or db):
+    async with Transaction(db) as db:
         await db.execute(
             """
             INSERT INTO auth_keys (user_id, token_secret)

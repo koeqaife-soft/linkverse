@@ -20,7 +20,6 @@ supabase_key: str = os.environ.get("SUPABASE_KEY")  # type: ignore
 supabase: AsyncClient
 _database = "./database/main.db"
 db: database.Connection
-db_pool = database.ConnectionPool(_database, 2)
 
 
 @app.errorhandler(500)
@@ -80,11 +79,11 @@ async def auth_register():
     if not result.success:
         return response(error=True, error_msg=result.message), 400
 
-    result = await auth.create_user(username, email, password, db, db_pool)
+    result = await auth.create_user(username, email, password, db)
     if not result.success:
         return response(error=True, error_msg=result.message), 400
 
-    result = await auth.login(email, password, db, db_pool)
+    result = await auth.login(email, password, db)
     if not result.success:
         return response(error=True, error_msg=result.message), 500
 
@@ -100,7 +99,7 @@ async def auth_login():
     if email is None or password is None:
         return response(error=True, error_msg="MISSING_DATA"), 400
 
-    result = await auth.login(email, password, db, db_pool)
+    result = await auth.login(email, password, db)
     if not result.success:
         return response(error=True, error_msg=result.message), 400
 
@@ -115,7 +114,7 @@ async def auth_refresh():
     if token is None:
         return response(error=True, error_msg="MISSING_DATA"), 400
 
-    result = await auth.refresh(token, db, db_pool)
+    result = await auth.refresh(token, db)
     if not result.success:
         return response(error=True, error_msg=result.message), 400
 
@@ -123,10 +122,9 @@ async def auth_refresh():
 
 
 async def main_task():
-    global supabase, db, db_pool
+    global supabase, db
     try:
         db = await database.connect(_database)
-        await db_pool
         supabase = await acreate_client(
             supabase_url, supabase_key,
             options=ClientOptions(
@@ -145,7 +143,6 @@ async def main_task():
         await asyncio.gather(quart_task)
     finally:
         await db.close()
-        await db_pool.close_all()
 
 
 if __name__ == '__main__':
