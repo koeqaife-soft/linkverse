@@ -1,4 +1,4 @@
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 import os
@@ -88,6 +88,30 @@ async def chacha20_decrypt(encrypted_message: str, key: bytes | str) -> bytes:
         backend=default_backend()
     )
 
+    return await asyncio.to_thread(_decrypt_data, cipher, ct)
+
+
+async def aes_encrypt(message: bytes, key: bytes | str) -> str:
+    key = prepare_key(key)
+    nonce = os.urandom(12)
+    cipher = Cipher(
+        algorithms.AES(key),
+        modes.GCM(nonce),
+        backend=default_backend()
+    )
+    ct = await asyncio.to_thread(_encrypt_data, cipher, message)
+    return encode_base62(nonce + ct)
+
+
+async def aes_decrypt(encrypted_message: str, key: bytes | str) -> bytes:
+    key = prepare_key(key)
+    _encrypted_message = decode_base62(encrypted_message)
+    nonce, ct = _encrypted_message[:12], _encrypted_message[12:]
+    cipher = Cipher(
+        algorithms.AES(key),
+        modes.GCM(nonce),
+        backend=default_backend()
+    )
     return await asyncio.to_thread(_decrypt_data, cipher, ct)
 
 
