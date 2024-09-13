@@ -4,7 +4,10 @@ import json
 from dotenv import load_dotenv
 from quart import Quart
 import os
+import uvloop
+import asyncio
 
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 T = t.TypeVar("T")
 
 
