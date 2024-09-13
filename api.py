@@ -1,15 +1,16 @@
 from core import app, response
-import asyncio
+import asyncpg
 import traceback
 import uuid
 from quart import request
 import os
 from utils.generation import generate_id, Action
-from utils.database import initialize_database
-import utils.database as database
+from utils.database import initialize_database, create_pool
 import utils.auth as auth
 from supabase import acreate_client
 from supabase.client import ClientOptions, AsyncClient
+import uvloop
+import json
 
 
 SESSION_ID = generate_id(Action.SESSION)
@@ -18,8 +19,7 @@ debug = os.getenv('DEBUG') == 'True'
 supabase_url: str = os.environ.get("SUPABASE_URL")  # type: ignore
 supabase_key: str = os.environ.get("SUPABASE_KEY")  # type: ignore
 supabase: AsyncClient
-_database = "./database/main.db"
-db: database.Connection
+pool: asyncpg.pool.Pool
 
 
 @app.errorhandler(500)
@@ -36,8 +36,8 @@ async def before():
         token = headers.get("Authorization")
         if token is None:
             return response(error=True, error_msg="UNAUTHORIZED"), 401
-
-        result = await auth.check_token(token, db)
+        async with pool.acquire() as db:
+            result = await auth.check_token(token, db)
         if not result.success:
             error_msg = result.message or "UNAUTHORIZED"
             return response(error=True, error_msg=error_msg)
@@ -75,17 +75,18 @@ async def auth_register():
     if username is None or email is None or password is None:
         return response(error=True, error_msg="MISSING_DATA"), 400
 
-    result = await auth.check_username(username, db)
-    if not result.success:
-        return response(error=True, error_msg=result.message), 400
+    async with pool.acquire() as db:
+        result = await auth.check_username(username, db)
+        if not result.success:
+            return response(error=True, error_msg=result.message), 400
 
-    result = await auth.create_user(username, email, password, db)
-    if not result.success:
-        return response(error=True, error_msg=result.message), 400
+        result = await auth.create_user(username, email, password, db)
+        if not result.success:
+            return response(error=True, error_msg=result.message), 400
 
-    result = await auth.login(email, password, db)
-    if not result.success:
-        return response(error=True, error_msg=result.message), 500
+        result = await auth.login(email, password, db)
+        if not result.success:
+            return response(error=True, error_msg=result.message), 500
 
     return response(data=result.data), 200
 
@@ -99,7 +100,8 @@ async def auth_login():
     if email is None or password is None:
         return response(error=True, error_msg="MISSING_DATA"), 400
 
-    result = await auth.login(email, password, db)
+    async with pool.acquire() as db:
+        result = await auth.login(email, password, db)
     if not result.success:
         return response(error=True, error_msg=result.message), 400
 
@@ -114,36 +116,36 @@ async def auth_refresh():
     if token is None:
         return response(error=True, error_msg="MISSING_DATA"), 400
 
-    result = await auth.refresh(token, db)
+    async with pool.acquire() as db:
+        result = await auth.refresh(token, db)
     if not result.success:
         return response(error=True, error_msg=result.message), 400
 
     return response(data=result.data), 200
 
 
-async def main_task():
-    global supabase, db
-    try:
-        db = await database.connect(_database)
-        supabase = await acreate_client(
-            supabase_url, supabase_key,
-            options=ClientOptions(
-                storage_client_timeout=10
-            )
+@app.before_serving
+async def startup():
+    global supabase, pool
+    with open("postgres.json") as f:
+        config = json.load(f)
+    pool = await create_pool(**config)
+    supabase = await acreate_client(
+        supabase_url, supabase_key,
+        options=ClientOptions(
+            storage_client_timeout=10
         )
+    )
+    async with pool.acquire() as db:
         await initialize_database(db)
 
-        quart_task = asyncio.create_task(
-            app.run_task(
-                debug=debug, port=6169,
-                # certfile="cert.pem",
-                # keyfile="key.pem"
-            )
-        )
-        await asyncio.gather(quart_task)
-    finally:
-        await db.close()
+
+@app.after_serving
+async def shutdown():
+    global pool
+    await pool.close()
 
 
 if __name__ == '__main__':
-    asyncio.run(main_task())
+    uvloop.install()
+    app.run()

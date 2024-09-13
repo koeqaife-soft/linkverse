@@ -4,9 +4,8 @@ import os
 import re
 from utils.generation import parse_id, generate_id, Action
 from utils.generation import generate_token, decode_token
-from utils.database import Transaction
 import hashlib
-import aiosqlite
+import asyncpg
 import typing as t
 from core import Status
 from concurrent.futures import ThreadPoolExecutor
@@ -85,39 +84,39 @@ async def check_password(stored: str, password: str) -> bool:
 
 async def create_user(
     username: str, email: str,
-    password: str, db: aiosqlite.Connection
+    password: str, db: asyncpg.Connection
 ) -> Status[None]:
-    result = await (await db.execute(
+    result = await db.fetchrow(
         """
         SELECT username FROM users
-        WHERE email = ?
-        """, (email,)
-    )).fetchone()
+        WHERE email = $1
+        """, email
+    )
     if result is not None:
         return Status(False, message="USER_ALREADY_EXISTS")
     password_hash = await store_password(password)
     new_id = generate_id(Action.CREATE_USER)
-    async with Transaction(db) as db:
+    async with db.transaction():
         await db.execute(
             """
             INSERT INTO users (user_id, username, email, password_hash)
-            VALUES (?, ?, ?, ?)
-            """, (new_id, username, email, password_hash)
+            VALUES ($1, $2, $3, $4)
+            """, new_id, username, email, password_hash
         )
     return Status(True)
 
 
 async def check_username(
-    username: str, db: aiosqlite.Connection
+    username: str, db: asyncpg.Connection
 ) -> Status[None]:
-    if len(username) < 8 or not User.validate_username(username):
+    if len(username) < 4 or not User.validate_username(username):
         return Status(False, message="INCORRECT_FORMAT")
-    result = await (await db.execute(
+    result = await db.fetchrow(
         """
         SELECT username FROM users
-        WHERE username = ?
-        """, (username,)
-    )).fetchone()
+        WHERE username = $1
+        """, username
+    )
     if result is not None:
         return Status(False, message="USER_ALREADY_EXISTS")
     return Status(True)
@@ -125,14 +124,14 @@ async def check_username(
 
 async def login(
     email: str, password: str,
-    db: aiosqlite.Connection
+    db: asyncpg.Connection
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
-    result = await (await db.execute(
+    result = await db.fetchrow(
         """
         SELECT password_hash, user_id FROM users
-        WHERE email = ?
-        """, (email,)
-    )).fetchone()
+        WHERE email = $1
+        """, email
+    )
     if result is None:
         return Status(False, message="USER_DOES_NOT_EXISTS")
     if not (await check_password(result[0], password)):
@@ -146,12 +145,12 @@ async def login(
         result[1], secret_refresh_key, True,
         new_secret
     )
-    async with Transaction(db) as db:
+    async with db.transaction():
         await db.execute(
             """
             INSERT INTO auth_keys (user_id, token_secret)
-            VALUES (?, ?)
-            """, (result[1], new_secret)
+            VALUES ($1, $2)
+            """, result[1], new_secret
         )
     return Status(True, {
         "access": access,
@@ -160,7 +159,7 @@ async def login(
 
 
 async def refresh(
-    refresh_token: str, db: aiosqlite.Connection
+    refresh_token: str, db: asyncpg.Connection
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
     decoded = await decode_token(refresh_token, secret_refresh_key)
     if not decoded["success"]:
@@ -170,12 +169,12 @@ async def refresh(
 
     secret = decoded["secret"]
     user_id = decoded["user_id"]
-    result = await (await db.execute(
+    result = await db.fetchrow(
         """
         SELECT user_id FROM auth_keys
-        WHERE user_id = ? AND token_secret = ?
-        """, (user_id, secret)
-    )).fetchone()
+        WHERE user_id = $1 AND token_secret = $2
+        """, user_id, secret
+    )
 
     if result is None:
         return Status(False, message="INVALID_TOKEN")
@@ -190,18 +189,18 @@ async def refresh(
         True, new_secret
     )
 
-    async with Transaction(db) as db:
+    async with db.transaction():
         await db.execute(
             """
             INSERT INTO auth_keys (user_id, token_secret)
-            VALUES (?, ?)
-            """, (user_id, new_secret)
+            VALUES ($1, $2)
+            """, user_id, new_secret
         )
         await db.execute(
             """
             DELETE FROM auth_keys
-            WHERE user_id = ? AND token_secret = ?;
-            """, (user_id, secret)
+            WHERE user_id = $1 AND token_secret = $2;
+            """, user_id, secret
         )
 
     return Status(True, {
@@ -211,7 +210,7 @@ async def refresh(
 
 
 async def check_token(
-    token: str, db: aiosqlite.Connection
+    token: str, db: asyncpg.Connection
 ) -> Status[None]:
     decoded = await decode_token(token, secret_key)
     if not decoded["success"]:
@@ -219,12 +218,12 @@ async def check_token(
     elif decoded["is_expired"]:
         return Status(False, message="EXPIRED_TOKEN")
 
-    result = await (await db.execute(
+    result = await db.fetchrow(
         """
         SELECT user_id FROM auth_keys
-        WHERE user_id = ? AND token_secret = ?
-        """, (decoded["user_id"], decoded["secret"])
-    )).fetchone()
+        WHERE user_id = $1 AND token_secret = $2
+        """, decoded["user_id"], decoded["secret"]
+    )
 
     if result is None:
         return Status(False, message="INVALID_TOKEN")
