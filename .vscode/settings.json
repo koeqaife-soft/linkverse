@@ -2,6 +2,7 @@
     "cSpell.words": [
         "aiohttp",
         "ANSICON",
+        "asyncpg",
         "autocheckpoint",
         "chacha",
         "checkpw",
@@ -11,14 +12,17 @@
         "decryptor",
         "dotenv",
         "encryptor",
+        "fetchrow",
         "gensalt",
         "hashpw",
         "levelname",
+        "linkverse",
         "mintty",
         "postgrest",
         "SUPABASE",
         "truecolor",
-        "urandom"
+        "urandom",
+        "uvloop"
     ],
     "files.exclude": {
         "**/__pycache__": true,
