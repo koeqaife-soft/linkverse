@@ -4,7 +4,6 @@ import traceback
 import uuid
 from quart import request
 import os
-from utils.generation import generate_id, Action
 from utils.database import initialize_database, create_pool
 import utils.auth as auth
 from supabase import acreate_client
@@ -12,8 +11,6 @@ from supabase.client import ClientOptions, AsyncClient
 import uvloop
 import json
 
-
-SESSION_ID = generate_id(Action.SESSION)
 
 debug = os.getenv('DEBUG') == 'True'
 supabase_url: str = os.environ.get("SUPABASE_URL")  # type: ignore
