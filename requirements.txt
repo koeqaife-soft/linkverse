@@ -6,5 +6,4 @@ python-dotenv
 quart
 aiohttp
 uvloop
-gunicorn
-uvicorn
+hypercorn
