@@ -19,8 +19,8 @@ class Action(enum.IntFlag):
 SECRET_KEY = os.environ["SIGNATURE_KEY"].encode()
 EPOCH = 1725513600000
 COUNTER_BITS = 12
-ACTION_BITS = 8
-PID_BITS = 8
+ACTION_BITS = 5
+PID_BITS = 5
 
 pid = os.getpid()
 last_timestamp = -1
