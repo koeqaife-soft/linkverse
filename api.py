@@ -148,4 +148,4 @@ async def shutdown():
 
 if __name__ == '__main__':
     uvloop.install()
-    app.run()
+    app.run(port=6169)
