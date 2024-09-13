@@ -1,6 +1,10 @@
 types-requests
 supabase
-aiosqlite
+asyncpg
+asyncpg-stubs
 python-dotenv
 quart
 aiohttp
+uvloop
+gunicorn
+uvicorn
