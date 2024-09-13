@@ -1,11 +1,11 @@
+import asyncio
 import datetime
-import threading
 import time
 import enum
 import os
-from utils.encryption import chacha20_decrypt as decrypt  # type: ignore
-from utils.encryption import chacha20_encrypt as encrypt  # type: ignore
-from utils.encryption import verify_signature, generate_signature  # type: ignore # noqa
+from utils.encryption import chacha20_decrypt as decrypt
+from utils.encryption import chacha20_encrypt as encrypt
+from utils.encryption import verify_signature, generate_signature
 
 
 class Action(enum.IntFlag):
@@ -25,15 +25,15 @@ PID_BITS = 5
 pid = os.getpid()
 last_timestamp = -1
 counter = 0
-lock = threading.Lock()
+lock = asyncio.Lock()
 
 
-def generate_id(
+async def generate_id(
     action: Action = Action.DEFAULT
 ) -> int:
     global last_timestamp, counter
 
-    with lock:
+    async with lock:
         timestamp = int(time.time() * 1000) - EPOCH
         if timestamp == last_timestamp:
             counter = (counter + 1) & ((1 << COUNTER_BITS) - 1)
