@@ -211,7 +211,7 @@ async def refresh(
 
 async def check_token(
     token: str, db: asyncpg.Connection
-) -> Status[None]:
+) -> Status[dict | None]:
     decoded = await decode_token(token, secret_key)
     if not decoded["success"]:
         return Status(False, message=decoded.get("msg"))
@@ -228,4 +228,4 @@ async def check_token(
     if result is None:
         return Status(False, message="INVALID_TOKEN")
 
-    return Status(True)
+    return Status(True, data=decoded)
