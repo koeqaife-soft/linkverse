@@ -60,7 +60,7 @@ async def hash_password(password: str, salt: bytes) -> bytes:
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
         executor, hashlib.pbkdf2_hmac, 'sha256',
-        password.encode(), salt, 25000
+        password.encode(), salt, 10000
     )
 
 
