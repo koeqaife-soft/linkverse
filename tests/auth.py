@@ -3,6 +3,9 @@ import aiohttp
 import asyncio
 import random
 import string
+import logging
+
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s]: %(message)s')
 
 
 def generate_random_string(length: int) -> str:
@@ -10,7 +13,6 @@ def generate_random_string(length: int) -> str:
 
 
 async def register(username: str, email: str, password: str):
-    text = None
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -21,16 +23,16 @@ async def register(username: str, email: str, password: str):
                     "password": password
                 }
             ) as response:
-                text = await response.text()
                 response.raise_for_status()
-                return text
-    except Exception:
-        print(text)
-        raise
+                return await response.text()
+    except aiohttp.ClientResponseError as e:
+        logging.error(f"Register failed: {e.status} {e.message}")
+    except Exception as e:
+        logging.error(f"Register failed: {str(e)}")
+    return None
 
 
 async def login(email: str, password: str):
-    text = None
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -40,29 +42,36 @@ async def login(email: str, password: str):
                     "password": password
                 }
             ) as response:
-                text = await response.text()
                 response.raise_for_status()
-                return text
-    except Exception:
-        print(text)
-        raise
+                return await response.text()
+    except aiohttp.ClientResponseError as e:
+        logging.error(f"Login failed: {e.status} {e.message}")
+    except Exception as e:
+        logging.error(f"Login failed: {str(e)}")
+    return None
 
 
 async def refresh(token: str):
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            "http://localhost:6169/v1/auth/refresh",
-            json={
-                "refresh_token": token
-            }
-        ) as response:
-            response.raise_for_status()
-            return await response.text()
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "http://localhost:6169/v1/auth/refresh",
+                json={
+                    "refresh_token": token
+                }
+            ) as response:
+                response.raise_for_status()
+                return await response.text()
+    except aiohttp.ClientResponseError as e:
+        logging.error(f"Refresh failed: {e.status} {e.message}")
+    except Exception as e:
+        logging.error(f"Refresh failed: {str(e)}")
+    return None
 
 
 async def stress() -> None:
     n = int(input("Number of accounts> "))
-    print(":: Generating account list")
+    logging.info("Generating account list")
     accounts = []
     for _ in range(n):
         nickname = generate_random_string(10)
@@ -70,26 +79,23 @@ async def stress() -> None:
         password = generate_random_string(32)
         accounts.append((nickname, mail, password))
 
-    print(":: Registering accounts...")
+    logging.info("Registering accounts...")
     start = time.perf_counter()
 
-    tasks = []
-    for x in accounts:
-        tasks.append(asyncio.create_task(register(x[0], x[1], x[2])))
+    tasks = [asyncio.create_task(register(x[0], x[1], x[2])) for x in accounts]
     await asyncio.gather(*tasks)
 
-    _time = round(time.perf_counter()-start, 5)
-    print(f":: Success! (Time {_time})")
+    elapsed = round(time.perf_counter() - start, 5)
+    logging.info(f"Registration complete. Time: {elapsed} seconds")
 
-    print(":: Logging into accounts")
+    logging.info("Logging into accounts")
     start = time.perf_counter()
 
-    tasks = []
-    for x in accounts:
-        tasks.append(asyncio.create_task(login(x[1], x[2])))
+    tasks = [asyncio.create_task(login(x[1], x[2])) for x in accounts]
     await asyncio.gather(*tasks)
-    _time = round(time.perf_counter()-start, 5)
-    print(f":: Success! (Time {_time})")
+
+    elapsed = round(time.perf_counter() - start, 5)
+    logging.info(f"Login complete. Time: {elapsed} seconds")
 
 
 async def main() -> None:
@@ -107,16 +113,22 @@ async def main() -> None:
             email = input("Email> ")
             password = input("Password> ")
 
-            print(await register(username, email, password))
+            result = await register(username, email, password)
+            if result:
+                print(result)
         case "2":
             email = input("Email> ")
             password = input("Password> ")
 
-            print(await login(email, password))
+            result = await login(email, password)
+            if result:
+                print(result)
         case "3":
             token = input("Refresh> ")
 
-            print(await refresh(token))
+            result = await refresh(token)
+            if result:
+                print(result)
         case "4":
             await stress()
 
