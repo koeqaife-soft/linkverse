@@ -4,7 +4,7 @@ import traceback
 import uuid
 from quart import request, g
 import os
-from utils.database import initialize_database, create_pool
+from utils.database import create_pool
 import utils.auth as auth
 from supabase import acreate_client
 from supabase.client import ClientOptions, AsyncClient
@@ -135,8 +135,6 @@ async def startup():
             storage_client_timeout=10
         )
     )
-    async with pool.acquire() as db:
-        await initialize_database(db)
 
 
 @app.after_serving
