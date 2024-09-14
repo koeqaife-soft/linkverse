@@ -18,6 +18,8 @@
         "levelname",
         "linkverse",
         "mintty",
+        "pgsql",
+        "plpgsql",
         "postgrest",
         "SUPABASE",
         "truecolor",
