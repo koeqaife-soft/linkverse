@@ -1,9 +1,11 @@
 types-requests
+requests
 supabase
 asyncpg
 asyncpg-stubs
 python-dotenv
 quart
+cryptography
 aiohttp
 uvloop
 hypercorn
