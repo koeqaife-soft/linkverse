@@ -85,7 +85,7 @@ async def check_password(stored: str, password: str) -> bool:
 async def create_user(
     username: str, email: str,
     password: str, db: asyncpg.Connection
-) -> Status[None]:
+) -> Status[int | None]:
     result = await db.fetchrow(
         """
         SELECT username FROM users
@@ -103,7 +103,7 @@ async def create_user(
             VALUES ($1, $2, $3, $4)
             """, new_id, username, email, password_hash
         )
-    return Status(True)
+    return Status(True, data=new_id)
 
 
 async def check_username(
@@ -151,6 +151,40 @@ async def login(
             INSERT INTO auth_keys (user_id, token_secret)
             VALUES ($1, $2)
             """, result[1], new_secret
+        )
+    return Status(True, {
+        "access": access,
+        "refresh": refresh
+    })
+
+
+async def create_token(
+    user_id: int,
+    db: asyncpg.Connection
+) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
+    result = await db.fetchrow(
+        """
+        SELECT user_id FROM users
+        WHERE user_id = $1
+        """, user_id
+    )
+    if result is None:
+        return Status(False, message="USER_DOES_NOT_EXISTS")
+    new_secret = generate_key()
+    access = await generate_token(
+        user_id, secret_key, False,
+        new_secret
+    )
+    refresh = await generate_token(
+        user_id, secret_refresh_key, True,
+        new_secret
+    )
+    async with db.transaction():
+        await db.execute(
+            """
+            INSERT INTO auth_keys (user_id, token_secret)
+            VALUES ($1, $2)
+            """, user_id, new_secret
         )
     return Status(True, {
         "access": access,

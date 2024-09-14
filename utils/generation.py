@@ -76,7 +76,7 @@ def parse_id(snowflake_id: int) -> tuple[float, Action, int, int]:
 
 
 async def generate_token(
-    user_id: int, key: bytes | str,
+    user_id: int, key: str | bytes,
     long_term: bool = False,
     secret: str = "12"
 ) -> str:
@@ -86,14 +86,12 @@ async def generate_token(
          else datetime.timedelta(days=7))
     ).timestamp())
 
-    encrypted_user_id = await encrypt(str(user_id).encode(), key)
-    encrypted_exp = await encrypt(str(expiration).encode(), key)
-    encrypted_secret = await encrypt(secret.encode(), key)
+    combined_data = f"{user_id}.{expiration}.{secret}".encode()
+    encrypted_data = await encrypt(combined_data, key)
 
-    token_payload = f"{encrypted_user_id}.{encrypted_exp}.{encrypted_secret}"
-    signature = generate_signature(token_payload, SECRET_KEY)
+    signature = generate_signature(encrypted_data, SECRET_KEY)
 
-    token = f"{token_payload}.{signature}"
+    token = f"{encrypted_data}.{signature}"
     return f"LV {token}"
 
 
@@ -121,10 +119,8 @@ async def decode_token(token: str, key: bytes | str) -> dict:
                 "msg": "INVALID_SIGNATURE"
             }
 
-        enc_user_id, enc_expiration, enc_secret = token_payload.split('.')
-        user_id = (await decrypt(enc_user_id, key)).decode()
-        expiration = (await decrypt(enc_expiration, key)).decode()
-        secret = (await decrypt(enc_secret, key)).decode()
+        decrypted_data = (await decrypt(token_payload, key)).decode()
+        user_id, expiration, secret = decrypted_data.split('.')
 
         expiration_timestamp = int(expiration)
         current_timestamp = int(

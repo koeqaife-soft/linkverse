@@ -83,7 +83,7 @@ async def auth_register():
         if not result.success:
             return response(error=True, error_msg=result.message), 400
 
-        result = await auth.login(email, password, db)
+        result = await auth.create_token(result.data, db)
         if not result.success:
             return response(error=True, error_msg=result.message), 500
 
