@@ -2,7 +2,7 @@ from core import app, response
 import asyncpg
 import traceback
 import uuid
-from quart import request
+from quart import request, g
 import os
 from utils.database import initialize_database, create_pool
 import utils.auth as auth
@@ -38,6 +38,8 @@ async def before():
         if not result.success:
             error_msg = result.message or "UNAUTHORIZED"
             return response(error=True, error_msg=error_msg)
+
+        g.user_id = result.data["user_id"]
 
 
 @app.route('/v1/generate_upload_url', methods=['POST'])
@@ -145,4 +147,4 @@ async def shutdown():
 
 if __name__ == '__main__':
     uvloop.install()
-    app.run(port=6169)
+    app.run(port=6169, debug=debug)
