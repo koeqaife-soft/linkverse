@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS auth_keys (
     auth_key_id SERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     token_secret TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id)
     ON DELETE CASCADE
 );
