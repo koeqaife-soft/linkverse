@@ -6,6 +6,12 @@ from quart import Quart
 import os
 import uvloop
 import asyncio
+import multiprocessing
+import logging
+from colorama import Fore, Style, init
+
+worker_count = int(os.getenv('_WORKER_COUNT', '1'))
+init(autoreset=True)
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 T = t.TypeVar("T")
@@ -80,3 +86,48 @@ class Status(t.Generic[T]):
             "data": self.data,
             "error": self.message
         }
+
+
+def get_proc_identity() -> int:
+    _id = multiprocessing.current_process()._identity
+    if _id:
+        return _id[0]
+    else:
+        return 0
+
+
+class ColoredFormatter(logging.Formatter):
+    COLORS = {
+        logging.DEBUG: Fore.WHITE,
+        logging.INFO: Fore.GREEN,
+        logging.WARNING: Fore.YELLOW,
+        logging.ERROR: Fore.RED,
+        logging.CRITICAL: Fore.MAGENTA,
+    }
+
+    def format(self, record: logging.LogRecord) -> str:
+        log_color = self.COLORS.get(record.levelno, Fore.WHITE)
+        levelname = record.levelname[0]
+        formatted_message = super().format(record)
+        return (
+            log_color +
+            f"{levelname}{Style.BRIGHT} " +
+            formatted_message +
+            Style.RESET_ALL
+        )
+
+
+def setup_logger():
+    handler = logging.StreamHandler()
+
+    formatter = ColoredFormatter(
+        '%(asctime)s [%(process)d]: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
+
+    return logger
