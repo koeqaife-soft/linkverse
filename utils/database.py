@@ -1,13 +1,18 @@
+import math
 import os
 import re
 import asyncpg
+from core import worker_count
 
 
 async def create_pool(**config) -> asyncpg.pool.Pool:
+    _max_shared = max(int(config.get("max_shared", 100))-5, 1)
+    max_connections = max(math.ceil(_max_shared/worker_count), 1)
+
     pool = await asyncpg.create_pool(
         **config,
-        min_size=2,
-        max_size=10
+        min_size=1,
+        max_size=max_connections
     )
     if pool is None:
         raise
