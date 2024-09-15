@@ -19,6 +19,7 @@ secret_refresh_key = os.environ["SECRET_REFRESH_KEY"]
 class User:
     username: str
     id: int
+    email: str
     password_hash: str
     display_name: str | None = None
     avatar_url: str | None = None
@@ -82,17 +83,42 @@ async def check_password(stored: str, password: str) -> bool:
     return new_hash == stored_hash
 
 
+async def get_user(
+    where: dict[str, t.Any], db: asyncpg.Connection
+) -> Status[User | None]:
+    if not where:
+        raise ValueError("The 'where' dictionary must not be empty")
+
+    conditions: list[str] = []
+    values = []
+    for key, value in where.items():
+        conditions.append(f"{key} = ${len(conditions) + 1}")
+        values.append(value)
+
+    query = f"""
+        SELECT username, user_id, email, password_hash,
+            display_name, avatar_url
+        FROM users
+        WHERE {' AND '.join(conditions)}
+    """
+    row = await db.fetchrow(query, *values)
+
+    if row is None:
+        return Status(False, message="USER_DOES_NOT_EXIST")
+
+    return Status(True, data=User(
+        username=row['username'], id=row['user_id'],
+        email=row['email'], password_hash=row['password_hash'],
+        display_name=row['display_name'], avatar_url=row['avatar_url']
+    ))
+
+
 async def create_user(
     username: str, email: str,
     password: str, db: asyncpg.Connection
 ) -> Status[int | None]:
-    result = await db.fetchrow(
-        """
-        SELECT username FROM users
-        WHERE email = $1
-        """, email
-    )
-    if result is not None:
+    user = await get_user({"email": email}, db)
+    if user.data is not None:
         return Status(False, message="USER_ALREADY_EXISTS")
     password_hash = await store_password(password)
     new_id = await generate_id(Action.CREATE_USER)
@@ -111,13 +137,8 @@ async def check_username(
 ) -> Status[None]:
     if len(username) < 4 or not User.validate_username(username):
         return Status(False, message="INCORRECT_FORMAT")
-    result = await db.fetchrow(
-        """
-        SELECT username FROM users
-        WHERE username = $1
-        """, username
-    )
-    if result is not None:
+    user = await get_user({"username": username}, db)
+    if user.data is not None:
         return Status(False, message="USER_ALREADY_EXISTS")
     return Status(True)
 
@@ -126,23 +147,19 @@ async def login(
     email: str, password: str,
     db: asyncpg.Connection
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
-    result = await db.fetchrow(
-        """
-        SELECT password_hash, user_id FROM users
-        WHERE email = $1
-        """, email
-    )
-    if result is None:
-        return Status(False, message="USER_DOES_NOT_EXISTS")
-    if not (await check_password(result[0], password)):
+    user = await get_user({"email": email}, db)
+
+    if not user.success or user.data is None:
+        return Status(False, message=user.message)
+    if not (await check_password(user.data.password_hash, password)):
         return Status(False, message="INCORRECT_PASSWORD")
     new_secret = generate_key()
     access = await generate_token(
-        result[1], secret_key, False,
+        user.data.id, secret_key, False,
         new_secret
     )
     refresh = await generate_token(
-        result[1], secret_refresh_key, True,
+        user.data.id, secret_refresh_key, True,
         new_secret
     )
     async with db.transaction():
@@ -150,7 +167,7 @@ async def login(
             """
             INSERT INTO auth_keys (user_id, token_secret)
             VALUES ($1, $2)
-            """, result[1], new_secret
+            """, user.data.id, new_secret
         )
     return Status(True, {
         "access": access,
@@ -162,13 +179,8 @@ async def create_token(
     user_id: int,
     db: asyncpg.Connection
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
-    result = await db.fetchrow(
-        """
-        SELECT user_id FROM users
-        WHERE user_id = $1
-        """, user_id
-    )
-    if result is None:
+    user = await get_user({"user_id": user_id}, db)
+    if user.data is None:
         return Status(False, message="USER_DOES_NOT_EXISTS")
     new_secret = generate_key()
     access = await generate_token(
