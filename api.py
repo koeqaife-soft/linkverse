@@ -1,4 +1,5 @@
-from core import app, response
+from core import app, response, setup_logger
+from core import worker_count, get_proc_identity
 import asyncpg
 import traceback
 import uuid
@@ -13,6 +14,7 @@ import aiofiles
 from datetime import datetime, timezone
 import asyncio
 import json
+import logging
 import werkzeug.exceptions
 
 debug = os.getenv('DEBUG') == 'True'
@@ -20,6 +22,7 @@ supabase_url: str = os.environ.get("SUPABASE_URL")  # type: ignore
 supabase_key: str = os.environ.get("SUPABASE_KEY")  # type: ignore
 supabase: AsyncClient
 pool: asyncpg.pool.Pool
+setup_logger()
 
 
 async def log_error_to_file(message: str, file: str):
@@ -159,6 +162,9 @@ async def startup():
         options=ClientOptions(
             storage_client_timeout=10
         )
+    )
+    logging.info(
+        f"Worker started! ({get_proc_identity()}/{worker_count})"
     )
 
 
