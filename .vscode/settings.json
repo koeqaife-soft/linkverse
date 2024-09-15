@@ -17,6 +17,7 @@
         "gensalt",
         "hashpw",
         "levelname",
+        "levelno",
         "linkverse",
         "mintty",
         "pgsql",
