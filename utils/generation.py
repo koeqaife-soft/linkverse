@@ -6,6 +6,7 @@ import os
 from utils.encryption import chacha20_decrypt as decrypt
 from utils.encryption import chacha20_encrypt as encrypt
 from utils.encryption import verify_signature, generate_signature
+from core import get_proc_identity
 
 
 class Action(enum.IntFlag):
@@ -22,7 +23,7 @@ COUNTER_BITS = 12
 ACTION_BITS = 5
 PID_BITS = 5
 
-pid = os.getpid()
+pid = get_proc_identity()
 last_timestamp = -1
 counter = 0
 lock = asyncio.Lock()
