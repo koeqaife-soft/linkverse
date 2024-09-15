@@ -13,6 +13,7 @@ def generate_random_string(length: int) -> str:
 
 
 async def register(username: str, email: str, password: str):
+    text = ""
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -23,16 +24,18 @@ async def register(username: str, email: str, password: str):
                     "password": password
                 }
             ) as response:
+                text = await response.text() or ""
                 response.raise_for_status()
-                return await response.text()
+                return text
     except aiohttp.ClientResponseError as e:
-        logging.error(f"Register failed: {e.status} {e.message}")
+        logging.error(f"Register failed: {e.status} {e.message}\n{text}")
     except Exception as e:
-        logging.error(f"Register failed: {str(e)}")
+        logging.error(f"Register failed: {str(e)}\n{text}")
     return None
 
 
 async def login(email: str, password: str):
+    text = ""
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -42,16 +45,18 @@ async def login(email: str, password: str):
                     "password": password
                 }
             ) as response:
+                text = await response.text() or ""
                 response.raise_for_status()
-                return await response.text()
+                return text
     except aiohttp.ClientResponseError as e:
-        logging.error(f"Login failed: {e.status} {e.message}")
+        logging.error(f"Register failed: {e.status} {e.message}\n{text}")
     except Exception as e:
-        logging.error(f"Login failed: {str(e)}")
+        logging.error(f"Register failed: {str(e)}\n{text}")
     return None
 
 
 async def refresh(token: str):
+    text = ""
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -60,12 +65,13 @@ async def refresh(token: str):
                     "refresh_token": token
                 }
             ) as response:
+                text = await response.text() or ""
                 response.raise_for_status()
-                return await response.text()
+                return text
     except aiohttp.ClientResponseError as e:
-        logging.error(f"Refresh failed: {e.status} {e.message}")
+        logging.error(f"Register failed: {e.status} {e.message}\n{text}")
     except Exception as e:
-        logging.error(f"Refresh failed: {str(e)}")
+        logging.error(f"Register failed: {str(e)}\n{text}")
     return None
 
 
