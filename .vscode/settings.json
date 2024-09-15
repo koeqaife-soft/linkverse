@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
+        "aiofiles",
         "aiohttp",
         "ANSICON",
         "asyncpg",
@@ -24,7 +25,8 @@
         "SUPABASE",
         "truecolor",
         "urandom",
-        "uvloop"
+        "uvloop",
+        "werkzeug"
     ],
     "files.exclude": {
         "**/__pycache__": true,
