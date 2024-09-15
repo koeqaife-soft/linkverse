@@ -9,8 +9,11 @@ import utils.auth as auth
 from supabase import acreate_client
 from supabase.client import ClientOptions, AsyncClient
 import uvloop
+import aiofiles
+from datetime import datetime, timezone
+import asyncio
 import json
-
+import werkzeug.exceptions
 
 debug = os.getenv('DEBUG') == 'True'
 supabase_url: str = os.environ.get("SUPABASE_URL")  # type: ignore
@@ -19,9 +22,31 @@ supabase: AsyncClient
 pool: asyncpg.pool.Pool
 
 
+async def log_error_to_file(message: str, file: str):
+    os.makedirs("logs", exist_ok=True)
+    async with aiofiles.open(f"logs/{file}", mode="a") as f:
+        await f.write(message)
+
+
 @app.errorhandler(500)
-async def handle_500(error):
-    traceback.print_exc()
+async def handle_500(error: werkzeug.exceptions.InternalServerError):
+    current_time = (
+        datetime.now(timezone.utc)
+        .strftime('%Y-%m-%d %H:%M:%S')
+    )
+
+    e = error.original_exception or error
+    tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+
+    error_message = (
+        "---\n" +
+        f"Internal Server Error ({current_time})\n" +
+        f"Endpoint: {request.endpoint}, URL Rule: {request.url_rule}\n" +
+        f"{tb_str}" +
+        "---\n\n"
+    )
+    file_name = f"error_{request.endpoint}.log"
+    asyncio.create_task(log_error_to_file(error_message, file_name))
     return response(error=True, error_msg="INTERNAL_SERVER_ERROR"), 500
 
 
