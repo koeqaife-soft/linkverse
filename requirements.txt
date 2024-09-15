@@ -9,3 +9,5 @@ cryptography
 aiohttp
 uvloop
 hypercorn
+colorama
+types-colorama
