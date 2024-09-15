@@ -48,8 +48,8 @@ def upload_file(file_path: str, file_name: str, token: str) -> None:
 
 
 def main() -> None:
-    file_path = "/home/mrdan/Pictures/LightBot_Summer.png"
-    file_name = "LightBot_Summer.png"
+    file_path = input("Path> ")
+    file_name = file_path.split("/")[-1]
     token = input("Token> ").strip()
 
     upload_file(file_path, file_name, token)
