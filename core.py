@@ -10,6 +10,7 @@ import multiprocessing
 import logging
 from colorama import Fore, Style, init
 
+_logger = logging.getLogger("linkverse")
 worker_count = int(os.getenv('_WORKER_COUNT', '1'))
 init(autoreset=True)
 
@@ -117,7 +118,10 @@ class ColoredFormatter(logging.Formatter):
         )
 
 
-def setup_logger():
+def setup_logger(logger: logging.Logger | None = None):
+    global _logger
+    logger = logger or _logger
+
     handler = logging.StreamHandler()
 
     formatter = ColoredFormatter(
@@ -126,7 +130,6 @@ def setup_logger():
     )
     handler.setFormatter(formatter)
 
-    logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logger.addHandler(handler)
 

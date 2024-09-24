@@ -9,12 +9,10 @@ from utils.database import create_pool
 import utils.auth as auth
 from supabase import acreate_client
 from supabase.client import ClientOptions, AsyncClient
-import uvloop
 import aiofiles
 from datetime import datetime, timezone
 import asyncio
 import json
-import logging
 import werkzeug.exceptions
 
 debug = os.getenv('DEBUG') == 'True'
@@ -22,7 +20,7 @@ supabase_url: str = os.environ.get("SUPABASE_URL")  # type: ignore
 supabase_key: str = os.environ.get("SUPABASE_KEY")  # type: ignore
 supabase: AsyncClient
 pool: asyncpg.pool.Pool
-setup_logger()
+logger = setup_logger()
 
 
 async def log_error_to_file(message: str, file: str):
@@ -154,6 +152,9 @@ async def auth_refresh():
 @app.before_serving
 async def startup():
     global supabase, pool
+
+    worker_id = get_proc_identity()
+
     with open("postgres.json") as f:
         config = json.load(f)
     pool = await create_pool(**config)
@@ -163,8 +164,10 @@ async def startup():
             storage_client_timeout=10
         )
     )
-    logging.info(
-        f"Worker started! ({get_proc_identity()}/{worker_count})"
+
+    logger.info(
+        "Worker started!" +
+        (f" ({worker_id}/{worker_count})" if worker_id != 0 else "")
     )
 
 
@@ -173,7 +176,13 @@ async def shutdown():
     global pool
     await pool.close()
 
+    worker_id = get_proc_identity()
+    if worker_id != 0:
+        logger.warning(
+            "Stopping worker" +
+            (f" ({worker_id}/{worker_count})" if worker_id != 0 else "")
+        )
+
 
 if __name__ == '__main__':
-    uvloop.install()
     app.run(port=6169, debug=debug)
