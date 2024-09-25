@@ -12,7 +12,7 @@ async def main():
     with open("postgres.json") as f:
         config = json.load(f)
     conn = await asyncpg.connect(**config)
-    await initialize_database(conn)
+    await initialize_database(conn, debug=True)
     await conn.close()
     logger.info("Done!")
 

@@ -2,7 +2,7 @@ import math
 import os
 import re
 import asyncpg
-from core import worker_count
+from core import worker_count, _logger
 
 
 async def create_pool(**config) -> asyncpg.pool.Pool:
@@ -25,7 +25,10 @@ async def execute_sql_file(db: asyncpg.Connection, file_path: str):
         await db.execute(sql)
 
 
-async def initialize_database(db: asyncpg.Connection, sql_dir: str = "./sql/"):
+async def initialize_database(
+    db: asyncpg.Connection, sql_dir: str = "./sql/",
+    debug: bool = False
+) -> None:
     sql_files = [f for f in os.listdir(sql_dir) if f.endswith('.pgsql')]
 
     def extract_number(filename: str) -> int:
@@ -37,4 +40,6 @@ async def initialize_database(db: asyncpg.Connection, sql_dir: str = "./sql/"):
     async with db.transaction():
         for sql_file in sql_files:
             file_path = os.path.join(sql_dir, sql_file)
+            ((_logger.info if debug else _logger.debug)
+             (f"Running {file_path}..."))
             await execute_sql_file(db, file_path)
