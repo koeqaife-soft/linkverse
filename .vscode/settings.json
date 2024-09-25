@@ -16,6 +16,7 @@
         "fetchrow",
         "gensalt",
         "hashpw",
+        "hypercorn",
         "levelname",
         "levelno",
         "linkverse",
