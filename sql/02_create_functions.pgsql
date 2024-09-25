@@ -14,3 +14,40 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- likes
+CREATE OR REPLACE FUNCTION increment_likes_count() RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE posts
+    SET likes_count = likes_count + 1
+    WHERE post_id = NEW.post_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION decrement_likes_count() RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE posts
+    SET likes_count = likes_count - 1
+    WHERE post_id = OLD.post_id;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+-- comments
+CREATE OR REPLACE FUNCTION increment_comments_count() RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE posts
+    SET comments_count = comments_count + 1
+    WHERE post_id = NEW.post_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION decrement_comments_count() RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE posts
+    SET comments_count = comments_count - 1
+    WHERE post_id = OLD.post_id;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
