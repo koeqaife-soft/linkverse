@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import overload
 import typing as t
 import json
@@ -9,6 +10,8 @@ import asyncio
 import multiprocessing
 import logging
 from colorama import Fore, Style, init
+import importlib
+import glob
 
 _logger = logging.getLogger("linkverse")
 worker_count = int(os.getenv('_WORKER_COUNT', '1'))
@@ -134,3 +137,77 @@ def setup_logger(logger: logging.Logger | None = None):
     logger.addHandler(handler)
 
     return logger
+
+
+class VarProxy(ABC):
+    @abstractmethod
+    def __getattr__(self, name) -> t.Any:
+        ...
+
+    def __setattr__(self, name, value):
+        setattr(self._obj, name, value)
+
+    def __call__(self, *args, **kwargs):
+        return self._obj(*args, **kwargs)
+
+    def __repr__(self):
+        return repr(self._obj)
+
+    def __str__(self):
+        return str(self._obj)
+
+    def __delattr__(self, name):
+        delattr(self._obj, name)
+
+    def __contains__(self, item):
+        return item in self._obj
+
+    def __len__(self):
+        return len(self._obj)
+
+    def __iter__(self):
+        return iter(self._obj)
+
+
+class _GlobalVars:
+    attrs: dict[str, t.Any] = {}
+
+
+class Global:
+    _instance: t.Optional["Global"] = None
+
+    def __new__(cls) -> "Global":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __getattr__(self, name: str) -> VarProxy:
+        class _proxy(VarProxy):
+            def __getattr__(self, _name) -> t.Any:
+                if _name == "_obj":
+                    return _GlobalVars.attrs.get(name)
+                return getattr(self._obj, _name)
+        return _proxy()
+
+    def __setattr__(self, name: str, value: t.Any) -> None:
+        _GlobalVars.attrs[name] = value
+
+
+def get_module_name(file_path: str) -> str:
+    base_package = __package__.replace('.', os.sep) if __package__ else ""
+
+    relative_path = os.path.relpath(file_path, start=base_package)
+
+    module_path = os.path.splitext(relative_path)[0]
+
+    return module_path.replace(os.sep, '.')
+
+
+def load_extensions(dir: str = "./extensions", debug: bool = False):
+    files = glob.glob(f"{dir}/*.py")
+    for file in files:
+        name = get_module_name(file)
+        module = importlib.import_module(name, __package__)
+        module.load(app)
+        if debug:
+            _logger.info(f"Module {name} loaded!")

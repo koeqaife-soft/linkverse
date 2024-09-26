@@ -1,6 +1,6 @@
-from core import app, response, setup_logger
-from core import worker_count, get_proc_identity
 import asyncpg
+from core import app, response, setup_logger, Global
+from core import worker_count, get_proc_identity, load_extensions
 import traceback
 import uuid
 from quart import request, g
@@ -14,12 +14,14 @@ from datetime import datetime, timezone
 import asyncio
 import json
 import werkzeug.exceptions
+from typing import cast
 
 debug = os.getenv('DEBUG') == 'True'
 supabase_url: str = os.environ.get("SUPABASE_URL")  # type: ignore
 supabase_key: str = os.environ.get("SUPABASE_KEY")  # type: ignore
 supabase: AsyncClient
-pool: asyncpg.pool.Pool
+_g = Global()
+pool = cast(asyncpg.Pool, _g.pool)
 logger = setup_logger()
 
 
@@ -90,74 +92,16 @@ async def generate_upload_url():
     }), 200
 
 
-@app.route('/v1/auth/register', methods=['POST'])
-async def auth_register():
-    data = await request.get_json()
-    username = data.get('username')
-    email = data.get('email')
-    password = data.get('password')
-
-    if username is None or email is None or password is None:
-        return response(error=True, error_msg="MISSING_DATA"), 400
-
-    async with pool.acquire() as db:
-        result = await auth.check_username(username, db)
-        if not result.success:
-            return response(error=True, error_msg=result.message), 400
-
-        result = await auth.create_user(username, email, password, db)
-        if not result.success:
-            return response(error=True, error_msg=result.message), 400
-
-        result = await auth.create_token(result.data, db)
-        if not result.success:
-            return response(error=True, error_msg=result.message), 500
-
-    return response(data=result.data), 200
-
-
-@app.route('/v1/auth/login', methods=['POST'])
-async def auth_login():
-    data = await request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-
-    if email is None or password is None:
-        return response(error=True, error_msg="MISSING_DATA"), 400
-
-    async with pool.acquire() as db:
-        result = await auth.login(email, password, db)
-    if not result.success:
-        return response(error=True, error_msg=result.message), 400
-
-    return response(data=result.data), 200
-
-
-@app.route('/v1/auth/refresh', methods=['POST'])
-async def auth_refresh():
-    data = await request.get_json()
-    token = data.get('refresh_token')
-
-    if token is None:
-        return response(error=True, error_msg="MISSING_DATA"), 400
-
-    async with pool.acquire() as db:
-        result = await auth.refresh(token, db)
-    if not result.success:
-        return response(error=True, error_msg=result.message), 400
-
-    return response(data=result.data), 200
-
-
 @app.before_serving
 async def startup():
-    global supabase, pool
+    global supabase
 
     worker_id = get_proc_identity()
 
     with open("postgres.json") as f:
         config = json.load(f)
     pool = await create_pool(**config)
+    _g.pool = pool
     supabase = await acreate_client(
         supabase_url, supabase_key,
         options=ClientOptions(
@@ -183,6 +127,8 @@ async def shutdown():
             (f" ({worker_id}/{worker_count})" if worker_id != 0 else "")
         )
 
+
+load_extensions(debug=debug)
 
 if __name__ == '__main__':
     app.run(port=6169, debug=debug)
