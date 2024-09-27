@@ -247,6 +247,12 @@ def get_options(options_str: str) -> dict:
 
 
 def validate_string(string: str, options: dict) -> bool:
+    if not isinstance(string, str):
+        if isinstance(string, dict) and options.get("is_dict", "0") == "1":
+            return True
+        else:
+            return False
+
     length_checks = {
         "min_len": lambda s, v: len(s) >= int(v),
         "max_len": lambda s, v: len(s) <= int(v),
