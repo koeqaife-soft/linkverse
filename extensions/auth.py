@@ -1,6 +1,6 @@
 import asyncpg
 from quart import Blueprint, Quart
-from core import response, Global
+from core import response, Global, error_response, route
 from quart import request
 import utils.auth as auth
 
@@ -9,7 +9,7 @@ _g = Global()
 pool: asyncpg.Pool = _g.pool
 
 
-@bp.route('/v1/auth/register', methods=['POST'])
+@route(bp, '/auth/register', methods=['POST'])
 async def auth_register():
     data = await request.get_json()
     username = data.get('username')
@@ -22,20 +22,20 @@ async def auth_register():
     async with pool.acquire() as db:
         result = await auth.check_username(username, db)
         if not result.success:
-            return response(error=True, error_msg=result.message), 400
+            return error_response(result), 400
 
         result = await auth.create_user(username, email, password, db)
         if not result.success:
-            return response(error=True, error_msg=result.message), 400
+            return error_response(result), 400
 
         result = await auth.create_token(result.data, db)
         if not result.success:
-            return response(error=True, error_msg=result.message), 500
+            return error_response(result), 500
 
     return response(data=result.data), 200
 
 
-@bp.route('/v1/auth/login', methods=['POST'])
+@route(bp, '/auth/login', methods=['POST'])
 async def auth_login():
     data = await request.get_json()
     email = data.get('email')
@@ -47,12 +47,12 @@ async def auth_login():
     async with pool.acquire() as db:
         result = await auth.login(email, password, db)
     if not result.success:
-        return response(error=True, error_msg=result.message), 400
+        return error_response(result), 400
 
     return response(data=result.data), 200
 
 
-@bp.route('/v1/auth/refresh', methods=['POST'])
+@route(bp, '/auth/refresh', methods=['POST'])
 async def auth_refresh():
     data = await request.get_json()
     token = data.get('refresh_token')
@@ -63,7 +63,7 @@ async def auth_refresh():
     async with pool.acquire() as db:
         result = await auth.refresh(token, db)
     if not result.success:
-        return response(error=True, error_msg=result.message), 400
+        return error_response(result), 400
 
     return response(data=result.data), 200
 
