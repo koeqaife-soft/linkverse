@@ -10,7 +10,7 @@ pool: asyncpg.Pool = _g.pool
 
 
 @route(bp, '/auth/register', methods=['POST'])
-async def auth_register():
+async def register():
     data = await request.get_json()
     username = data.get('username')
     email = data.get('email')
@@ -36,7 +36,7 @@ async def auth_register():
 
 
 @route(bp, '/auth/login', methods=['POST'])
-async def auth_login():
+async def login():
     data = await request.get_json()
     email = data.get('email')
     password = data.get('password')
@@ -53,7 +53,7 @@ async def auth_login():
 
 
 @route(bp, '/auth/refresh', methods=['POST'])
-async def auth_refresh():
+async def refresh():
     data = await request.get_json()
     token = data.get('refresh_token')
 
