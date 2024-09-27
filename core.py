@@ -3,7 +3,7 @@ from typing import overload
 import typing as t
 import json
 from dotenv import load_dotenv
-from quart import Quart
+from quart import Quart, Blueprint
 import os
 import uvloop
 import asyncio
@@ -90,6 +90,15 @@ class Status(t.Generic[T]):
             "data": self.data,
             "error": self.message
         }
+
+
+def error_response(status: Status, ):
+    if status.success:
+        return response()
+    else:
+        return response(
+            error=True, error_msg=(status.message or "UNKNOWN_ERROR")
+        )
 
 
 def get_proc_identity() -> int:
@@ -181,7 +190,7 @@ class Global:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __getattr__(self, name: str) -> VarProxy:
+    def __getattr__(self, name: str) -> t.Any:
         class _proxy(VarProxy):
             def __getattr__(self, _name) -> t.Any:
                 if _name == "_obj":
@@ -211,3 +220,8 @@ def load_extensions(dir: str = "./extensions", debug: bool = False):
         module.load(app)
         if debug:
             _logger.info(f"Module {name} loaded!")
+
+
+def route(_app: Quart | Blueprint, url_rule: str, **kwargs):
+    url_rule = f"/v1/{url_rule.lstrip("/")}"
+    return _app.route(url_rule, **kwargs)
