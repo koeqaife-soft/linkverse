@@ -73,9 +73,17 @@ async def before():
                         data[key], core.get_options(value)
                     )
                     for key, value in _data["data"].items()
+                    if key in data
                 )
             ):
                 return data_error
+
+            if "optional_data" in _data:
+                for key, value in _data["optional_data"].items():
+                    if key in data and not core.validate_string(
+                        data[key], core.get_options(value)
+                    ):
+                        return data_error
 
     url_rule = str(request.url_rule).lstrip("/").split("/")
     if url_rule[1] != "auth":
