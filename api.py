@@ -62,13 +62,20 @@ async def before():
     data_error = (response(error=True, error_msg="INCORRECT_DATA"), 400)
     _data = core.get_value_from_dict(endpoints_data, request.endpoint)
 
-    if _data["load_data"]:
+    if _data.get("load_data"):
         data = await request.get_json()
-        if not core.are_all_keys_present(_data["data"], data) or \
-           any(not core.validate_string(data[key], core.get_options(value))
-               for key, value in _data["data"].items()):
-            return data_error
         g.data = data
+        if "data" in _data:
+            if (
+                not data or not core.are_all_keys_present(_data["data"], data)
+                or any(
+                    not core.validate_string(
+                        data[key], core.get_options(value)
+                    )
+                    for key, value in _data["data"].items()
+                )
+            ):
+                return data_error
 
     url_rule = str(request.url_rule).lstrip("/").split("/")
     if url_rule[1] != "auth":
