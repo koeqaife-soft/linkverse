@@ -1,8 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import datetime
 from core import Status
-import asyncpg
 from utils.generation import generate_id, Action
+from _types import connection_type
 
 
 @dataclass
@@ -27,9 +27,16 @@ class Post:
     def updated_at_unix(self) -> float:
         return self.updated_at.timestamp()
 
+    def to_dict(self) -> dict:
+        post_dict = asdict(self)
+        post_dict['created_at_unix'] = self.created_at_unix
+        post_dict['updated_at_unix'] = self.updated_at_unix
+        return post_dict
+
 
 async def get_post(
-    where: dict[str, int | str | bool], db: asyncpg.Connection
+    where: dict[str, int | str | bool],
+    db: connection_type
 ) -> Status[Post | None]:
     if not where:
         raise ValueError("The 'where' dictionary must not be empty")
@@ -56,7 +63,7 @@ async def get_post(
 
 async def create_post(
     user_id: int, content: str,
-    db: asyncpg.Connection,
+    db: connection_type,
     tags: list[str] = [],
     media: list[str] = []
 ) -> Status[dict | None]:

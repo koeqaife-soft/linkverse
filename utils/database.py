@@ -3,6 +3,7 @@ import os
 import re
 import asyncpg
 from core import worker_count, _logger
+from _types import connection_type
 
 
 async def create_pool(**config) -> asyncpg.pool.Pool:
@@ -19,14 +20,14 @@ async def create_pool(**config) -> asyncpg.pool.Pool:
     return pool
 
 
-async def execute_sql_file(db: asyncpg.Connection, file_path: str):
+async def execute_sql_file(db: connection_type, file_path: str):
     with open(file_path, 'r') as file:
         sql = file.read()
         await db.execute(sql)
 
 
 async def initialize_database(
-    db: asyncpg.Connection, sql_dir: str = "./sql/",
+    db: connection_type, sql_dir: str = "./sql/",
     debug: bool = False
 ) -> None:
     sql_files = [f for f in os.listdir(sql_dir) if f.endswith('.pgsql')]

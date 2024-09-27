@@ -10,7 +10,7 @@ pool: asyncpg.Pool = _g.pool
 
 
 @route(bp, '/auth/register', methods=['POST'])
-async def register():
+async def register() -> tuple[str, int]:
     data = g.data
     username = data.get('username')
     email = data.get('email')
@@ -21,19 +21,19 @@ async def register():
         if not result.success:
             return error_response(result), 400
 
-        result = await auth.create_user(username, email, password, db)
-        if not result.success:
+        result2 = await auth.create_user(username, email, password, db)
+        if not result2.success:
             return error_response(result), 400
 
-        result = await auth.create_token(result.data, db)
-        if not result.success:
+        result3 = await auth.create_token(result.data, db)  # type: ignore
+        if not result3.success:
             return error_response(result), 500
 
-    return response(data=result.data), 200
+    return response(data=result.data or {}), 200
 
 
 @route(bp, '/auth/login', methods=['POST'])
-async def login():
+async def login() -> tuple[str, int]:
     data = g.data
     email = data.get('email')
     password = data.get('password')
@@ -47,7 +47,7 @@ async def login():
 
 
 @route(bp, '/auth/refresh', methods=['POST'])
-async def refresh():
+async def refresh() -> tuple[str, int]:
     data = g.data
     token = data.get('refresh_token')
 

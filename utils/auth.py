@@ -5,10 +5,10 @@ import re
 from utils.generation import parse_id, generate_id, Action
 from utils.generation import generate_token, decode_token
 import hashlib
-import asyncpg
 import typing as t
 from core import Status
 from concurrent.futures import ThreadPoolExecutor
+from _types import connection_type
 
 executor = ThreadPoolExecutor()
 secret_key = os.environ["SECRET_KEY"]
@@ -84,7 +84,7 @@ async def check_password(stored: str, password: str) -> bool:
 
 
 async def get_user(
-    where: dict[str, t.Any], db: asyncpg.Connection
+    where: dict[str, t.Any], db: connection_type
 ) -> Status[User | None]:
     if not where:
         raise ValueError("The 'where' dictionary must not be empty")
@@ -115,7 +115,7 @@ async def get_user(
 
 async def create_user(
     username: str, email: str,
-    password: str, db: asyncpg.Connection
+    password: str, db: connection_type
 ) -> Status[int | None]:
     user = await get_user({"email": email}, db)
     if user.data is not None:
@@ -133,7 +133,7 @@ async def create_user(
 
 
 async def check_username(
-    username: str, db: asyncpg.Connection
+    username: str, db: connection_type
 ) -> Status[None]:
     if len(username) < 4 or not User.validate_username(username):
         return Status(False, message="INCORRECT_FORMAT")
@@ -145,7 +145,7 @@ async def check_username(
 
 async def login(
     email: str, password: str,
-    db: asyncpg.Connection
+    db: connection_type
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
     user = await get_user({"email": email}, db)
 
@@ -177,7 +177,7 @@ async def login(
 
 async def create_token(
     user_id: int,
-    db: asyncpg.Connection
+    db: connection_type
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
     user = await get_user({"user_id": user_id}, db)
     if user.data is None:
@@ -205,7 +205,7 @@ async def create_token(
 
 
 async def refresh(
-    refresh_token: str, db: asyncpg.Connection
+    refresh_token: str, db: connection_type
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
     decoded = await decode_token(refresh_token, secret_refresh_key)
     if not decoded["success"]:
@@ -256,7 +256,7 @@ async def refresh(
 
 
 async def check_token(
-    token: str, db: asyncpg.Connection
+    token: str, db: connection_type
 ) -> Status[dict | None]:
     decoded = await decode_token(token, secret_key)
     if not decoded["success"]:
