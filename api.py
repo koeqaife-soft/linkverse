@@ -15,6 +15,8 @@ import asyncio
 import json
 import werkzeug.exceptions
 from typing import cast
+import core
+import json5
 
 debug = os.getenv('DEBUG') == 'True'
 supabase_url: str = os.environ.get("SUPABASE_URL")  # type: ignore
@@ -23,6 +25,8 @@ supabase: AsyncClient
 _g = Global()
 pool = cast(asyncpg.Pool, _g.pool)
 logger = setup_logger()
+with open("config/endpoints_data.json5", 'r') as f:
+    endpoints_data: dict = json5.load(f)
 
 
 async def log_error_to_file(message: str, file: str):
@@ -55,6 +59,17 @@ async def handle_500(error: werkzeug.exceptions.InternalServerError):
 
 @app.before_request
 async def before():
+    data_error = (response(error=True, error_msg="INCORRECT_DATA"), 400)
+    _data = core.get_value_from_dict(endpoints_data, request.endpoint)
+
+    if _data["load_data"]:
+        data = await request.get_json()
+        if not core.are_all_keys_present(_data["data"], data) or \
+           any(not core.validate_string(data[key], core.get_options(value))
+               for key, value in _data["data"].items()):
+            return data_error
+        g.data = data
+
     url_rule = str(request.url_rule).lstrip("/").split("/")
     if url_rule[1] != "auth":
         headers = request.headers

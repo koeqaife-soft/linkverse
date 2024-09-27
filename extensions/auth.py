@@ -1,7 +1,7 @@
 import asyncpg
 from quart import Blueprint, Quart
 from core import response, Global, error_response, route
-from quart import request
+from quart import g
 import utils.auth as auth
 
 bp = Blueprint('auth', __name__)
@@ -11,13 +11,10 @@ pool: asyncpg.Pool = _g.pool
 
 @route(bp, '/auth/register', methods=['POST'])
 async def register():
-    data = await request.get_json()
+    data = g.data
     username = data.get('username')
     email = data.get('email')
     password = data.get('password')
-
-    if username is None or email is None or password is None:
-        return response(error=True, error_msg="MISSING_DATA"), 400
 
     async with pool.acquire() as db:
         result = await auth.check_username(username, db)
@@ -37,12 +34,9 @@ async def register():
 
 @route(bp, '/auth/login', methods=['POST'])
 async def login():
-    data = await request.get_json()
+    data = g.data
     email = data.get('email')
     password = data.get('password')
-
-    if email is None or password is None:
-        return response(error=True, error_msg="MISSING_DATA"), 400
 
     async with pool.acquire() as db:
         result = await auth.login(email, password, db)
@@ -54,11 +48,8 @@ async def login():
 
 @route(bp, '/auth/refresh', methods=['POST'])
 async def refresh():
-    data = await request.get_json()
+    data = g.data
     token = data.get('refresh_token')
-
-    if token is None:
-        return response(error=True, error_msg="MISSING_DATA"), 400
 
     async with pool.acquire() as db:
         result = await auth.refresh(token, db)

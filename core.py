@@ -225,3 +225,40 @@ def load_extensions(dir: str = "./extensions", debug: bool = False):
 def route(_app: Quart | Blueprint, url_rule: str, **kwargs):
     url_rule = f"/v1/{url_rule.lstrip("/")}"
     return _app.route(url_rule, **kwargs)
+
+
+def get_value_from_dict(d: dict, key: str) -> dict:
+    keys = key.split('.')
+    for k in keys:
+        d = d.get(k, {})
+    return d
+
+
+def get_options(options_str: str) -> dict:
+    _options = options_str.split(";")
+    options = {}
+    for option in _options:
+        if len(option) <= 1:
+            continue
+        _splitted = option.split(":", 1)
+        options[_splitted[0]] = _splitted[1]
+
+    return options
+
+
+def validate_string(string: str, options: dict) -> bool:
+    length_checks = {
+        "min_len": lambda s, v: len(s) >= int(v),
+        "max_len": lambda s, v: len(s) <= int(v),
+        "len": lambda s, v: len(s) == int(v),
+    }
+
+    for option, check in length_checks.items():
+        if option in options and not check(string, options[option]):
+            return False
+
+    return True
+
+
+def are_all_keys_present(source: dict, target: dict) -> bool:
+    return all(key in target for key in source)

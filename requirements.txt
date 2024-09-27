@@ -11,3 +11,4 @@ uvloop
 hypercorn
 colorama
 types-colorama
+json5

@@ -1,0 +1,25 @@
+{
+    auth: {
+        register: {
+            load_data: true,
+            data: {
+                username: "min_len:4;",
+                password: "min_len:8;",
+                email: "min_len:5;"
+            }
+        },
+        login: {
+            load_data: true,
+            data: {
+                password: "min_len:8;",
+                email: "min_len:5;"
+            }
+        },
+        refresh: {
+            load_data: true,
+            data: {
+                refresh_token: ";"
+            }
+        }
+    }
+}
