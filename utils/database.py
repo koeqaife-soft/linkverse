@@ -6,7 +6,7 @@ from core import worker_count, _logger
 
 
 async def create_pool(**config) -> asyncpg.pool.Pool:
-    _max_shared = max(int(config.get("max_shared", 100))-5, 1)
+    _max_shared = max(int(config.pop("max_shared", 100))-5, 1)
     max_connections = max(math.ceil(_max_shared/worker_count), 1)
 
     pool = await asyncpg.create_pool(
