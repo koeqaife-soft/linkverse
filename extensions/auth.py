@@ -23,13 +23,13 @@ async def register() -> tuple[str, int]:
 
         result2 = await auth.create_user(username, email, password, db)
         if not result2.success:
-            return error_response(result), 400
+            return error_response(result2), 400
 
-        result3 = await auth.create_token(result.data, db)  # type: ignore
+        result3 = await auth.create_token(result2.data, db)  # type: ignore
         if not result3.success:
-            return error_response(result), 500
+            return error_response(result3), 500
 
-    return response(data=result.data or {}), 200
+    return response(data=result3.data or {}), 200
 
 
 @route(bp, '/auth/login', methods=['POST'])
