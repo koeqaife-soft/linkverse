@@ -11,7 +11,7 @@ class Post:
     user_id: int
     content: str
     created_at: datetime.datetime
-    update_at: datetime.datetime
+    updated_at: datetime.datetime
     likes_count: int
     comments_count: int
     tags: list[str]
@@ -25,7 +25,7 @@ class Post:
 
     @property
     def updated_at_unix(self) -> float:
-        return self.update_at.timestamp()
+        return self.updated_at.timestamp()
 
 
 async def get_post(
@@ -51,14 +51,7 @@ async def get_post(
     if row is None:
         return Status(False, message="POST_DOES_NOT_EXIST")
 
-    return Status(True, data=Post(
-        post_id=row['post_id'], user_id=row['user_id'],
-        content=row['content'],
-        created_at=row['created_at'], update_at=row['updated_at'],
-        likes_count=row['likes_count'], comments_count=row['comments_count'],
-        tags=row['tags'], media=row['media'],
-        status=row['status'], is_deleted=row['is_deleted']
-    ))
+    return Status(True, data=Post(**dict(row)))
 
 
 async def create_post(
@@ -66,7 +59,7 @@ async def create_post(
     db: asyncpg.Connection,
     tags: list[str] = [],
     media: list[str] = []
-) -> Status[int | None]:
+) -> Status[dict | None]:
     post_id = await generate_id(Action.CREATE_POST)
     async with db.transaction():
         await db.execute(
@@ -75,4 +68,10 @@ async def create_post(
             VALUES ($1, $2, $3, $4, $5)
             """, post_id, user_id, content, tags, media
         )
-    return Status(True, data=post_id)
+        created_post = await db.fetchrow(
+            """
+            SELECT * FROM posts WHERE post_id = $1
+            """, post_id
+        )
+
+    return Status(True, data=dict(created_post) if created_post else None)
