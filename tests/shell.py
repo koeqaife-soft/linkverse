@@ -86,7 +86,6 @@ def handle_response(r: requests.Response):
     try:
         json = r.json()
     except requests.JSONDecodeError:
-        print(r.text)
         json = {
             "status_code": r.status_code,
             "text": r.text
