@@ -83,7 +83,15 @@ def handle_response(r: requests.Response):
     if not r.ok:
         print(r.status_code, r.text)
         return None
-    return r.json()
+    try:
+        json = r.json()
+    except requests.JSONDecodeError:
+        print(r.text)
+        json = {
+            "status_code": r.status_code,
+            "text": r.text
+        }
+    return json
 
 
 class Auth:

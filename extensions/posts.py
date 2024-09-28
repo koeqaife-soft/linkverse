@@ -38,7 +38,7 @@ async def get_post(id: int) -> tuple[str, int]:
 
 
 @route(bp, "/posts/<int:id>", methods=["DELETE"])
-async def delete_post(id: int) -> tuple[str, int]:
+async def delete_post(id: int) -> tuple[None | str, int]:
     async with pool.acquire() as db:
         post = await posts.get_post({"post_id": id}, db)
         if not post.success:
@@ -50,11 +50,11 @@ async def delete_post(id: int) -> tuple[str, int]:
     if not result.success:
         return error_response(result), 500
 
-    return response(), 204
+    return None, 204
 
 
 @route(bp, "/posts/<int:id>", methods=["PATCH"])
-async def update_post(id: int) -> tuple[str, int]:
+async def update_post(id: int) -> tuple[None | str, int]:
     data = g.data
     content: str | None = data.get("content")
     tags: list[str] | None = data.get("tags")
@@ -74,7 +74,7 @@ async def update_post(id: int) -> tuple[str, int]:
     if not result.success:
         return error_response(result), 500
 
-    return response(), 204
+    return None, 204
 
 
 def load(app: Quart):
