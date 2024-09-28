@@ -29,7 +29,7 @@ async def register() -> tuple[str, int]:
         if not result3.success:
             return error_response(result3), 500
 
-    return response(data=result3.data or {}), 200
+    return response(data=result3.data or {}), 201
 
 
 @route(bp, '/auth/login', methods=['POST'])
