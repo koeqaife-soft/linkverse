@@ -81,7 +81,13 @@ async def create_post(
             """, post_id
         )
 
-    return Status(True, data=dict(created_post) if created_post else None)
+    return Status(
+        True,
+        data=(
+            Post(**dict(created_post)).to_dict()
+            if created_post else None
+        )
+    )
 
 
 async def delete_post(
