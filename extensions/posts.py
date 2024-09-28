@@ -1,5 +1,5 @@
 import asyncpg
-from quart import Blueprint, Quart
+from quart import Blueprint, Quart, Response
 from core import response, Global, route, error_response
 from quart import g
 import utils.posts as posts
@@ -10,7 +10,7 @@ pool: asyncpg.Pool = _g.pool
 
 
 @route(bp, "/posts", methods=["POST"])
-async def create_post() -> tuple[str, int]:
+async def create_post() -> tuple[Response, int]:
     data = g.data
     content = data.get('content')
 
@@ -24,7 +24,7 @@ async def create_post() -> tuple[str, int]:
 
 
 @route(bp, "/posts/<int:id>", methods=["GET"])
-async def get_post(id: int) -> tuple[str, int]:
+async def get_post(id: int) -> tuple[Response, int]:
     async with pool.acquire() as db:
         result = await posts.get_post({"post_id": id}, db)
 
@@ -38,7 +38,7 @@ async def get_post(id: int) -> tuple[str, int]:
 
 
 @route(bp, "/posts/<int:id>", methods=["DELETE"])
-async def delete_post(id: int) -> tuple[None | str, int]:
+async def delete_post(id: int) -> tuple[Response, int]:
     async with pool.acquire() as db:
         post = await posts.get_post({"post_id": id}, db)
         if not post.success:
@@ -50,11 +50,11 @@ async def delete_post(id: int) -> tuple[None | str, int]:
     if not result.success:
         return error_response(result), 500
 
-    return None, 204
+    return response(), 204
 
 
 @route(bp, "/posts/<int:id>", methods=["PATCH"])
-async def update_post(id: int) -> tuple[None | str, int]:
+async def update_post(id: int) -> tuple[Response, int]:
     data = g.data
     content: str | None = data.get("content")
     tags: list[str] | None = data.get("tags")
@@ -74,7 +74,7 @@ async def update_post(id: int) -> tuple[None | str, int]:
     if not result.success:
         return error_response(result), 500
 
-    return None, 204
+    return response(), 204
 
 
 def load(app: Quart):

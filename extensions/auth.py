@@ -1,5 +1,5 @@
 import asyncpg
-from quart import Blueprint, Quart
+from quart import Blueprint, Quart, Response
 from core import response, Global, error_response, route
 from quart import g
 import utils.auth as auth
@@ -10,7 +10,7 @@ pool: asyncpg.Pool = _g.pool
 
 
 @route(bp, '/auth/register', methods=['POST'])
-async def register() -> tuple[str, int]:
+async def register() -> tuple[Response, int]:
     data = g.data
     username = data.get('username')
     email = data.get('email')
@@ -33,7 +33,7 @@ async def register() -> tuple[str, int]:
 
 
 @route(bp, '/auth/login', methods=['POST'])
-async def login() -> tuple[str, int]:
+async def login() -> tuple[Response, int]:
     data = g.data
     email = data.get('email')
     password = data.get('password')
@@ -47,7 +47,7 @@ async def login() -> tuple[str, int]:
 
 
 @route(bp, '/auth/refresh', methods=['POST'])
-async def refresh() -> tuple[str, int]:
+async def refresh() -> tuple[Response, int]:
     data = g.data
     token = data.get('refresh_token')
 

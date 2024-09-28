@@ -3,7 +3,7 @@ from typing import overload
 import typing as t
 import json
 from dotenv import load_dotenv
-from quart import Quart, Blueprint
+from quart import Quart, Blueprint, Response
 import os
 import uvloop
 import asyncio
@@ -37,7 +37,7 @@ def _serializer(obj):
 @overload
 def response(
     *, data: dict = ...
-) -> str:
+) -> Response:
     ...
 
 
@@ -45,21 +45,24 @@ def response(
 def response(
     *, error: bool, data: dict = {},
     error_msg: str
-) -> str:
+) -> Response:
     ...
 
 
 def response(
     *, error: bool | None = None, data: dict = {},
     error_msg: str | None = None
-) -> str:
+) -> Response:
     _response = {
         "success": not error,
         "data": data
     }
     if error_msg:
         _response["error"] = error_msg
-    return json.dumps(_response, default=_serializer)
+    return Response(
+        json.dumps(_response, default=_serializer),
+        content_type="application/json"
+    )
 
 
 class Status(t.Generic[T]):
