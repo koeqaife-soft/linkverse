@@ -21,5 +21,21 @@
                 refresh_token: ";"
             }
         }
+    },
+    posts: {
+        create_post: {
+            load_data: true,
+            data: {
+                content: "min_len:1;max_len:1024;"
+            }
+        },
+        update_post: {
+            load_data: true,
+            optional_data: {
+                content: "min_len:1;max_len:1024;",
+                tags: "is_list:1;",
+                media: "is_list:1;"
+            }
+        }
     }
 }
