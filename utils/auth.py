@@ -44,7 +44,7 @@ class User:
 
     @staticmethod
     def validate_username(nickname: str) -> bool:
-        if not re.match(r'^[A-Za-z.]+$', nickname):
+        if not re.match(r'^[A-Za-z0-9._]+$', nickname):
             return False
 
         if '..' in nickname:
