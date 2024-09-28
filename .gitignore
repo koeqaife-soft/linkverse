@@ -4,3 +4,4 @@ database/*
 __pycache__
 postgres.json
 logs/*
+.vscode/*
