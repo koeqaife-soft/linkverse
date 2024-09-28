@@ -181,7 +181,7 @@ class Posts:
             "content": input("Content: ")
         }
         r = requests.post(Endpoints().posts, json=data,
-                          headers=Session.headers)
+                          headers=Session().headers)
 
         result = handle_response(r)
         if result:
@@ -193,7 +193,7 @@ class Posts:
             return
         r = requests.get(
             Endpoints().post_actions.f(arg),
-            headers=Session.headers
+            headers=Session().headers
         )
         result = handle_response(r)
         if result:
@@ -205,7 +205,7 @@ class Posts:
             return
         r = requests.delete(
             Endpoints().post_actions.f(arg),
-            headers=Session.headers
+            headers=Session().headers
         )
         result = handle_response(r)
         if result:
@@ -232,7 +232,7 @@ class Posts:
             data["media"] = _media
         r = requests.patch(
             Endpoints().post_actions.f(arg),
-            headers=Session.headers, json=data
+            headers=Session().headers, json=data
         )
         result = handle_response(r)
         if result:
