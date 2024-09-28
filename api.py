@@ -59,6 +59,8 @@ async def handle_500(error: werkzeug.exceptions.InternalServerError):
 
 @app.before_request
 async def before():
+    if request.endpoint is None:
+        return
     data_error = (response(error=True, error_msg="INCORRECT_DATA"), 400)
     _data = core.get_value_from_dict(endpoints_data, request.endpoint)
 
@@ -95,7 +97,7 @@ async def before():
             result = await auth.check_token(token, db)
         if not result.success:
             error_msg = result.message or "UNAUTHORIZED"
-            return response(error=True, error_msg=error_msg)
+            return response(error=True, error_msg=error_msg), 401
 
         g.user_id = result.data["user_id"]
 
