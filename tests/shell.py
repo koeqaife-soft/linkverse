@@ -3,6 +3,7 @@ import cmd
 import requests
 import auth
 import asyncio
+import aiohttp
 import traceback
 import json
 
@@ -96,7 +97,8 @@ class Auth:
             else:
                 print("One of the values is too short. Try again.")
         try:
-            _result = await auth.register(username, email, password)
+            async with aiohttp.ClientSession() as s:
+                _result = await auth.register(username, email, password, s)
             if _result is not None:
                 result = json.loads(_result)
                 if result["success"]:
@@ -118,7 +120,8 @@ class Auth:
             else:
                 print("One of the values is too short. Try again.")
         try:
-            _result = await auth.login(email, password)
+            async with aiohttp.ClientSession() as s:
+                _result = await auth.login(email, password, s)
             if _result is not None:
                 result = json.loads(_result)
                 if result["success"]:
@@ -136,7 +139,8 @@ class Auth:
             print("Not in account!")
             return
         try:
-            _result = await auth.refresh(Session.current_refresh)
+            async with aiohttp.ClientSession() as s:
+                _result = await auth.refresh(Session.current_refresh, s)
             if _result is not None:
                 result = json.loads(_result)
                 if result["success"]:
