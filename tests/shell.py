@@ -36,6 +36,10 @@ class Session:
     current_token = ""
     current_refresh = ""
 
+    @property
+    def headers(self) -> dict[str, str]:
+        return {"Authorization": self.current_token} if self.is_login else {}
+
 
 def dict_format(
     object: dict[str, Any | dict], indent: int = 0,
@@ -72,6 +76,13 @@ def dict_format(
             )
 
     return "\n".join(out)
+
+
+def handle_response(r: requests.Response):
+    if not r.ok:
+        print(r.status_code, r.text)
+        return None
+    return r.json()
 
 
 class Auth:
@@ -162,52 +173,39 @@ class Posts:
         if not Session.is_login:
             print("Not in account!")
             return
-        headers = {
-            "Authorization": Session.current_token
-        }
         data = {
             "content": input("Content: ")
         }
-        r = requests.post(Endpoints().posts, json=data, headers=headers)
-        if str(r.status_code)[0] != "2":
-            print(r.status_code, r.text)
-        else:
-            data = r.json()
-            print(dict_format(data))
+        r = requests.post(Endpoints().posts, json=data,
+                          headers=Session.headers)
+
+        result = handle_response(r)
+        if result:
+            print(dict_format(result))
 
     def do_get_post(self, arg):
         if not Session.is_login:
             print("Not in account!")
             return
-        headers = {
-            "Authorization": Session.current_token
-        }
         r = requests.get(
             Endpoints().post_actions.f(arg),
-            headers=headers
+            headers=Session.headers
         )
-        if str(r.status_code)[0] != "2":
-            print(r.status_code, r.text)
-        else:
-            data = r.json()
-            print(dict_format(data))
+        result = handle_response(r)
+        if result:
+            print(dict_format(result))
 
     def do_delete_post(self, arg):
         if not Session.is_login:
             print("Not in account!")
             return
-        headers = {
-            "Authorization": Session.current_token
-        }
         r = requests.delete(
             Endpoints().post_actions.f(arg),
-            headers=headers
+            headers=Session.headers
         )
-        if str(r.status_code)[0] != "2":
-            print(r.status_code, r.text)
-        else:
-            data = r.json()
-            print(dict_format(data))
+        result = handle_response(r)
+        if result:
+            print(dict_format(result))
 
     def do_update_post(self, arg):
         if not Session.is_login:
@@ -228,18 +226,13 @@ class Posts:
             data["tags"] = _tags
         if _media:
             data["media"] = _media
-        headers = {
-            "Authorization": Session.current_token
-        }
         r = requests.patch(
             Endpoints().post_actions.f(arg),
-            headers=headers, json=data
+            headers=Session.headers, json=data
         )
-        if str(r.status_code)[0] != "2":
-            print(r.status_code, r.text)
-        else:
-            data = r.json()
-            print(dict_format(data))
+        result = handle_response(r)
+        if result:
+            print(dict_format(result))
 
 
 class Commands(Auth, Posts):
