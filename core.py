@@ -11,6 +11,7 @@ import multiprocessing
 import logging
 from colorama import Fore, Style, init
 import importlib
+import datetime
 import glob
 
 _logger = logging.getLogger("linkverse")
@@ -25,6 +26,12 @@ load_dotenv()
 app = Quart(__name__)
 secret_key = os.environ["SECRET_KEY"]
 secret_refresh_key = os.environ["SECRET_REFRESH_KEY"]
+
+
+def _serializer(obj):
+    if isinstance(obj, datetime.datetime):
+        return obj.astimezone(datetime.timezone.utc).isoformat()
+    raise TypeError(f"Type {type(obj)} not serializable")
 
 
 @overload
@@ -52,7 +59,7 @@ def response(
     }
     if error_msg:
         _response["error"] = error_msg
-    return json.dumps(_response)
+    return json.dumps(_response, default=_serializer)
 
 
 class Status(t.Generic[T]):
