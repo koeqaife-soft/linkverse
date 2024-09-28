@@ -51,7 +51,7 @@ async def get_post(
         SELECT post_id, user_id, content, created_at, updated_at,
                likes_count, comments_count, tags, media, status, is_deleted
         FROM posts
-        WHERE {' AND '.join(conditions)}
+        WHERE {' AND '.join(conditions)} AND is_deleted = FALSE
     """
     row = await db.fetchrow(query, *values)
 
@@ -82,3 +82,49 @@ async def create_post(
         )
 
     return Status(True, data=dict(created_post) if created_post else None)
+
+
+async def delete_post(
+    post_id: int, db: connection_type
+) -> Status[None]:
+    async with db.transaction():
+        await db.execute(
+            """
+            UPDATE posts
+            SET is_deleted = $1
+            WHERE post_id = $2
+            """, True, post_id
+        )
+
+    return Status(True)
+
+
+async def update_post(
+    post_id: int, content: str | None,
+    tags: list[str] | None, media: list[str] | None,
+    db: connection_type
+) -> Status[None]:
+    if content is None and tags is None and media is None:
+        raise ValueError("All arguments is None!")
+    _parameters = []
+    _query = []
+    _keys = {
+        "content": content,
+        "tags": tags,
+        "media": media
+    }
+    for key, value in _keys.items():
+        if value is not None:
+            _parameters.append(value)
+            _query.append(f"{key} = ${len(_parameters)}")
+
+    async with db.transaction():
+        await db.execute(
+            f"""
+            UPDATE posts
+            SET {", ".join(_query)}
+            WHERE post_id = ${len(_parameters)+1}
+            """, *_parameters, post_id
+        )
+
+    return Status(True)
