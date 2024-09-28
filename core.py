@@ -253,23 +253,65 @@ def get_options(options_str: str) -> dict:
     return options
 
 
-def validate_string(string: str, options: dict) -> bool:
-    if not isinstance(string, str):
-        if isinstance(string, dict) and options.get("is_dict", "0") == "1":
-            return True
-        elif isinstance(string, list) and options.get("is_list", "0") == "1":
-            return True
-        else:
+def validate(value: t.Any, options: dict) -> bool:
+    is_dict = options.get("is_dict", "0") == "1"
+    is_list = options.get("is_list", "0") == "1"
+    is_int = options.get("is_int", "0") == "1"
+    is_bool = options.get("is_bool", "0") == "1"
+
+    if value is None:
+        return False
+
+    if isinstance(value, dict) and is_dict:
+        return True
+    elif isinstance(value, list) and is_list:
+        return validate_list(value, options)
+    elif isinstance(value, int) and is_int:
+        return validate_int(value, options)
+    elif isinstance(value, bool) and is_bool:
+        return True
+    elif isinstance(value, str):
+        return validate_string(value, options)
+
+    return False
+
+
+def validate_list(value: list, options: dict) -> bool:
+    checks = {
+        "min_len": lambda s, v: len(s) >= int(v),
+        "max_len": lambda s, v: len(s) <= int(v),
+        "len": lambda s, v: len(s) == int(v)
+    }
+
+    for option, check in checks.items():
+        if option in options and not check(value, options[option]):
             return False
 
-    length_checks = {
+    return True
+
+
+def validate_int(value: int, options: dict) -> bool:
+    checks = {
+        "min": lambda s, v: s >= int(v),
+        "max": lambda s, v: s <= int(v)
+    }
+
+    for option, check in checks.items():
+        if option in options and not check(value, options[option]):
+            return False
+
+    return True
+
+
+def validate_string(value: str, options: dict) -> bool:
+    checks = {
         "min_len": lambda s, v: len(s) >= int(v),
         "max_len": lambda s, v: len(s) <= int(v),
         "len": lambda s, v: len(s) == int(v),
     }
 
-    for option, check in length_checks.items():
-        if option in options and not check(string, options[option]):
+    for option, check in checks.items():
+        if option in options and not check(value, options[option]):
             return False
 
     return True
