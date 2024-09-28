@@ -49,6 +49,8 @@ class User:
 
         if '..' in nickname:
             return False
+        if '__' in nickname:
+            return False
 
         return True
 
