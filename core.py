@@ -257,6 +257,8 @@ def validate_string(string: str, options: dict) -> bool:
     if not isinstance(string, str):
         if isinstance(string, dict) and options.get("is_dict", "0") == "1":
             return True
+        elif isinstance(string, list) and options.get("is_list", "0") == "1":
+            return True
         else:
             return False
 

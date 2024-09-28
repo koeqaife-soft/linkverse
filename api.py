@@ -65,7 +65,7 @@ async def before():
     _data = core.get_value_from_dict(endpoints_data, request.endpoint)
 
     if _data.get("load_data"):
-        data = await request.get_json()
+        data = (await request.get_json()) or {}
         g.data = data
         if "data" in _data:
             if (
@@ -80,11 +80,12 @@ async def before():
             ):
                 return data_error
 
-            if "optional_data" in _data:
-                for key, value in _data["optional_data"].items():
-                    if key in data and not core.validate_string(
-                        data[key], core.get_options(value)
-                    ):
+        if "optional_data" in _data:
+            for key, value in data.items():
+                if key in _data["optional_data"]:
+                    options = core.get_options(_data["optional_data"][key])
+                    if not core.validate_string(value, options):
+                        print(key, value, options)
                         return data_error
 
     url_rule = str(request.url_rule).lstrip("/").split("/")
