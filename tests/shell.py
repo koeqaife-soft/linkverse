@@ -184,9 +184,23 @@ class Posts:
         if not Session.is_login:
             print("Not in account!")
             return
-        data = {
-            "content": input("Content: ")
-        }
+
+        data = {}
+        _content = input("Content: ")
+
+        _tags = input("Tags: ")
+        _tags = _tags.split(",") if _tags.strip() else []
+
+        _media = input("Media: ")
+        _media = _media.split(",") if _media.strip() else []
+
+        if _content:
+            data["content"] = _content
+        if _tags:
+            data["tags"] = _tags
+        if _media:
+            data["media"] = _media
+
         r = requests.post(Endpoints().posts, json=data,
                           headers=Session().headers)
 
@@ -237,6 +251,7 @@ class Posts:
             data["tags"] = _tags
         if _media:
             data["media"] = _media
+
         r = requests.patch(
             Endpoints().post_actions.f(arg),
             headers=Session().headers, json=data

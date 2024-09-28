@@ -27,6 +27,10 @@
             load_data: true,
             data: {
                 content: "min_len:1;max_len:1024;"
+            },
+            optional_data: {
+                tags: "is_list:1;",
+                media: "is_list:1;"
             }
         },
         update_post: {

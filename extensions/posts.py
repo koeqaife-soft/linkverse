@@ -12,10 +12,12 @@ pool: asyncpg.Pool = _g.pool
 @route(bp, "/posts", methods=["POST"])
 async def create_post() -> tuple[Response, int]:
     data = g.data
-    content = data.get('content')
+    content: str = data.get('content')
+    tags: list[str] = data.get("tags", [])
+    media: list[str] = data.get("media", [])
 
     async with pool.acquire() as db:
-        result = await posts.create_post(g.user_id, content, db)
+        result = await posts.create_post(g.user_id, content, db, tags, media)
 
     if not result.success:
         return error_response(result), 500
