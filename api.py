@@ -71,7 +71,7 @@ async def before():
             if (
                 not data or not core.are_all_keys_present(_data["data"], data)
                 or any(
-                    not core.validate_string(
+                    not core.validate(
                         data[key], core.get_options(value)
                     )
                     for key, value in _data["data"].items()
