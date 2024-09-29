@@ -5,18 +5,14 @@
             data: {
                 username: { min_len: 4 },
                 password: { min_len: 8 },
-                email: {
-                    min_len: 5,
-                    max_len: 254,
-                    regex: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-                }
+                email: { type: "email" }
             }
         },
         login: {
             load_data: true,
             data: {
                 password: { min_len: 8 },
-                email: { min_len: 5 }
+                email: { type: "email" }
             }
         },
         refresh: {
