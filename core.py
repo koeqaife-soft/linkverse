@@ -239,8 +239,9 @@ def route(_app: Quart | Blueprint, url_rule: str, **kwargs):
 
 
 def get_value_from_dict(d: dict, key: str) -> dict:
-    keys = key.split('.')
-    for k in keys:
+    for k in key.split('.'):
+        if not isinstance(d, dict):
+            return {}
         d = d.get(k, {})
     return d
 
@@ -260,70 +261,87 @@ def get_options(options: str | dict) -> dict:
 
 
 def validate(value: t.Any, options: dict) -> bool:
-    type_map = {
-        "dict": lambda v, _: isinstance(v, dict),
-        "list": validate_list,
-        "int": validate_int,
-        "bool": lambda v, _: isinstance(v, bool),
-        "str": validate_string
-    }
-
     if value is None:
         return False
 
-    return type_map.get(options.get("type", "str"),
-                        validate_string)(value, options)
+    validator = Validator(options)
+
+    type = options.get("type", "str")
+    _validate = getattr(
+        validator, f"validate_{type}",
+        validator.validate_string
+    )
+
+    return _validate(value)
 
 
-def validate_list(value: list, options: dict) -> bool:
-    if not isinstance(value, list):
-        return False
-    checks = {
-        "min_len": lambda s, v: len(s) >= int(v),
-        "max_len": lambda s, v: len(s) <= int(v),
-        "len": lambda s, v: len(s) == int(v)
-    }
+class Validator:
+    def __init__(self, options: dict) -> None:
+        self.options = options
 
-    for option, check in checks.items():
-        if option in options and not check(value, options[option]):
+    def validate_dict(self, value: dict) -> bool:
+        return isinstance(value, dict)
+
+    def validate_bool(self, value: bool) -> bool:
+        return isinstance(value, bool)
+
+    def validate_list(self, value: list) -> bool:
+        options = self.options
+        if not isinstance(value, list):
             return False
+        checks = {
+            "min_len": lambda s, v: len(s) >= int(v),
+            "max_len": lambda s, v: len(s) <= int(v),
+            "len": lambda s, v: len(s) == int(v)
+        }
 
-    return True
+        for option, check in checks.items():
+            if option in options and not check(value, options[option]):
+                return False
 
+        return True
 
-def validate_int(value: int, options: dict) -> bool:
-    if not isinstance(value, int):
-        return False
-    checks = {
-        "min": lambda s, v: s >= int(v),
-        "max": lambda s, v: s <= int(v)
-    }
-
-    for option, check in checks.items():
-        if option in options and not check(value, options[option]):
+    def validate_int(self, value: int) -> bool:
+        options = self.options
+        if not isinstance(value, int):
             return False
+        checks = {
+            "min": lambda s, v: s >= int(v),
+            "max": lambda s, v: s <= int(v)
+        }
 
-    return True
+        for option, check in checks.items():
+            if option in options and not check(value, options[option]):
+                return False
 
+        return True
 
-def validate_string(value: str, options: dict) -> bool:
-    if not isinstance(value, str):
-        return False
-    checks = {
-        "min_len": lambda s, v: len(s) >= int(v),
-        "max_len": lambda s, v: len(s) <= int(v),
-        "len": lambda s, v: len(s) == int(v),
-    }
-
-    if "regex" in options:
-        if not re.match(options["regex"], value):
+    def validate_string(self, value: str) -> bool:
+        options = self.options
+        if not isinstance(value, str):
             return False
+        checks = {
+            "min_len": lambda s, v: len(s) >= int(v),
+            "max_len": lambda s, v: len(s) <= int(v),
+            "len": lambda s, v: len(s) == int(v)
+        }
 
-    for option, check in checks.items():
-        if option in options and not check(value, options[option]):
-            return False
+        if "regex" in options:
+            if not re.match(options["regex"], value):
+                return False
 
-    return True
+        for option, check in checks.items():
+            if option in options and not check(value, options[option]):
+                return False
+
+        return True
+
+    def validate_email(self, value: str) -> bool:
+        options = self.options
+        options["min_len"] = 4
+        options["max_len"] = 254
+        options["regex"] = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+        return self.validate_string(value)
 
 
 def are_all_keys_present(source: dict, target: dict) -> bool:
