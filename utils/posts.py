@@ -1,7 +1,7 @@
 from dataclasses import dataclass, asdict
 import datetime
 from core import Status
-from utils.generation import generate_id, Action
+from utils.generation import generate_id
 from _types import connection_type
 
 
@@ -67,7 +67,7 @@ async def create_post(
     tags: list[str] = [],
     media: list[str] = []
 ) -> Status[dict | None]:
-    post_id = await generate_id(Action.CREATE_POST)
+    post_id = await generate_id()
     async with db.transaction():
         await db.execute(
             """

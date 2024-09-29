@@ -1,7 +1,6 @@
 import asyncio
 import datetime
 import time
-import enum
 import os
 from utils.encryption import chacha20_decrypt as decrypt
 from utils.encryption import chacha20_encrypt as encrypt
@@ -9,29 +8,20 @@ from utils.encryption import verify_signature, generate_signature
 from core import get_proc_identity
 
 
-class Action(enum.IntFlag):
-    DEFAULT = 1
-    CREATE_USER = 2
-    CREATE_MESSAGE = 3
-    CREATE_POST = 4
-    SESSION = 5
-
-
 SECRET_KEY = os.environ["SIGNATURE_KEY"].encode()
 EPOCH = 1725513600000
 COUNTER_BITS = 12
-ACTION_BITS = 5
+SID_BITS = 5
 PID_BITS = 5
 
 pid = get_proc_identity()
+server_id = 1
 last_timestamp = -1
 counter = 0
 lock = asyncio.Lock()
 
 
-async def generate_id(
-    action: Action = Action.DEFAULT
-) -> int:
+async def generate_id() -> int:
     global last_timestamp, counter
 
     async with lock:
@@ -49,27 +39,27 @@ async def generate_id(
         _pid = pid & ((1 << PID_BITS) - 1)
 
         snowflake_id = (
-            (timestamp << (COUNTER_BITS + ACTION_BITS + PID_BITS)) |
-            (_pid << (COUNTER_BITS + ACTION_BITS)) |
-            (action << COUNTER_BITS) |
+            (timestamp << (COUNTER_BITS + SID_BITS + PID_BITS)) |
+            (_pid << (COUNTER_BITS + SID_BITS)) |
+            (server_id << COUNTER_BITS) |
             counter
         )
 
         return snowflake_id
 
 
-def parse_id(snowflake_id: int) -> tuple[float, Action, int, int]:
+def parse_id(snowflake_id: int) -> tuple[float, int, int, int]:
     timestamp = (
-        (snowflake_id >> (COUNTER_BITS + ACTION_BITS + PID_BITS)) +
+        (snowflake_id >> (COUNTER_BITS + SID_BITS + PID_BITS)) +
         EPOCH
     )
 
     unique = (
-        (snowflake_id >> (COUNTER_BITS + ACTION_BITS)) &
+        (snowflake_id >> (COUNTER_BITS + SID_BITS)) &
         ((1 << PID_BITS) - 1)
     )
 
-    action = Action((snowflake_id >> COUNTER_BITS) & ((1 << ACTION_BITS) - 1))
+    action = (snowflake_id >> COUNTER_BITS) & ((1 << SID_BITS) - 1)
 
     counter = snowflake_id & ((1 << COUNTER_BITS) - 1)
 

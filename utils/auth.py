@@ -2,7 +2,7 @@ import asyncio
 from dataclasses import dataclass
 import os
 import re
-from utils.generation import parse_id, generate_id, Action
+from utils.generation import parse_id, generate_id
 from utils.generation import generate_token, decode_token
 import hashlib
 import typing as t
@@ -123,7 +123,7 @@ async def create_user(
     if user.data is not None:
         return Status(False, message="USER_ALREADY_EXISTS")
     password_hash = await store_password(password)
-    new_id = await generate_id(Action.CREATE_USER)
+    new_id = await generate_id()
     async with db.transaction():
         await db.execute(
             """
