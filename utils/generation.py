@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 import time
 import os
@@ -6,64 +5,73 @@ from utils.encryption import chacha20_decrypt as decrypt
 from utils.encryption import chacha20_encrypt as encrypt
 from utils.encryption import verify_signature, generate_signature
 from core import get_proc_identity
+from atomic import AtomicLong  # type: ignore
 
 
 SECRET_KEY = os.environ["SIGNATURE_KEY"].encode()
-EPOCH = 1725513600000
-COUNTER_BITS = 12
-SID_BITS = 5
-PID_BITS = 5
-
-pid = get_proc_identity()
-server_id = 1
-last_timestamp = -1
-counter = 0
-lock = asyncio.Lock()
 
 
-async def generate_id() -> int:
-    global last_timestamp, counter
+class SnowflakeGeneration:
+    epoch = 1725513600000
 
-    async with lock:
-        timestamp = int(time.time() * 1000) - EPOCH
-        if timestamp == last_timestamp:
-            counter = (counter + 1) & ((1 << COUNTER_BITS) - 1)
-            if counter == 0:
-                while timestamp <= last_timestamp:
-                    timestamp = int(time.time() * 1000) - EPOCH
+    def __init__(
+        self, server_id: int = 1, pid: int | None = None
+    ) -> None:
+        self.counter_bits = 12
+        self.sid_bits = 5
+        self.pid_bits = 5
+        self.last_timestamp = -1
+        self.counter = AtomicLong()
+        self.pid = pid or get_proc_identity()
+        self.server_id = server_id
+
+    async def generate(self) -> int:
+        counter_bits, pid_bits = self.counter_bits, self.pid_bits
+        sid_bits = self.sid_bits
+        server_id, pid = self.server_id, self.pid
+
+        timestamp = int(time.time() * 1000) - self.epoch
+        if timestamp == self.last_timestamp:
+            self.counter.value += 1
+            if self.counter.value == (1 << self.counter_bits):
+                self.counter.value = 0
+                while timestamp <= self.last_timestamp:
+                    timestamp = int(time.time() * 1000) - self.epoch
         else:
-            counter = 0
+            self.counter.value = 0
 
-        last_timestamp = timestamp
+        self.last_timestamp = timestamp
 
-        _pid = pid & ((1 << PID_BITS) - 1)
+        _pid = pid & ((1 << pid_bits) - 1)
 
         snowflake_id = (
-            (timestamp << (COUNTER_BITS + SID_BITS + PID_BITS)) |
-            (_pid << (COUNTER_BITS + SID_BITS)) |
-            (server_id << COUNTER_BITS) |
-            counter
+            (timestamp << (counter_bits + sid_bits + pid_bits)) |
+            (_pid << (counter_bits + sid_bits)) |
+            (server_id << counter_bits) |
+            self.counter.value
         )
 
         return snowflake_id
 
+    def parse(self, snowflake_id: int) -> tuple[float, int, int, int]:
+        counter_bits, pid_bits = self.counter_bits, self.pid_bits
+        sid_bits = self.sid_bits
 
-def parse_id(snowflake_id: int) -> tuple[float, int, int, int]:
-    timestamp = (
-        (snowflake_id >> (COUNTER_BITS + SID_BITS + PID_BITS)) +
-        EPOCH
-    )
+        timestamp = (
+            (snowflake_id >> (counter_bits + sid_bits + pid_bits)) +
+            self.epoch
+        )
 
-    unique = (
-        (snowflake_id >> (COUNTER_BITS + SID_BITS)) &
-        ((1 << PID_BITS) - 1)
-    )
+        unique = (
+            (snowflake_id >> (counter_bits + sid_bits)) &
+            ((1 << pid_bits) - 1)
+        )
 
-    action = (snowflake_id >> COUNTER_BITS) & ((1 << SID_BITS) - 1)
+        server_id = (snowflake_id >> counter_bits) & ((1 << sid_bits) - 1)
 
-    counter = snowflake_id & ((1 << COUNTER_BITS) - 1)
+        counter = snowflake_id & ((1 << counter_bits) - 1)
 
-    return timestamp/1000, action, unique, counter
+        return timestamp/1000, server_id, unique, counter
 
 
 async def generate_token(
@@ -132,3 +140,8 @@ async def decode_token(token: str, key: bytes | str) -> dict:
             "success": False,
             "msg": "DECODE_ERROR"
         }
+
+
+snowflake = SnowflakeGeneration()
+generate_id = snowflake.generate
+parse_id = snowflake.parse

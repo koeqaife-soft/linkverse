@@ -12,3 +12,4 @@ hypercorn
 colorama
 types-colorama
 json5
+atomic
