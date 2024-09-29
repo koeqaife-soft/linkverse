@@ -277,3 +277,17 @@ async def check_token(
         return Status(False, message="INVALID_TOKEN")
 
     return Status(True, data=decoded)
+
+
+async def remove_secret(
+    secret: str, user_id: int,
+    db: connection_type
+) -> Status[None]:
+    async with db.transaction():
+        await db.execute(
+            """
+            DELETE FROM auth_keys
+            WHERE user_id = $1 AND token_secret = $2;
+            """, user_id, secret
+        )
+    return Status(True)

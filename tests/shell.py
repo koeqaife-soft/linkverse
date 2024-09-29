@@ -21,6 +21,7 @@ class Endpoints:
         self.login = "/v1/auth/login"
         self.register = "/v1/auth/register"
         self.refresh = "/v1/auth/refresh"
+        self.logout = "/v1/auth/logout"
         self.posts = "/v1/posts"
         self.post_actions = "/v1/posts/{}"
 
@@ -164,10 +165,14 @@ class Auth:
         if not Session.is_login:
             print("Not in account!")
             return
+        r = requests.post(Endpoints().logout,
+                          headers=Session().headers)
         Session.is_login = False
         Session.current_refresh = ""
         Session.current_token = ""
-        print("Success")
+        result = handle_response(r)
+        if result:
+            print(dict_format(result))
 
     def do_get_tokens(self, arg):
         if not Session.is_login:

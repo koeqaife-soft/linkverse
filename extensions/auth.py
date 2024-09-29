@@ -1,7 +1,7 @@
 import asyncpg
 from quart import Blueprint, Quart, Response
 from core import response, Global, error_response, route
-from quart import g
+from quart import g, request
 import utils.auth as auth
 
 bp = Blueprint('auth', __name__)
@@ -57,6 +57,28 @@ async def refresh() -> tuple[Response, int]:
         return error_response(result), 400
 
     return response(data=result.data), 200
+
+
+@route(bp, '/auth/logout', methods=['POST'])
+async def logout() -> tuple[Response, int]:
+    token = request.headers.get("Authorization")
+    if token is None:
+        return response(error=True, error_msg="UNAUTHORIZED"), 401
+
+    async with pool.acquire() as db:
+        result = await auth.check_token(token, db)
+
+        if not result.success:
+            return error_response(result), 400
+
+        data = result.data or {}
+        result2 = await auth.remove_secret(
+            data["secret"], data["user_id"], db
+        )
+
+        if not result2.success:
+            return error_response(result2), 500
+    return response(), 204
 
 
 def load(app: Quart):
