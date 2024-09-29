@@ -85,7 +85,6 @@ async def before():
                 if key in _data["optional_data"]:
                     options = core.get_options(_data["optional_data"][key])
                     if not core.validate(value, options):
-                        print(key, value, options)
                         return data_error
 
     url_rule = str(request.url_rule).lstrip("/").split("/")
