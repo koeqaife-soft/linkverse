@@ -3,22 +3,26 @@
         register: {
             load_data: true,
             data: {
-                username: "min_len:4;",
-                password: "min_len:8;",
-                email: "min_len:5;"
+                username: { min_len: 4 },
+                password: { min_len: 8 },
+                email: {
+                    min_len: 5,
+                    max_len: 254,
+                    regex: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+                }
             }
         },
         login: {
             load_data: true,
             data: {
-                password: "min_len:8;",
-                email: "min_len:5;"
+                password: { min_len: 8 },
+                email: { min_len: 5 }
             }
         },
         refresh: {
             load_data: true,
             data: {
-                refresh_token: ";"
+                refresh_token: {}
             }
         }
     },
@@ -26,19 +30,19 @@
         create_post: {
             load_data: true,
             data: {
-                content: "min_len:1;max_len:1024;"
+                content: { min_len: 1, max_len: 1024 }
             },
             optional_data: {
-                tags: "is_list:1;",
-                media: "is_list:1;"
+                tags: { type: "list" },
+                media: { type: "list" }
             }
         },
         update_post: {
             load_data: true,
             optional_data: {
-                content: "min_len:1;max_len:1024;",
-                tags: "is_list:1;",
-                media: "is_list:1;"
+                content: { min_len: 1, max_len: 1024 },
+                tags: { type: "list" },
+                media: { type: "list" }
             }
         }
     }

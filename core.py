@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import re
 from typing import overload
 import typing as t
 import json
@@ -244,8 +245,10 @@ def get_value_from_dict(d: dict, key: str) -> dict:
     return d
 
 
-def get_options(options_str: str) -> dict:
-    _options = options_str.split(";")
+def get_options(options: str | dict) -> dict:
+    if isinstance(options, dict):
+        return options
+    _options = options.split(";")
     options = {}
     for option in _options:
         if len(option) <= 1:
@@ -257,29 +260,24 @@ def get_options(options_str: str) -> dict:
 
 
 def validate(value: t.Any, options: dict) -> bool:
-    is_dict = options.get("is_dict", "0") == "1"
-    is_list = options.get("is_list", "0") == "1"
-    is_int = options.get("is_int", "0") == "1"
-    is_bool = options.get("is_bool", "0") == "1"
+    type_map = {
+        "dict": lambda v, _: isinstance(v, dict),
+        "list": validate_list,
+        "int": validate_int,
+        "bool": lambda v, _: isinstance(v, bool),
+        "str": validate_string
+    }
 
     if value is None:
         return False
 
-    if isinstance(value, dict) and is_dict:
-        return True
-    elif isinstance(value, list) and is_list:
-        return validate_list(value, options)
-    elif isinstance(value, int) and is_int:
-        return validate_int(value, options)
-    elif isinstance(value, bool) and is_bool:
-        return True
-    elif isinstance(value, str):
-        return validate_string(value, options)
-
-    return False
+    return type_map.get(options.get("type", "str"),
+                        validate_string)(value, options)
 
 
 def validate_list(value: list, options: dict) -> bool:
+    if not isinstance(value, list):
+        return False
     checks = {
         "min_len": lambda s, v: len(s) >= int(v),
         "max_len": lambda s, v: len(s) <= int(v),
@@ -294,6 +292,8 @@ def validate_list(value: list, options: dict) -> bool:
 
 
 def validate_int(value: int, options: dict) -> bool:
+    if not isinstance(value, int):
+        return False
     checks = {
         "min": lambda s, v: s >= int(v),
         "max": lambda s, v: s <= int(v)
@@ -307,11 +307,17 @@ def validate_int(value: int, options: dict) -> bool:
 
 
 def validate_string(value: str, options: dict) -> bool:
+    if not isinstance(value, str):
+        return False
     checks = {
         "min_len": lambda s, v: len(s) >= int(v),
         "max_len": lambda s, v: len(s) <= int(v),
         "len": lambda s, v: len(s) == int(v),
     }
+
+    if "regex" in options:
+        if not re.match(options["regex"], value):
+            return False
 
     for option, check in checks.items():
         if option in options and not check(value, options[option]):
