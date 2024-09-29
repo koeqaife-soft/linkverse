@@ -78,10 +78,10 @@ async def refresh(token: str, session: aiohttp.ClientSession) -> str | None:
     return None
 
 
-async def stress(n: int) -> None:
+async def stress(n: int) -> tuple[float, float]:
     session = aiohttp.ClientSession()
     try:
-        logging.info("Generating account list")
+        logging.debug("Generating account list")
         accounts = []
         for _ in range(n):
             nickname = generate_random_string(10)
@@ -89,7 +89,7 @@ async def stress(n: int) -> None:
             password = generate_random_string(32)
             accounts.append((nickname, mail, password))
 
-        logging.info("Registering accounts...")
+        logging.debug("Registering accounts...")
         start = time.perf_counter()
 
         tasks = [asyncio.create_task(register(x[0], x[1], x[2], session))
@@ -97,19 +97,21 @@ async def stress(n: int) -> None:
         await asyncio.gather(*tasks)
 
         elapsed = round(time.perf_counter() - start, 5)
-        logging.info(f"Registration complete. Time: {elapsed} seconds")
+        logging.debug(f"Registration complete. Time: {elapsed} seconds")
 
-        logging.info("Logging into accounts")
+        await asyncio.sleep(1)
+        logging.debug("Logging into accounts")
         start = time.perf_counter()
 
         tasks = [asyncio.create_task(login(x[1], x[2], session))
                  for x in accounts]
         await asyncio.gather(*tasks)
 
-        elapsed = round(time.perf_counter() - start, 5)
-        logging.info(f"Login complete. Time: {elapsed} seconds")
+        elapsed2 = round(time.perf_counter() - start, 5)
+        logging.debug(f"Login complete. Time: {elapsed2} seconds")
     finally:
         await session.close()
+    return elapsed, elapsed2
 
 
 async def main() -> None:
@@ -144,8 +146,29 @@ async def main() -> None:
             if result:
                 print(result)
         case "4":
-            n = int(input("Number of accounts> "))
-            await stress(n)
+            n = int(input("Number of accounts> ") or 5)
+            n2 = int(input("Number of tests> ") or 1)
+            interval = int(input("Interval> ") or 2)
+            register_times = []
+            login_times = []
+            for i in range(n2):
+                logging.info(f"Starting test #{i+1}")
+                reg, _login = await stress(n)
+                logging.info(f"Register: {reg} s. Login: {_login} s")
+                register_times.append(reg)
+                login_times.append(_login)
+                if i+1 < n2:
+                    await asyncio.sleep(interval)
+
+            print()
+            if n2 > 1:
+                _min = min(*register_times)
+                _max = max(*register_times)
+                logging.info(f"Register -> Min: {_min} s, Max: {_max} s")
+
+                _min = min(*login_times)
+                _max = max(*login_times)
+                logging.info(f"Login -> Min: {_min} s, Max: {_max} s")
 
 
 if __name__ == "__main__":
