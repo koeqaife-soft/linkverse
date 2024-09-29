@@ -1,5 +1,5 @@
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import os
 import re
 from utils.generation import parse_id, generate_id
@@ -18,7 +18,7 @@ secret_refresh_key = os.environ["SECRET_REFRESH_KEY"]
 @dataclass
 class User:
     username: str
-    id: int
+    user_id: int
     email: str
     password_hash: str
     display_name: str | None = None
@@ -33,14 +33,13 @@ class User:
             return self._created_at
 
     @property
-    def dict(self):
-        return {
-            "username": self.username,
-            "display_name": self.display_name,
-            "id": self.id,
-            "avatar_url": self.avatar_url,
-            "created_at": self.created_at
-        }
+    def dict(self) -> dict:
+        _dict = asdict(self)
+        _dict["created_at"] = self.created_at
+        return _dict
+
+    def __dict__(self):
+        return self.dict
 
     @staticmethod
     def validate_username(nickname: str) -> bool:
@@ -108,11 +107,7 @@ async def get_user(
     if row is None:
         return Status(False, message="USER_DOES_NOT_EXIST")
 
-    return Status(True, data=User(
-        username=row['username'], id=row['user_id'],
-        email=row['email'], password_hash=row['password_hash'],
-        display_name=row['display_name'], avatar_url=row['avatar_url']
-    ))
+    return Status(True, data=User(**dict(row)))
 
 
 async def create_user(
@@ -157,11 +152,11 @@ async def login(
         return Status(False, message="INCORRECT_PASSWORD")
     new_secret = generate_key()
     access = await generate_token(
-        user.data.id, secret_key, False,
+        user.data.user_id, secret_key, False,
         new_secret
     )
     refresh = await generate_token(
-        user.data.id, secret_refresh_key, True,
+        user.data.user_id, secret_refresh_key, True,
         new_secret
     )
     async with db.transaction():
@@ -169,7 +164,7 @@ async def login(
             """
             INSERT INTO auth_keys (user_id, token_secret)
             VALUES ($1, $2)
-            """, user.data.id, new_secret
+            """, user.data.user_id, new_secret
         )
     return Status(True, {
         "access": access,
