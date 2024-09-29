@@ -1,4 +1,3 @@
-import math
 import os
 import re
 import asyncpg
@@ -6,9 +5,18 @@ from core import worker_count, _logger
 from _types import connection_type
 
 
+def calculate_max_connections(max_shared: int, worker_count: int) -> int:
+    _worker_count = max(worker_count, 1)
+    _max_shared = max(max_shared - 5, 1)
+
+    max_connections = _max_shared // _worker_count
+
+    return max(max_connections, 1)
+
+
 async def create_pool(**config) -> asyncpg.pool.Pool:
-    _max_shared = max(int(config.pop("max_shared", 100))-5, 1)
-    max_connections = max(math.ceil(_max_shared/worker_count), 1)
+    max_shared = int(config.pop("max_shared", 100))
+    max_connections = calculate_max_connections(max_shared, worker_count)
 
     pool = await asyncpg.create_pool(
         **config,
