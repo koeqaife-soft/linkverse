@@ -14,8 +14,11 @@ def generate_random_string(length: int) -> str:
 
 async def register(
     username: str, email: str, password: str,
-    session: aiohttp.ClientSession
+    session: aiohttp.ClientSession,
+    start_event: asyncio.Event | None = None
 ) -> str | None:
+    if start_event is not None:
+        await start_event.wait()
     text = ""
     try:
         async with session.post(
@@ -38,8 +41,11 @@ async def register(
 
 async def login(
     email: str, password: str,
-    session: aiohttp.ClientSession
+    session: aiohttp.ClientSession,
+    start_event: asyncio.Event | None = None
 ) -> str | None:
+    if start_event is not None:
+        await start_event.wait()
     text = ""
     try:
         async with session.post(
@@ -59,7 +65,12 @@ async def login(
     return None
 
 
-async def refresh(token: str, session: aiohttp.ClientSession) -> str | None:
+async def refresh(
+    token: str, session: aiohttp.ClientSession,
+    start_event: asyncio.Event | None = None
+) -> str | None:
+    if start_event is not None:
+        await start_event.wait()
     text = ""
     try:
         async with session.post(
@@ -89,22 +100,36 @@ async def stress(n: int) -> tuple[float, float]:
             password = generate_random_string(32)
             accounts.append((nickname, mail, password))
 
+        logging.debug("Preparing tasks...")
+        start_event = asyncio.Event()
+        tasks = [
+            asyncio.create_task(
+                register(x[0], x[1], x[2], session, start_event)
+            )
+            for x in accounts
+        ]
+
         logging.debug("Registering accounts...")
         start = time.perf_counter()
-
-        tasks = [asyncio.create_task(register(x[0], x[1], x[2], session))
-                 for x in accounts]
+        start_event.set()
         await asyncio.gather(*tasks)
 
         elapsed = round(time.perf_counter() - start, 5)
         logging.debug(f"Registration complete. Time: {elapsed} seconds")
 
+        logging.debug("Waiting 1 second")
         await asyncio.sleep(1)
-        logging.debug("Logging into accounts")
-        start = time.perf_counter()
 
-        tasks = [asyncio.create_task(login(x[1], x[2], session))
-                 for x in accounts]
+        logging.debug("Preparing login tasks...")
+        start_event = asyncio.Event()
+        tasks = [
+            asyncio.create_task(login(x[1], x[2], session, start_event))
+            for x in accounts
+        ]
+
+        logging.debug("Logging into accounts...")
+        start = time.perf_counter()
+        start_event.set()
         await asyncio.gather(*tasks)
 
         elapsed2 = round(time.perf_counter() - start, 5)
