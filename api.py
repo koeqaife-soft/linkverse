@@ -71,12 +71,15 @@ async def before():
             keys_present = (
                 data and core.are_all_keys_present(_data["data"], data)
             )
+            if not keys_present:
+                return data_error
+
             valid_data = all(
                 core.validate(data[key], core.get_options(value))
                 for key, value in _data["data"].items()
                 if key in data
             )
-            if not keys_present or not valid_data:
+            if not valid_data:
                 return data_error
 
         if "optional_data" in _data:
