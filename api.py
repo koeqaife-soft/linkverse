@@ -68,16 +68,15 @@ async def before():
         data = (await request.get_json()) or {}
         g.data = data
         if "data" in _data:
-            if (
-                not data or not core.are_all_keys_present(_data["data"], data)
-                or any(
-                    not core.validate(
-                        data[key], core.get_options(value)
-                    )
-                    for key, value in _data["data"].items()
-                    if key in data
-                )
-            ):
+            keys_present = (
+                data and core.are_all_keys_present(_data["data"], data)
+            )
+            valid_data = all(
+                core.validate(data[key], core.get_options(value))
+                for key, value in _data["data"].items()
+                if key in data
+            )
+            if not keys_present or not valid_data:
                 return data_error
 
         if "optional_data" in _data:
