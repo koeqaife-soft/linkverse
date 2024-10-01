@@ -5,8 +5,8 @@ CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts (created_at);
 CREATE INDEX IF NOT EXISTS idx_posts_status ON posts (status);
 CREATE INDEX IF NOT EXISTS idx_posts_is_deleted ON posts (is_deleted);
 
-CREATE INDEX IF NOT EXISTS idx_likes_user_id ON likes (user_id);
-CREATE INDEX IF NOT EXISTS idx_likes_post_id ON likes (post_id);
+CREATE INDEX IF NOT EXISTS idx_reactions_user_id ON reactions (user_id);
+CREATE INDEX IF NOT EXISTS idx_reactions_post_id ON reactions (post_id);
 
 CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments (user_id);
 CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments (post_id);
