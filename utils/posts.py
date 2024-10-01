@@ -79,7 +79,10 @@ async def create_post(
         )
         created_post = await db.fetchrow(
             """
-            SELECT * FROM posts WHERE post_id = $1
+            SELECT post_id, user_id, content, created_at, updated_at,
+                   likes_count, comments_count, tags, media, status,
+                   is_deleted, dislikes_count
+            FROM posts WHERE post_id = $1
             """, post_id
         )
 
