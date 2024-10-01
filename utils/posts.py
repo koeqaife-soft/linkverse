@@ -13,6 +13,7 @@ class Post:
     created_at: datetime.datetime
     updated_at: datetime.datetime
     likes_count: int
+    dislikes_count: int
     comments_count: int
     tags: list[str]
     media: list[str]
@@ -49,7 +50,8 @@ async def get_post(
 
     query = f"""
         SELECT post_id, user_id, content, created_at, updated_at,
-               likes_count, comments_count, tags, media, status, is_deleted
+               likes_count, comments_count, tags, media, status, is_deleted,
+               dislikes_count
         FROM posts
         WHERE {' AND '.join(conditions)} AND is_deleted = FALSE
     """
