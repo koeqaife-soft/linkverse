@@ -21,8 +21,6 @@ class User:
     user_id: int
     email: str
     password_hash: str
-    display_name: str | None = None
-    avatar_url: str | None = None
 
     @property
     def created_at(self):
@@ -97,8 +95,7 @@ async def get_user(
         values.append(value)
 
     query = f"""
-        SELECT username, user_id, email, password_hash,
-            display_name, avatar_url
+        SELECT username, user_id, email, password_hash
         FROM users
         WHERE {' AND '.join(conditions)}
     """

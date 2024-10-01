@@ -2,9 +2,7 @@ CREATE TABLE IF NOT EXISTS users (
     user_id BIGINT PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    display_name TEXT,
-    avatar_url TEXT
+    password_hash TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS auth_keys (
