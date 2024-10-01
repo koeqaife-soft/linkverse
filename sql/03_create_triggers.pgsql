@@ -13,14 +13,21 @@ END;$$;
 DO
 $$BEGIN
     CREATE TRIGGER trigger_likes_insert
-    AFTER INSERT ON likes
+    AFTER INSERT ON reactions
     FOR EACH ROW
-    EXECUTE FUNCTION increment_likes_count();
+    EXECUTE FUNCTION update_likes_count_on_insert();
 
     CREATE TRIGGER trigger_likes_delete
-    AFTER DELETE ON likes
+    AFTER DELETE ON reactions
     FOR EACH ROW
-    EXECUTE FUNCTION decrement_likes_count();
+    EXECUTE FUNCTION update_likes_count_on_delete();
+
+    CREATE TRIGGER trigger_likes_update
+    AFTER UPDATE ON reactions
+    FOR EACH ROW
+    WHEN (OLD.is_like IS DISTINCT FROM NEW.is_like)
+    EXECUTE FUNCTION update_likes_count_on_update();
+
 EXCEPTION
     WHEN duplicate_object THEN
         NULL;
