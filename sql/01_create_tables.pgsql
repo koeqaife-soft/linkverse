@@ -8,9 +8,10 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS auth_keys (
+    uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id BIGINT NOT NULL,
     token_secret TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     UNIQUE (token_secret, user_id)
 );
@@ -19,9 +20,10 @@ CREATE TABLE IF NOT EXISTS posts (
     post_id BIGINT PRIMARY KEY,
     user_id BIGINT NOT NULL,
     content TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     likes_count INT DEFAULT 0,
+    dislikes_count INT DEFAULT 0,
     comments_count INT DEFAULT 0,
     tags TEXT[],
     media TEXT[],
@@ -31,15 +33,19 @@ CREATE TABLE IF NOT EXISTS posts (
     ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS likes (
+CREATE TABLE IF NOT EXISTS reactions (
+    uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     post_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
+    is_like BOOLEAN NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
     FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (post_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS comments (
+    comment_id BIGINT PRIMARY KEY,
     post_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
     content TEXT NOT NULL,
