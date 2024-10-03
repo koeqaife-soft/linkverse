@@ -79,5 +79,36 @@ async def update_post(id: int) -> tuple[Response, int]:
     return response(), 204
 
 
+@route(bp, "/posts/<int:id>/reactions", methods=["POST"])
+async def add_reaction(id: int) -> tuple[Response, int]:
+    data = g.data
+    is_like: bool = data.get("is_like")
+
+    async with pool.acquire() as db:
+        post = await posts.get_post({"post_id": id}, db)
+        if not post.success:
+            return error_response(post), 400
+        result = await posts.add_reaction(g.user_id, is_like, id, db)
+
+    if not result.success:
+        return error_response(result), 500
+
+    return response(), 204
+
+
+@route(bp, "/posts/<int:id>/reactions", methods=["DELETE"])
+async def rem_reaction(id: int) -> tuple[Response, int]:
+    async with pool.acquire() as db:
+        post = await posts.get_post({"post_id": id}, db)
+        if not post.success:
+            return error_response(post), 400
+        result = await posts.rem_reaction(g.user_id, id, db)
+
+    if not result.success:
+        return error_response(result), 500
+
+    return response(), 204
+
+
 def load(app: Quart):
     app.register_blueprint(bp)

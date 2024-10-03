@@ -139,3 +139,42 @@ async def update_post(
         )
 
     return Status(True)
+
+
+async def add_reaction(
+    user_id: int, is_like: bool,
+    post_id: int, db: connection_type
+) -> Status[None]:
+    result = await db.fetchval(
+        """
+        SELECT is_like FROM reactions
+        WHERE user_id = $1 AND post_id = $2
+        """, user_id, post_id
+    )
+    if result == is_like:
+        return Status(True)
+
+    async with db.transaction():
+        await db.execute(
+            """
+            INSERT INTO reactions (user_id, post_id, is_like)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id, post_id)
+            DO UPDATE SET is_like = excluded.is_like
+            """, user_id, post_id, is_like
+        )
+    return Status(True)
+
+
+async def rem_reaction(
+    user_id: int, post_id: int,
+    db: connection_type
+) -> Status[None]:
+    async with db.transaction():
+        await db.execute(
+            """
+            DELETE FROM reactions
+            WHERE user_id = $1 AND post_id = $2
+            """, user_id, post_id
+        )
+    return Status(True)

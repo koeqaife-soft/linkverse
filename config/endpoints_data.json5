@@ -40,6 +40,12 @@
                 tags: { type: "list" },
                 media: { type: "list" }
             }
+        },
+        add_reaction: {
+            load_data: true,
+            data: {
+                is_like: { type: "bool" }
+            }
         }
     }
 }

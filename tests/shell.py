@@ -24,6 +24,7 @@ class Endpoints:
         self.logout = "/v1/auth/logout"
         self.posts = "/v1/posts"
         self.post_actions = "/v1/posts/{}"
+        self.post_reactions = "/v1/posts/{}/reactions"
 
     def __getattribute__(self, name: str) -> _str:
         attr = super().__getattribute__(name)
@@ -260,6 +261,43 @@ class Posts:
         r = requests.patch(
             Endpoints().post_actions.f(arg),
             headers=Session().headers, json=data
+        )
+        result = handle_response(r)
+        if result:
+            print(dict_format(result))
+
+    def do_reaction(self, arg):
+        if not Session.is_login:
+            print("Not in account!")
+            return
+        is_like = None
+        while is_like is None:
+            _is_like = input("Is like? (y/n): ")
+            if _is_like == "y":
+                is_like = True
+            elif _is_like == "n":
+                is_like = False
+
+        data = {
+            "is_like": is_like
+        }
+
+        r = requests.post(
+            Endpoints().post_reactions.f(arg),
+            headers=Session().headers, json=data
+        )
+        result = handle_response(r)
+        if result:
+            print(dict_format(result))
+
+    def do_rem_reaction(self, arg):
+        if not Session.is_login:
+            print("Not in account!")
+            return
+
+        r = requests.delete(
+            Endpoints().post_reactions.f(arg),
+            headers=Session().headers
         )
         result = handle_response(r)
         if result:
