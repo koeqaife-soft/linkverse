@@ -16,7 +16,7 @@ secret_refresh_key = os.environ["SECRET_REFRESH_KEY"]
 
 
 @dataclass
-class User:
+class AuthUser:
     username: str
     user_id: int
     email: str
@@ -84,7 +84,7 @@ async def check_password(stored: str, password: str) -> bool:
 
 async def get_user(
     where: dict[str, t.Any], db: connection_type
-) -> Status[User | None]:
+) -> Status[AuthUser | None]:
     if not where:
         raise ValueError("The 'where' dictionary must not be empty")
 
@@ -104,7 +104,7 @@ async def get_user(
     if row is None:
         return Status(False, message="USER_DOES_NOT_EXIST")
 
-    return Status(True, data=User(**dict(row)))
+    return Status(True, data=AuthUser(**dict(row)))
 
 
 async def create_user(
@@ -129,7 +129,7 @@ async def create_user(
 async def check_username(
     username: str, db: connection_type
 ) -> Status[None]:
-    if len(username) < 4 or not User.validate_username(username):
+    if len(username) < 4 or not AuthUser.validate_username(username):
         return Status(False, message="INCORRECT_FORMAT")
     user = await get_user({"username": username}, db)
     if user.data is not None:
