@@ -7,6 +7,8 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s]: %(message)s')
 
+ip = 'http://localhost'
+
 
 def generate_random_string(length: int) -> str:
     return ''.join(random.choices(string.ascii_lowercase, k=length))
@@ -22,7 +24,7 @@ async def register(
     text = ""
     try:
         async with session.post(
-            "http://localhost:6169/v1/auth/register",
+            f"{ip}:6169/v1/auth/register",
             json={
                 "username": username,
                 "email": email,
@@ -49,7 +51,7 @@ async def login(
     text = ""
     try:
         async with session.post(
-            "http://localhost:6169/v1/auth/login",
+            f"{ip}:6169/v1/auth/login",
             json={
                 "email": email,
                 "password": password
@@ -74,7 +76,7 @@ async def refresh(
     text = ""
     try:
         async with session.post(
-            "http://localhost:6169/v1/auth/refresh",
+            f"{ip}:6169/v1/auth/refresh",
             json={
                 "refresh_token": token
             }
