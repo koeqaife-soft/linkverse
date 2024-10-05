@@ -45,14 +45,22 @@ def response(
 @overload
 def response(
     *, error: bool, data: dict = {},
-    error_msg: str
+    error_msg: str,
+    **kwargs
+) -> Response:
+    ...
+
+
+@overload
+def response(
+    *, data: dict = ..., **kwargs
 ) -> Response:
     ...
 
 
 def response(
     *, error: bool | None = None, data: dict = {},
-    error_msg: str | None = None
+    error_msg: str | None = None, **kwargs
 ) -> Response:
     _response = {
         "success": not error,
@@ -62,7 +70,8 @@ def response(
         _response["error"] = error_msg
     return Response(
         json.dumps(_response, default=_serializer),
-        content_type="application/json"
+        content_type="application/json",
+        **kwargs
     )
 
 
