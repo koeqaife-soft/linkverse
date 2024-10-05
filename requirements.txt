@@ -9,6 +9,7 @@ cryptography
 aiohttp
 uvloop
 hypercorn
+hypercorn[uvloop]
 colorama
 types-colorama
 json5
