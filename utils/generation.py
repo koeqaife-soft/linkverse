@@ -1,8 +1,8 @@
 import datetime
 import time
 import os
-from utils.encryption import chacha20_decrypt as decrypt
-from utils.encryption import chacha20_encrypt as encrypt
+from utils.encryption import encode_seeded_base62_parallel as encode
+from utils.encryption import decode_seeded_base62_parallel as decode
 from utils.encryption import verify_signature, generate_signature
 from core import get_proc_identity
 from atomic import AtomicLong  # type: ignore
@@ -85,8 +85,11 @@ async def generate_token(
          else datetime.timedelta(days=7))
     ).timestamp())
 
-    combined_data = f"{user_id}.{expiration}.{secret}".encode()
-    encrypted_data = await encrypt(combined_data, key)
+    combined_data = f"{user_id}.{expiration}.{secret}"
+    encrypted_data = await encode(
+        combined_data, key,
+        len(combined_data) // 3 + 1
+    )
 
     signature = generate_signature(encrypted_data, SECRET_KEY)
 
@@ -118,7 +121,7 @@ async def decode_token(token: str, key: bytes | str) -> dict:
                 "msg": "INVALID_SIGNATURE"
             }
 
-        decrypted_data = (await decrypt(token_payload, key)).decode()
+        decrypted_data = (await decode(token_payload, key)).decode()
         user_id, expiration, secret = decrypted_data.split('.')
 
         expiration_timestamp = int(expiration)

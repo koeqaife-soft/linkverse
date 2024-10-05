@@ -6,6 +6,7 @@ from functools import lru_cache
 import string
 import hmac
 import hashlib
+import random
 import asyncio
 
 BASE62_ALPHABET = string.digits + string.ascii_letters
@@ -47,6 +48,102 @@ def decode_base62(encoded: str) -> bytes:
 
     byte_length = (num.bit_length() + 7) // 8
     return num.to_bytes(byte_length, byteorder='big')
+
+
+def _generate_nonce(length: int = 4) -> str:
+    alphabet = BASE62_ALPHABET
+    return ''.join(random.choice(alphabet) for _ in range(length))
+
+
+def generate_alphabet(seed: str | bytes, nonce: str | bytes = "") -> str:
+    _seed = prepare_key(seed)
+    if isinstance(nonce, str):
+        nonce = nonce.encode()
+    _random = random.Random(_seed + nonce)
+    alphabet = list(BASE62_ALPHABET)
+    _random.shuffle(alphabet)
+    return ''.join(alphabet)
+
+
+async def _decode_char_to_index(char: str, alphabet: str) -> int:
+    try:
+        return alphabet.index(char)
+    except ValueError:
+        return -1
+
+
+async def encode_alphabet_base62(data: bytes | str, alphabet: str) -> str:
+    if isinstance(data, str):
+        data = data.encode()
+    num = int.from_bytes(data, byteorder='big', signed=False)
+
+    if num == 0:
+        return alphabet[0]
+
+    base = len(alphabet)
+    base62 = []
+
+    while num:
+        num, rem = divmod(num, base)
+        base62.append(alphabet[rem])
+
+    return ''.join(reversed(base62))
+
+
+async def decode_alphabet_base62(encoded: str, alphabet: str) -> bytes:
+    base = len(alphabet)
+
+    tasks = [
+        asyncio.create_task(_decode_char_to_index(char, alphabet))
+        for char in encoded
+    ]
+    char_to_index = await asyncio.gather(*tasks)
+
+    if any(idx < 0 for idx in char_to_index):
+        invalid_char = encoded[char_to_index.index(-1)]
+        raise ValueError(f"Character '{invalid_char}' not found in alphabet.")
+
+    num = sum(
+        idx * (base ** power)
+        for power, idx in enumerate(reversed(char_to_index))
+    )
+
+    byte_length = (num.bit_length() + 7) // 8 or 1
+    return num.to_bytes(byte_length, byteorder='big')
+
+
+async def encode_seeded_base62_parallel(
+    data: str | bytes, seed: str | bytes,
+    group_size: int = 3
+) -> str:
+    nonce = _generate_nonce(12)
+    groups = [
+        data[i:i + group_size]
+        for i in range(0, len(data), group_size)
+    ]
+
+    alphabet = generate_alphabet(seed, nonce.encode())
+
+    encoded_groups = await asyncio.gather(
+        *(encode_alphabet_base62(group, alphabet) for group in groups)
+    )
+
+    return nonce + "-".join(encoded_groups)
+
+
+async def decode_seeded_base62_parallel(
+    encoded: str, seed: str | bytes
+) -> bytes:
+    nonce, encoded = encoded[:12], encoded[12:]
+    groups = encoded.split("-")
+
+    alphabet = generate_alphabet(seed, nonce.encode())
+
+    decoded_groups = await asyncio.gather(
+        *(decode_alphabet_base62(group, alphabet) for group in groups)
+    )
+
+    return b''.join(decoded_groups)
 
 
 def generate_chacha20_key() -> bytes:
