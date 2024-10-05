@@ -3,6 +3,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd $SCRIPT_DIR
 
 source .env
 
@@ -21,5 +22,6 @@ fi
 export _WORKER_COUNT=$WORKER_COUNT
 export PYTHONPATH=$SCRIPT_DIR
 
+source $SCRIPT_DIR/env/bin/activate
 python -OO init_db.py
-hypercorn -w "$WORKER_COUNT" -b 0.0.0.0:6169 api:app --keep-alive 30 --log-level error
+hypercorn -w "$WORKER_COUNT" -b 0.0.0.0:6169 api:app --keep-alive 30 --log-level error -k uvloop
