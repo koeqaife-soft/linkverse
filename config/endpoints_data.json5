@@ -3,7 +3,7 @@
         register: {
             load_data: true,
             data: {
-                username: { min_len: 4 },
+                username: { min_len: 4, max_len: 16 },
                 password: { min_len: 8 },
                 email: { type: "email" }
             }
