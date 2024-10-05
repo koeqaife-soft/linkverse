@@ -28,7 +28,7 @@ async def create_post() -> tuple[Response, int]:
 @route(bp, "/posts/<int:id>", methods=["GET"])
 async def get_post(id: int) -> tuple[Response, int]:
     async with pool.acquire() as db:
-        result = await posts.get_post({"post_id": id}, db)
+        result = await posts.get_post(id, db)
 
     if not result.success:
         return error_response(result), 400
@@ -42,7 +42,7 @@ async def get_post(id: int) -> tuple[Response, int]:
 @route(bp, "/posts/<int:id>", methods=["DELETE"])
 async def delete_post(id: int) -> tuple[Response, int]:
     async with pool.acquire() as db:
-        post = await posts.get_post({"post_id": id}, db)
+        post = await posts.get_post(id, db)
         if not post.success:
             return error_response(post), 400
         if post.data.user_id != g.user_id:  # type: ignore
@@ -66,7 +66,7 @@ async def update_post(id: int) -> tuple[Response, int]:
         return response(error=True, error_msg="INCORRECT_DATA"), 400
 
     async with pool.acquire() as db:
-        post = await posts.get_post({"post_id": id}, db)
+        post = await posts.get_post(id, db)
         if not post.success:
             return error_response(post), 400
         if post.data.user_id != g.user_id:  # type: ignore
@@ -85,7 +85,7 @@ async def add_reaction(id: int) -> tuple[Response, int]:
     is_like: bool = data.get("is_like")
 
     async with pool.acquire() as db:
-        post = await posts.get_post({"post_id": id}, db)
+        post = await posts.get_post(id, db)
         if not post.success:
             return error_response(post), 400
         result = await posts.add_reaction(g.user_id, is_like, id, db)
@@ -99,7 +99,7 @@ async def add_reaction(id: int) -> tuple[Response, int]:
 @route(bp, "/posts/<int:id>/reactions", methods=["DELETE"])
 async def rem_reaction(id: int) -> tuple[Response, int]:
     async with pool.acquire() as db:
-        post = await posts.get_post({"post_id": id}, db)
+        post = await posts.get_post(id, db)
         if not post.success:
             return error_response(post), 400
         result = await posts.rem_reaction(g.user_id, id, db)

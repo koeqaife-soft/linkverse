@@ -36,26 +36,16 @@ class Post:
 
 
 async def get_post(
-    where: dict[str, int | str | bool],
-    db: connection_type
+    post_id: int, db: connection_type
 ) -> Status[Post | None]:
-    if not where:
-        raise ValueError("The 'where' dictionary must not be empty")
-
-    conditions: list[str] = []
-    values = []
-    for key, value in where.items():
-        conditions.append(f"{key} = ${len(conditions) + 1}")
-        values.append(value)
-
-    query = f"""
+    query = """
         SELECT post_id, user_id, content, created_at, updated_at,
                likes_count, comments_count, tags, media, status, is_deleted,
                dislikes_count
         FROM posts
-        WHERE {' AND '.join(conditions)} AND is_deleted = FALSE
+        WHERE post_id = $1 AND is_deleted = FALSE
     """
-    row = await db.fetchrow(query, *values)
+    row = await db.fetchrow(query, post_id)
 
     if row is None:
         return Status(False, message="POST_DOES_NOT_EXIST")
