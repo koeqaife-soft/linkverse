@@ -1,4 +1,4 @@
-CREATE INDEX IF NOT EXISTS idx_user_id ON auth_keys(user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_keys ON auth_keys(user_id, token_secret);
 
 CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts (user_id);
 CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts (created_at);
