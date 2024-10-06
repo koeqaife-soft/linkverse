@@ -27,7 +27,7 @@ class AuthUser:
         try:
             return self._created_at
         except AttributeError:
-            self._created_at = int(parse_id(self.id)[0])
+            self._created_at = int(parse_id(self.user_id)[0])
             return self._created_at
 
     @property
