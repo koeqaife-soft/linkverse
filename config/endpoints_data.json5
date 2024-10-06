@@ -47,5 +47,18 @@
                 is_like: { type: "bool" }
             }
         }
+    },
+    users: {
+        update_profile_me: {
+            load_data: true,
+            optional_data: {
+                display_name: { min_len: 1, max_len: 16 },
+                avatar_url: { min_len: 1, max_len: 8192 },
+                banner_url: { min_len: 1, max_len: 8192 },
+                bio: { min_len: 1, max_len: 4096 },
+                gender: { min_len: 1, max_len: 32 },
+                languages: { type: "list", min_len: 1, max_len: 32 }
+            }
+        }
     }
 }

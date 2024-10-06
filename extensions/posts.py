@@ -3,6 +3,7 @@ from quart import Blueprint, Quart, Response
 from core import response, Global, route, error_response
 from quart import g
 import utils.posts as posts
+import utils.users as users
 
 bp = Blueprint('posts', __name__)
 _g = Global()
@@ -30,13 +31,17 @@ async def get_post(id: int) -> tuple[Response, int]:
     async with pool.acquire() as db:
         result = await posts.get_post(id, db)
 
-    if not result.success:
-        return error_response(result), 400
+        if not result.success:
+            return error_response(result), 400
+        assert result.data is not None
 
-    if result.data is None:
-        return response(error=True, error_msg="UNKNOWN_ERROR"), 500
+        user = await users.get_user(result.data.user_id, db)
 
-    return response(data=result.data.to_dict()), 200
+    data = result.data.to_dict()
+    if user.data is not None:
+        data["user"] = user.data.dict
+
+    return response(data=data), 200
 
 
 @route(bp, "/posts/<int:id>", methods=["DELETE"])

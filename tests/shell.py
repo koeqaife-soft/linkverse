@@ -25,6 +25,8 @@ class Endpoints:
         self.posts = "/v1/posts"
         self.post_actions = "/v1/posts/{}"
         self.post_reactions = "/v1/posts/{}/reactions"
+        self.user = "/v1/users/me"
+        self.get_user = "/v1/users/{}"
 
     def __getattribute__(self, name: str) -> _str:
         attr = super().__getattribute__(name)
@@ -304,7 +306,60 @@ class Posts:
             print(dict_format(result))
 
 
-class Commands(Auth, Posts):
+class Users:
+    def do_me(self, arg):
+        if not Session.is_login:
+            print("Not in account!")
+            return
+
+        r = requests.get(
+            Endpoints().user,
+            headers=Session().headers
+        )
+
+        result = handle_response(r)
+        if result:
+            print(dict_format(result))
+
+    def do_change_profile(self, arg):
+        if not Session.is_login:
+            print("Not in account!")
+            return
+        str_values = ["display_name", "avatar_url",
+                      "banner_url", "bio", "gender"]
+        list_values = ["languages"]
+
+        data = {}
+        last_answer = ""
+        while last_answer not in ["exit", "send"]:
+            print(dict_format({"data": data}))
+            print(f"Available values (str): {', '.join(str_values)}")
+            print(f"Available values (list): {', '.join(list_values)}")
+            print("Type 'send' to change your profile.")
+
+            last_answer = input(">> ")
+
+            if last_answer in str_values:
+                value = input("Value: ")
+                data[last_answer] = value
+            elif last_answer in list_values:
+                value = input("Value: ")
+                data[last_answer] = value.split(",")
+
+        if last_answer == "exit":
+            return
+
+        r = requests.patch(
+            Endpoints().user, json=data,
+            headers=Session().headers
+        )
+
+        result = handle_response(r)
+        if result:
+            print(dict_format(result))
+
+
+class Commands(Auth, Posts, Users):
     ...
 
 

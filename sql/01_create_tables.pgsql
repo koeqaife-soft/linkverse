@@ -51,3 +51,14 @@ CREATE TABLE IF NOT EXISTS comments (
     FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE,
     UNIQUE (post_id, user_id)
 );
+
+CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id BIGINT PRIMARY KEY,
+    display_name TEXT,
+    avatar_url TEXT,
+    banner_url TEXT,
+    bio TEXT,
+    gender TEXT,
+    languages TEXT[],
+    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+);
