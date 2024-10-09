@@ -1,3 +1,4 @@
+import time
 from typing import Any
 import cmd
 import requests
@@ -98,7 +99,7 @@ def handle_response(r: requests.Response):
 
 
 class Auth:
-    async def _do_register(self, arg):
+    def pre_register(self, arg):
         while True:
             username = input("Username: ")
             email = input("Email: ")
@@ -107,6 +108,13 @@ class Auth:
                 break
             else:
                 print("One of the values is too short. Try again.")
+        return {
+            "username": username,
+            "email": email,
+            "password": password
+        }
+
+    async def _do_register(self, arg, username, email, password):
         try:
             async with aiohttp.ClientSession() as s:
                 _result = await auth.register(username, email, password, s)
@@ -122,7 +130,7 @@ class Auth:
         except Exception as e:
             traceback.print_exception(e)
 
-    async def _do_login(self, arg):
+    def pre_login(self, arg):
         while True:
             email = input("Email: ")
             password = input("Password: ")
@@ -130,6 +138,13 @@ class Auth:
                 break
             else:
                 print("One of the values is too short. Try again.")
+
+        return {
+            "email": email,
+            "password": password
+        }
+
+    async def _do_login(self, arg, email, password):
         try:
             async with aiohttp.ClientSession() as s:
                 _result = await auth.login(email, password, s)
@@ -145,10 +160,12 @@ class Auth:
         except Exception as e:
             traceback.print_exception(e)
 
-    async def _do_refresh(self, arg):
+    def pre_refresh(self, arg):
         if not Session.is_login:
             print("Not in account!")
-            return
+            return True
+
+    async def _do_refresh(self, arg):
         try:
             async with aiohttp.ClientSession() as s:
                 _result = await auth.refresh(Session.current_refresh, s)
@@ -164,10 +181,12 @@ class Auth:
         except Exception as e:
             traceback.print_exception(e)
 
-    def do_logout(self, arg):
+    def pre_logout(self, arg):
         if not Session.is_login:
             print("Not in account!")
-            return
+            return True
+
+    def do_logout(self, arg):
         r = requests.post(Endpoints().logout,
                           headers=Session().headers)
         Session.is_login = False
@@ -177,10 +196,12 @@ class Auth:
         if result:
             print(dict_format(result))
 
-    def do_get_tokens(self, arg):
+    def pre_get_tokens(self, arg):
         if not Session.is_login:
             print("Not in account!")
-            return
+            return True
+
+    def do_get_tokens(self, arg):
         print(dict_format({
             "access": Session.current_token,
             "refresh": Session.current_refresh
@@ -188,10 +209,10 @@ class Auth:
 
 
 class Posts:
-    def do_create_post(self, arg):
+    def pre_create_post(self, arg):
         if not Session.is_login:
             print("Not in account!")
-            return
+            return True
 
         data = {}
         _content = input("Content: ")
@@ -209,6 +230,11 @@ class Posts:
         if _media:
             data["media"] = _media
 
+        return {
+            "data": data
+        }
+
+    def do_create_post(self, arg, data):
         r = requests.post(Endpoints().posts, json=data,
                           headers=Session().headers)
 
@@ -216,10 +242,12 @@ class Posts:
         if result:
             print(dict_format(result))
 
-    def do_get_post(self, arg):
+    def pre_get_post(self, arg):
         if not Session.is_login:
             print("Not in account!")
-            return
+            return True
+
+    def do_get_post(self, arg):
         r = requests.get(
             Endpoints().post_actions.f(arg),
             headers=Session().headers
@@ -228,10 +256,12 @@ class Posts:
         if result:
             print(dict_format(result))
 
-    def do_delete_post(self, arg):
+    def pre_delete_post(self, arg):
         if not Session.is_login:
             print("Not in account!")
-            return
+            return True
+
+    def do_delete_post(self, arg):
         r = requests.delete(
             Endpoints().post_actions.f(arg),
             headers=Session().headers
@@ -240,10 +270,10 @@ class Posts:
         if result:
             print(dict_format(result))
 
-    def do_update_post(self, arg):
+    def pre_update_post(self, arg):
         if not Session.is_login:
             print("Not in account!")
-            return
+            return True
         data = {}
         _content = input("Content: ")
 
@@ -259,7 +289,11 @@ class Posts:
             data["tags"] = _tags
         if _media:
             data["media"] = _media
+        return {
+            "data": data
+        }
 
+    def do_update_post(self, arg, data):
         r = requests.patch(
             Endpoints().post_actions.f(arg),
             headers=Session().headers, json=data
@@ -268,10 +302,11 @@ class Posts:
         if result:
             print(dict_format(result))
 
-    def do_reaction(self, arg):
+    def pre_reaction(self, arg):
         if not Session.is_login:
             print("Not in account!")
-            return
+            return True
+
         is_like = None
         while is_like is None:
             _is_like = input("Is like? (y/n): ")
@@ -280,6 +315,11 @@ class Posts:
             elif _is_like == "n":
                 is_like = False
 
+        return {
+            "is_like": is_like
+        }
+
+    def do_reaction(self, arg, is_like):
         data = {
             "is_like": is_like
         }
@@ -292,11 +332,12 @@ class Posts:
         if result:
             print(dict_format(result))
 
-    def do_rem_reaction(self, arg):
+    def pre_rem_reaction(self, arg):
         if not Session.is_login:
             print("Not in account!")
-            return
+            return True
 
+    def do_rem_reaction(self, arg):
         r = requests.delete(
             Endpoints().post_reactions.f(arg),
             headers=Session().headers
@@ -307,11 +348,12 @@ class Posts:
 
 
 class Users:
-    def do_me(self, arg):
+    def pre_me(self, arg):
         if not Session.is_login:
             print("Not in account!")
-            return
+            return True
 
+    def do_me(self, arg):
         r = requests.get(
             Endpoints().user,
             headers=Session().headers
@@ -321,10 +363,10 @@ class Users:
         if result:
             print(dict_format(result))
 
-    def do_change_profile(self, arg):
+    def pre_change_profile(self, arg):
         if not Session.is_login:
             print("Not in account!")
-            return
+            return True
         str_values = ["display_name", "avatar_url",
                       "banner_url", "bio", "gender"]
         list_values = ["languages"]
@@ -347,8 +389,13 @@ class Users:
                 data[last_answer] = value.split(",")
 
         if last_answer == "exit":
-            return
+            return True
 
+        return {
+            "data": data
+        }
+
+    def do_change_profile(self, arg, data):
         r = requests.patch(
             Endpoints().user, json=data,
             headers=Session().headers
@@ -378,19 +425,55 @@ class Shell(cmd.Cmd, Commands):
         return True
 
     def do_help(self, arg: str):
-        ...
+        attributes = [
+            attr.lstrip("do_").lstrip("_do_")
+            for attr in dir(self)
+            if attr.startswith(('do_', '_do_'))
+        ]
+        print(', '.join(attributes))
 
-    def default(self, line):
-        command, *args = line.split()
-        method = getattr(self, f"_do_{command}", None)
+    def cmdloop(self, intro=None):
+        if intro:
+            print(intro)
+        while True:
+            try:
+                super(Shell, self).cmdloop(intro="")
+                break
+            except KeyboardInterrupt:
+                print("^C")
 
-        if method is not None:
-            if asyncio.iscoroutinefunction(method):
-                asyncio.run(method(" ".join(args)))
-            else:
-                method(" ".join(args))
+    def onecmd(self, line: str):
+        cmd, arg, line = self.parseline(line)
+        if not line or cmd is None or arg is None:
+            return self.emptyline()
+        self.lastcmd = line if line != "EOF" else ""
+        if cmd == "":
+            return self.default(line)
+
+        pre_func = getattr(self, 'pre_' + cmd, None)
+        _pre_func_return = None
+        kwargs = {}
+        if pre_func:
+            _pre_func_return = pre_func(arg)
+        if _pre_func_return is True:
+            return
+
+        if isinstance(_pre_func_return, dict):
+            kwargs = _pre_func_return
+
+        func = getattr(
+            self, 'do_' + cmd, getattr(self, '_do_' + cmd, None)
+        )
+        if func is None:
+            return self.default(line)
+
+        start = time.perf_counter()
+        if asyncio.iscoroutinefunction(func):
+            result = asyncio.run(func(arg, **kwargs))
         else:
-            super().default(line)
+            result = func(arg, **kwargs)
+        print(f"Time: {round(time.perf_counter()-start, 5)} sec")
+        return result
 
 
 if __name__ == "__main__":
