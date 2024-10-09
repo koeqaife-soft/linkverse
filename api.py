@@ -25,7 +25,7 @@ supabase: AsyncClient
 _g = Global()
 pool: asyncpg.Pool = _g.pool
 logger = setup_logger()
-with open("config/endpoints_data.json5", 'r') as f:
+with open("config/endpoints.json5", 'r') as f:
     endpoints_data: dict = json5.load(f)
 
 
