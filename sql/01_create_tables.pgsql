@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS auth_keys (
-    uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    -- uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id BIGINT NOT NULL,
     token_secret TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS posts (
 );
 
 CREATE TABLE IF NOT EXISTS reactions (
-    uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    -- uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     post_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
     is_like BOOLEAN NOT NULL,
