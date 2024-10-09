@@ -49,6 +49,7 @@ async def handle_500(error: werkzeug.exceptions.InternalServerError):
         "---\n" +
         f"Internal Server Error ({current_time})\n" +
         f"Endpoint: {request.endpoint}, URL Rule: {request.url_rule}\n" +
+        f"IP: {request.remote_addr}\n"
         f"{tb_str}" +
         "---\n\n"
     )
