@@ -23,6 +23,16 @@ def verify_signature(token_payload: str, signature: str, key: bytes) -> bool:
     return hmac.compare_digest(expected_signature, signature)
 
 
+@lru_cache(maxsize=16)
+def prepare_key(key: str | bytes) -> bytes:
+    if isinstance(key, str):
+        key = key.encode()
+
+    digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+    digest.update(key)
+    return digest.finalize()
+
+
 def encode_base62(data: bytes) -> str:
     num = int.from_bytes(data, byteorder='big', signed=False)
 
@@ -72,36 +82,45 @@ async def _decode_char_to_index(char: str, alphabet: str) -> int:
         return -1
 
 
-async def encode_alphabet_base62(data: bytes | str, alphabet: str) -> str:
+async def encode_alphabet_base62(
+    data: bytes | str, alphabet: str | bytes
+) -> str:
     if isinstance(data, str):
         data = data.encode()
+    if isinstance(alphabet, str):
+        alphabet = alphabet.encode()
     num = int.from_bytes(data, byteorder='big', signed=False)
 
     if num == 0:
-        return alphabet[0]
+        return bytes(alphabet[0]).decode()
 
     base = len(alphabet)
-    base62 = []
+    base62 = bytearray()
 
     while num:
         num, rem = divmod(num, base)
         base62.append(alphabet[rem])
 
-    return ''.join(reversed(base62))
+    base62.reverse()
+    return base62.decode()
 
 
 async def decode_alphabet_base62(encoded: str, alphabet: str) -> bytes:
     base = len(alphabet)
+    char_to_index = bytearray(len(encoded))
 
     tasks = [
         asyncio.create_task(_decode_char_to_index(char, alphabet))
         for char in encoded
     ]
-    char_to_index = await asyncio.gather(*tasks)
+    indices = await asyncio.gather(*tasks)
 
-    if any(idx < 0 for idx in char_to_index):
-        invalid_char = encoded[char_to_index.index(-1)]
-        raise ValueError(f"Character '{invalid_char}' not found in alphabet.")
+    for i, idx in enumerate(indices):
+        if idx < 0:
+            raise ValueError(
+                f"Character '{encoded[i]}' not found in alphabet."
+            )
+        char_to_index[i] = idx
 
     num = sum(
         idx * (base ** power)
@@ -148,16 +167,6 @@ async def decode_seeded_base62_parallel(
 
 def generate_chacha20_key() -> bytes:
     return os.urandom(32)
-
-
-@lru_cache(maxsize=16)
-def prepare_key(key: str | bytes) -> bytes:
-    if isinstance(key, str):
-        key = key.encode()
-
-    digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-    digest.update(key)
-    return digest.finalize()
 
 
 async def chacha20_encrypt(message: bytes, key: bytes | str) -> str:
