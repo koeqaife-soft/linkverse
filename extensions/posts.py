@@ -3,7 +3,9 @@ from quart import Blueprint, Quart, Response
 from core import response, Global, route, error_response
 from quart import g
 import utils.posts as posts
-import utils.users as users
+from utils.cache import users as cache_users
+from utils.cache import posts as cache_posts
+from utils.cache import AutoConnection
 
 bp = Blueprint('posts', __name__)
 _g = Global()
@@ -28,14 +30,14 @@ async def create_post() -> tuple[Response, int]:
 
 @route(bp, "/posts/<int:id>", methods=["GET"])
 async def get_post(id: int) -> tuple[Response, int]:
-    async with pool.acquire() as db:
-        result = await posts.get_post(id, db)
+    async with AutoConnection(pool) as conn:
+        result = await cache_posts.get_post(id, conn)
 
         if not result.success:
             return error_response(result), 400
         assert result.data is not None
 
-        user = await users.get_user(result.data.user_id, db)
+        user = await cache_users.get_user(result.data.user_id, conn)
 
     data = result.data.to_dict()
     if user.data is not None:
@@ -47,12 +49,14 @@ async def get_post(id: int) -> tuple[Response, int]:
 @route(bp, "/posts/<int:id>", methods=["DELETE"])
 async def delete_post(id: int) -> tuple[Response, int]:
     async with pool.acquire() as db:
-        post = await posts.get_post(id, db)
+        post = await cache_posts.get_post(id, db)
         if not post.success:
             return error_response(post), 400
         if post.data.user_id != g.user_id:  # type: ignore
             return response(error=True, error_msg="FORBIDDEN"), 403
         result = await posts.delete_post(id, db)
+
+    await cache_posts.remove_post_cache(id)
 
     if not result.success:
         return error_response(result), 500
@@ -77,6 +81,8 @@ async def update_post(id: int) -> tuple[Response, int]:
         if post.data.user_id != g.user_id:  # type: ignore
             return response(error=True, error_msg="FORBIDDEN"), 403
         result = await posts.update_post(id, content, tags, media, db)
+
+    await cache_posts.remove_post_cache(id)
 
     if not result.success:
         return error_response(result), 500

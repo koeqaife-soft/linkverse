@@ -14,16 +14,16 @@ from datetime import datetime, timezone
 import asyncio
 import json
 import werkzeug.exceptions
-from typing import cast
 import core
 import json5
+import utils.cache as cache
 
 debug = os.getenv('DEBUG') == 'True'
 supabase_url: str = os.environ.get("SUPABASE_URL")  # type: ignore
 supabase_key: str = os.environ.get("SUPABASE_KEY")  # type: ignore
 supabase: AsyncClient
 _g = Global()
-pool = cast(asyncpg.Pool, _g.pool)
+pool: asyncpg.Pool = _g.pool
 logger = setup_logger()
 with open("config/endpoints_data.json5", 'r') as f:
     endpoints_data: dict = json5.load(f)
@@ -142,6 +142,10 @@ async def startup():
             storage_client_timeout=10
         )
     )
+
+    with open("redis.json") as f:
+        redis = json.load(f)
+    await cache.Cache(redis["url"]).init()
 
     logger.info(
         "Worker started!" +

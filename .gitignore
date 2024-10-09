@@ -3,5 +3,7 @@ database/*
 .env
 __pycache__
 postgres.json
+redis.json
 logs/*
 .vscode/*
+dump.rdb
