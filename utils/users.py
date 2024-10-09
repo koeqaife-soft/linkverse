@@ -54,7 +54,7 @@ async def get_user(
 async def update_user(
     user_id: int, values: dict[str, str],
     db: connection_type
-):
+) -> Status[None]:
     allowed_values = {"display_name", "avatar_url", "banner_url",
                       "bio", "gender", "languages"}
 
