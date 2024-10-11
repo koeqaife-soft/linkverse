@@ -5,6 +5,7 @@ import time
 from typing import Any, Awaitable, Callable, TypeVar, overload
 from core import _logger, worker_count, get_proc_identity
 from aiocache import Cache as AioCache  # type: ignore
+from aiocache import RedisCache
 from redis import ConnectionError
 from aiocache.serializers import PickleSerializer  # type: ignore
 import utils.users
@@ -41,6 +42,10 @@ class TTLCache:
                 self.cache.pop(key, None)
                 return None
 
+    async def delete(self, key: str) -> None:
+        async with self.lock:
+            self.cache.pop(key, None)
+
     async def _cleanup(self) -> None:
         current_time = time.time()
         keys_to_delete = [
@@ -58,19 +63,27 @@ class TTLCache:
 class Cache:
     def __init__(self, url: str = "redis://localhost:6379") -> None:
         self.url = url
-        self.cache = AioCache.from_url(url)
+        self.cache: RedisCache = AioCache.from_url(url)
+
+        if not isinstance(self.cache, RedisCache):
+            raise ValueError("Only Redis cache is supported!")
+
         self.cache.serializer = PickleSerializer()
         self.redis_working: bool = True
         self.ttl_cache = TTLCache()
         _g._cache = self
 
-    async def init(self) -> None:
-        asyncio.create_task(self.clear_ttl_timer())
+    async def ping(self) -> None:
         try:
-            await self.cache.set("test_conn", "value", ttl=1)
+            await self.cache.get("test_conn")
             await self.redis_status(True)
         except ConnectionError:
             await self.redis_status(False)
+
+    async def init(self) -> None:
+        await self.ping()
+        asyncio.create_task(self.clear_ttl_timer())
+        asyncio.create_task(self.ping_timer())
 
     async def redis_status(self, status: bool) -> None:
         if self.redis_working != status:
@@ -89,6 +102,13 @@ class Cache:
                 log_func = _logger.info if status else _logger.warning
                 log_func(log_message + worker_info)
 
+    async def ping_timer(self):
+        await asyncio.sleep(get_proc_identity()/4)
+        while True:
+            interval = 15 if self.redis_working else 1
+            await asyncio.sleep(interval)
+            await self.ping()
+
     async def clear_ttl_timer(self):
         while True:
             await asyncio.sleep(60)
@@ -97,45 +117,58 @@ class Cache:
 
     @overload
     async def _cache(
-        self, func: Awaitable[R]
+        self, func: Callable[..., Awaitable[R]]
     ) -> R | None:
         ...
 
     @overload
     async def _cache(
-        self, func: Awaitable[R], no_conn: Callable[..., Awaitable[R]]
+        self, func: Callable[..., Awaitable[R]],
+        no_conn: Callable[..., Awaitable[R]]
     ) -> R:
         ...
 
     async def _cache(
-        self, func: Awaitable[R],
+        self, func: Callable[..., Awaitable[R]],
         no_conn: Callable[..., Awaitable[R]] | None = None
     ) -> R | None:
-        try:
-            r = await func
-            await self.redis_status(True)
-        except ConnectionError:
-            if no_conn is not None:
-                r = await no_conn()
-            else:
-                r = None
-            await self.redis_status(False)
-        return r
+        async def run_with_fallback(func, no_conn=None):
+            if func is None:
+                return None
+            try:
+                return await func()
+            except ConnectionError:
+                await self.redis_status(False)
+                if no_conn:
+                    return await no_conn()
+                else:
+                    return None
+
+        if self.redis_working:
+            return await run_with_fallback(func, no_conn)
+        else:
+            return await run_with_fallback(
+                no_conn if no_conn
+                else None
+            )
 
     async def get(self, key: str):
         return await self._cache(
-            self.cache.get(key),
+            lambda: self.cache.get(key),
             lambda: self.ttl_cache.get(key)
         )
 
     async def set(self, key: str, value: Any, ttl: int | None = None):
         await self._cache(
-            self.cache.set(key, value, ttl=ttl),
+            lambda: self.cache.set(key, value, ttl=ttl),
             lambda: self.ttl_cache.set(key, value, 15)
         )
 
     async def delete(self, key: str):
-        await self._cache(self.cache.delete(key))
+        await self._cache(
+            lambda: self.cache.delete(key),
+            lambda: self.ttl_cache.delete(key)
+        )
 
 
 class AutoConnection:
