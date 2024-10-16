@@ -133,7 +133,7 @@ async def check_username(
         return Status(False, message="INCORRECT_FORMAT")
     user = await get_user({"username": username}, db)
     if user.data is not None:
-        return Status(False, message="USER_ALREADY_EXISTS")
+        return Status(False, message="USERNAME_EXISTS")
     return Status(True)
 
 
