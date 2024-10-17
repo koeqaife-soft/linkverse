@@ -14,6 +14,7 @@ from colorama import Fore, Style, init
 import importlib
 import datetime
 import glob
+from quart_cors import cors
 
 _logger = logging.getLogger("linkverse")
 worker_count = int(os.getenv('_WORKER_COUNT', '1'))
@@ -25,6 +26,10 @@ T = t.TypeVar("T")
 
 load_dotenv()
 app = Quart(__name__)
+app = cors(
+    app, allow_origin="*",
+    allow_headers=["Content-Type", "Authorization"]
+    )
 secret_key = os.environ["SECRET_KEY"]
 secret_refresh_key = os.environ["SECRET_REFRESH_KEY"]
 

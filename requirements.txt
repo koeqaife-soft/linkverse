@@ -16,3 +16,4 @@ json5
 atomic
 aiocache
 aiocache[redis]
+quart-cors

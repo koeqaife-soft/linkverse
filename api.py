@@ -60,6 +60,8 @@ async def handle_500(error: werkzeug.exceptions.InternalServerError):
 
 @app.before_request
 async def before():
+    if request.method == 'OPTIONS':
+        return '', 204
     if request.endpoint is None:
         return
     data_error = (response(error=True, error_msg="INCORRECT_DATA"), 400)
