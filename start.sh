@@ -24,4 +24,12 @@ export PYTHONPATH=$SCRIPT_DIR
 
 source $SCRIPT_DIR/env/bin/activate
 python -OO init_db.py
-python -O -m hypercorn -w "$WORKER_COUNT" -b 0.0.0.0:6169 api:app --keep-alive 30 --log-level error -k uvloop
+python -O -m \
+    hypercorn \
+    -w "$WORKER_COUNT" \
+    -b 0.0.0.0:6169 api:app \
+    --keep-alive 30 \
+    --log-level error \
+    -k uvloop
+    # --certfile /etc/ssl/certs/localhost.crt \
+    # --keyfile /etc/ssl/private/localhost.key
