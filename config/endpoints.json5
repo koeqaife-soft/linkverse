@@ -17,7 +17,7 @@
         },
         refresh: {
             load_data: true,
-            data: {
+            optional_data: {
                 refresh_token: {}
             }
         }

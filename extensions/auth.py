@@ -29,7 +29,19 @@ async def register() -> tuple[Response, int]:
         if not result3.success:
             return error_response(result3), 500
 
-    return response(data=result3.data or {}), 201
+    assert result3.data is not None
+
+    data = {"access": result3.data["access"]}
+    _response = response(data=data)
+
+    _response.set_cookie(
+        "refresh_token", result3.data["refresh"],
+        httponly=True, secure=True,
+        samesite='Strict',
+        max_age=30*24*60*60
+    )
+
+    return _response, 201
 
 
 @route(bp, '/auth/login', methods=['POST'])
@@ -43,20 +55,42 @@ async def login() -> tuple[Response, int]:
     if not result.success:
         return error_response(result), 400
 
-    return response(data=result.data), 200
+    data = {"access": result.data["access"]}
+    _response = response(data=data)
+
+    _response.set_cookie(
+        "refresh_token", result.data["refresh"],
+        httponly=True, secure=True,
+        samesite='Strict',
+        max_age=30*24*60*60
+    )
+
+    return _response, 200
 
 
 @route(bp, '/auth/refresh', methods=['POST'])
 async def refresh() -> tuple[Response, int]:
     data = g.data
-    token = data.get('refresh_token')
+    token = data.get("refresh_token") or request.cookies.get("refresh_token")
+    if token is None:
+        return response(error=True, error_msg="UNAUTHORIZED"), 401
 
     async with pool.acquire() as db:
         result = await auth.refresh(token, db)
     if not result.success:
         return error_response(result), 400
 
-    return response(data=result.data), 200
+    data = {"access": result.data["access"]}
+    _response = response(data=data)
+
+    _response.set_cookie(
+        "refresh_token", result.data["refresh"],
+        httponly=True, secure=True,
+        samesite='Strict',
+        max_age=30*24*60*60
+    )
+
+    return _response, 200
 
 
 @route(bp, '/auth/logout', methods=['POST'])
@@ -78,7 +112,14 @@ async def logout() -> tuple[Response, int]:
 
         if not result2.success:
             return error_response(result2), 500
-    return response(), 204
+
+    _response = response()
+    _response.delete_cookie(
+        "refresh_token", httponly=True,
+        secure=True, samesite='Strict'
+    )
+
+    return _response, 204
 
 
 def load(app: Quart):

@@ -2,12 +2,9 @@ import time
 from typing import Any
 import cmd
 import requests
-import auth
 import asyncio
-import aiohttp
-import traceback
-import json
 
+rargs: dict[str, Any] = {}
 
 ip = "http://localhost:6169"
 
@@ -40,7 +37,7 @@ class Endpoints:
 class Session:
     is_login = False
     current_token = ""
-    current_refresh = ""
+    cookies = None
 
     @property
     def headers(self) -> dict[str, str]:
@@ -114,21 +111,17 @@ class Auth:
             "password": password
         }
 
-    async def _do_register(self, arg, username, email, password):
-        try:
-            async with aiohttp.ClientSession() as s:
-                _result = await auth.register(username, email, password, s)
-            if _result is not None:
-                result = json.loads(_result)
-                if result["success"]:
-                    Session.current_token = result["data"]["access"]
-                    Session.current_refresh = result["data"]["refresh"]
-                    Session.is_login = True
-                    print("Success")
-                else:
-                    print(result.get("error"))
-        except Exception as e:
-            traceback.print_exception(e)
+    def _do_register(self, arg, **data):
+        r = requests.post(Endpoints().register, json=data, **rargs)
+        result = handle_response(r)
+        if result:
+            if result["success"]:
+                Session.current_token = result["data"]["access"]
+                Session.cookies = r.cookies
+                Session.is_login = True
+                print("Success")
+            else:
+                print(result.get("error"))
 
     def pre_login(self, arg):
         while True:
@@ -144,42 +137,38 @@ class Auth:
             "password": password
         }
 
-    async def _do_login(self, arg, email, password):
-        try:
-            async with aiohttp.ClientSession() as s:
-                _result = await auth.login(email, password, s)
-            if _result is not None:
-                result = json.loads(_result)
-                if result["success"]:
-                    Session.current_token = result["data"]["access"]
-                    Session.current_refresh = result["data"]["refresh"]
-                    Session.is_login = True
-                    print("Success")
-                else:
-                    print(result.get("error"))
-        except Exception as e:
-            traceback.print_exception(e)
+    def _do_login(self, arg, **data):
+        r = requests.post(Endpoints().login, json=data, **rargs)
+        result = handle_response(r)
+        if result:
+            if result["success"]:
+                Session.current_token = result["data"]["access"]
+                Session.cookies = r.cookies
+                Session.is_login = True
+                print("Success")
+            else:
+                print(result.get("error"))
 
     def pre_refresh(self, arg):
         if not Session.is_login:
             print("Not in account!")
             return True
 
-    async def _do_refresh(self, arg):
-        try:
-            async with aiohttp.ClientSession() as s:
-                _result = await auth.refresh(Session.current_refresh, s)
-            if _result is not None:
-                result = json.loads(_result)
-                if result["success"]:
-                    Session.current_token = result["data"]["access"]
-                    Session.current_refresh = result["data"]["refresh"]
-                    Session.is_login = True
-                    print("Success")
-                else:
-                    print(result.get("error"))
-        except Exception as e:
-            traceback.print_exception(e)
+    def _do_refresh(self, arg):
+        print(Session.cookies)
+        r = requests.post(
+            Endpoints().refresh, cookies=Session.cookies,
+            **rargs
+        )
+        result = handle_response(r)
+        if result:
+            if result["success"]:
+                Session.current_token = result["data"]["access"]
+                Session.cookies = r.cookies
+                Session.is_login = True
+                print("Success")
+            else:
+                print(result.get("error"))
 
     def pre_logout(self, arg):
         if not Session.is_login:
@@ -187,10 +176,12 @@ class Auth:
             return True
 
     def do_logout(self, arg):
-        r = requests.post(Endpoints().logout,
-                          headers=Session().headers)
+        r = requests.post(
+            Endpoints().logout, headers=Session().headers,
+            **rargs
+        )
         Session.is_login = False
-        Session.current_refresh = ""
+        Session.cookies = r.cookies
         Session.current_token = ""
         result = handle_response(r)
         if result:
@@ -203,8 +194,7 @@ class Auth:
 
     def do_get_tokens(self, arg):
         print(dict_format({
-            "access": Session.current_token,
-            "refresh": Session.current_refresh
+            "access": Session.current_token
         }))
 
 
@@ -235,8 +225,10 @@ class Posts:
         }
 
     def do_create_post(self, arg, data):
-        r = requests.post(Endpoints().posts, json=data,
-                          headers=Session().headers)
+        r = requests.post(
+            Endpoints().posts, json=data,
+            headers=Session().headers, **rargs
+        )
 
         result = handle_response(r)
         if result:
@@ -250,7 +242,7 @@ class Posts:
     def do_get_post(self, arg):
         r = requests.get(
             Endpoints().post_actions.f(arg),
-            headers=Session().headers
+            headers=Session().headers, **rargs
         )
         result = handle_response(r)
         if result:
@@ -264,7 +256,7 @@ class Posts:
     def do_delete_post(self, arg):
         r = requests.delete(
             Endpoints().post_actions.f(arg),
-            headers=Session().headers
+            headers=Session().headers, **rargs
         )
         result = handle_response(r)
         if result:
@@ -296,7 +288,8 @@ class Posts:
     def do_update_post(self, arg, data):
         r = requests.patch(
             Endpoints().post_actions.f(arg),
-            headers=Session().headers, json=data
+            headers=Session().headers, json=data,
+            **rargs
         )
         result = handle_response(r)
         if result:
@@ -326,7 +319,8 @@ class Posts:
 
         r = requests.post(
             Endpoints().post_reactions.f(arg),
-            headers=Session().headers, json=data
+            headers=Session().headers, json=data,
+            **rargs
         )
         result = handle_response(r)
         if result:
@@ -340,7 +334,7 @@ class Posts:
     def do_rem_reaction(self, arg):
         r = requests.delete(
             Endpoints().post_reactions.f(arg),
-            headers=Session().headers
+            headers=Session().headers, **rargs
         )
         result = handle_response(r)
         if result:
@@ -356,7 +350,8 @@ class Users:
     def do_me(self, arg):
         r = requests.get(
             Endpoints().user,
-            headers=Session().headers
+            headers=Session().headers,
+            **rargs
         )
 
         result = handle_response(r)
@@ -398,7 +393,8 @@ class Users:
     def do_change_profile(self, arg, data):
         r = requests.patch(
             Endpoints().user, json=data,
-            headers=Session().headers
+            headers=Session().headers,
+            **rargs
         )
 
         result = handle_response(r)
@@ -415,7 +411,7 @@ class Shell(cmd.Cmd, Commands):
 
     def do_check(self, arg):
         try:
-            requests.get(ip, timeout=5)
+            requests.get(ip, timeout=5, **rargs)
             print(True)
         except requests.ConnectionError:
             print(False)
