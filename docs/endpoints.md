@@ -2,7 +2,9 @@
 
 ## Auth
 
-### auth/register
+### auth/register (POST)
+
+> Register account
 
 **Required Data:**
 
@@ -12,11 +14,13 @@
 
 **Response:**
 
-- errors: `USER_ALREADY_EXISTS (400)`, `INCORRECT_FORMAT (400)`, `USERNAME_EXISTS (400)`, `USER_DOES_NOT_EXISTS (500)`
+- errors: `USER_ALREADY_EXISTS (400)`, `INCORRECT_FORMAT (400)`, `USERNAME_EXISTS (400)`, `USER_DOES_NOT_EXIST (500)`
 - data: `access` & `refresh`
 - codes: `201`, `500`, `400`
 
-### auth/login
+### auth/login (POST)
+
+> Login to account
 
 **Required Data:**
 
@@ -29,7 +33,9 @@
 - data: `access` & `refresh`
 - codes: `200`, `500`, `400`
 
-### auth/refresh
+### auth/refresh (POST)
+
+> Refresh tokens
 
 **Required Data:**
 
@@ -41,7 +47,9 @@
 - data: `access` & `refresh`
 - codes: `200`, `500`, `400`
 
-### auth/logout
+### auth/logout (POST)
+
+> Delete tokens (auth required)
 
 **Response:**
 
