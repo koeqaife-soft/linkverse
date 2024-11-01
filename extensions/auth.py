@@ -3,7 +3,9 @@ from quart import Blueprint, Quart, Response
 from core import response, Global, error_response, route
 from quart import g, request
 import utils.auth as auth
+import os
 
+debug = os.getenv('DEBUG') == 'True'
 bp = Blueprint('auth', __name__)
 _g = Global()
 pool: asyncpg.Pool = _g.pool
@@ -36,7 +38,7 @@ async def register() -> tuple[Response, int]:
 
     _response.set_cookie(
         "refresh_token", result3.data["refresh"],
-        httponly=True, secure=True,
+        httponly=True, secure=not debug,
         samesite='Strict',
         max_age=30*24*60*60
     )
@@ -60,7 +62,7 @@ async def login() -> tuple[Response, int]:
 
     _response.set_cookie(
         "refresh_token", result.data["refresh"],
-        httponly=True, secure=True,
+        httponly=True, secure=not debug,
         samesite='Strict',
         max_age=30*24*60*60
     )
@@ -85,7 +87,7 @@ async def refresh() -> tuple[Response, int]:
 
     _response.set_cookie(
         "refresh_token", result.data["refresh"],
-        httponly=True, secure=True,
+        httponly=True, secure=not debug,
         samesite='Strict',
         max_age=30*24*60*60
     )
@@ -116,7 +118,8 @@ async def logout() -> tuple[Response, int]:
     _response = response()
     _response.delete_cookie(
         "refresh_token", httponly=True,
-        secure=True, samesite='Strict'
+        secure=not debug,
+        samesite='Strict'
     )
 
     return _response, 204
