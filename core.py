@@ -26,10 +26,14 @@ T = t.TypeVar("T")
 
 load_dotenv()
 app = Quart(__name__)
+
+allow_origin = ["http://localhost:9000", "http://localhost:9300"]
 app = cors(
-    app, allow_origin="*",
-    allow_headers=["Content-Type", "Authorization"]
-    )
+    app, allow_origin=allow_origin,
+    allow_headers=["Content-Type", "Authorization"],
+    allow_credentials=True,
+    max_age=86400
+)
 secret_key = os.environ["SECRET_KEY"]
 secret_refresh_key = os.environ["SECRET_REFRESH_KEY"]
 
