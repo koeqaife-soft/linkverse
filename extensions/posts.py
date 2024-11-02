@@ -6,6 +6,7 @@ import utils.posts as posts
 from utils.cache import users as cache_users
 from utils.cache import posts as cache_posts
 from utils.cache import AutoConnection
+import utils.posts_list as posts_list
 
 bp = Blueprint('posts', __name__)
 _g = Global()
@@ -26,6 +27,43 @@ async def create_post() -> tuple[Response, int]:
         return error_response(result), 500
 
     return response(data=result.data or {}), 201
+
+
+@route(bp, "/posts/popular", methods=["GET"])
+async def popular_posts() -> tuple[Response, int]:
+    data = g.data
+    show_viewed = data.get("show_viewed")
+    offset = data.get("offset")
+    limit = data.get("limit")
+
+    async with pool.acquire() as db:
+        result = await posts_list.get_popular_posts(
+            g.user_id, db, limit, offset, show_viewed
+        )
+
+    if not result.success:
+        return error_response(result), 500
+
+    assert result.data is not None
+
+    return response(data=result.data), 200
+
+
+@route(bp, "/posts/view", methods=["POST"])
+async def view_posts() -> tuple[Response, int]:
+    data = g.data
+    posts = data["posts"]
+    user_id = g.user_id
+
+    async with pool.acquire() as db:
+        result = await posts_list.mark_posts_as_viewed(user_id, posts, db)
+
+    if not result.success:
+        return error_response(result), 400
+
+    assert result.data is not None
+
+    return response(), 204
 
 
 @route(bp, "/posts/<int:id>", methods=["GET"])
