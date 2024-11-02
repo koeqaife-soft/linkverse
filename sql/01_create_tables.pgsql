@@ -27,8 +27,16 @@ CREATE TABLE IF NOT EXISTS posts (
     media TEXT[],
     status VARCHAR(20) DEFAULT 'active',
     is_deleted BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (user_id) REFERENCES users (user_id)
-    ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS user_post_views (
+    user_id BIGINT NOT NULL,
+    post_id BIGINT NOT NULL,
+    timestamp TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, post_id),
+    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
+    FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS reactions (
@@ -39,7 +47,7 @@ CREATE TABLE IF NOT EXISTS reactions (
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
     FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (post_id, user_id)
+    PRIMARY KEY (post_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS comments (
