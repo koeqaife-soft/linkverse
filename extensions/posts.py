@@ -34,7 +34,7 @@ async def popular_posts() -> tuple[Response, int]:
     data = g.data
     show_viewed = data.get("show_viewed")
     offset = data.get("offset")
-    limit = data.get("limit")
+    limit = data.get("limit") or 50
 
     async with pool.acquire() as db:
         result = await posts_list.get_popular_posts(
