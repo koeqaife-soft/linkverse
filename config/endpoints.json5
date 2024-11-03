@@ -60,6 +60,14 @@
                 offset: { type: "int", min: 0, max: 4294967296 },
                 limit: { type: "int", min: 1, max: 1000 }
             }
+        },
+        new_posts: {
+            load_data: true,
+            optional_data: {
+                popular_posts: { type: "bool" },
+                offset: { type: "int", min: 0, max: 4294967296 },
+                limit: { type: "int", min: 1, max: 1000 }
+            }
         }
     },
     users: {

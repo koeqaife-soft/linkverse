@@ -49,6 +49,26 @@ async def popular_posts() -> tuple[Response, int]:
     return response(data=result.data), 200
 
 
+@route(bp, "/posts/new", methods=["GET"])
+async def new_posts() -> tuple[Response, int]:
+    data = g.data
+    show_viewed = data.get("show_viewed")
+    offset = data.get("offset")
+    limit = data.get("limit") or 50
+
+    async with pool.acquire() as db:
+        result = await posts_list.get_new_posts(
+            g.user_id, db, limit, offset, show_viewed
+        )
+
+    if not result.success:
+        return error_response(result), 500
+
+    assert result.data is not None
+
+    return response(data=result.data), 200
+
+
 @route(bp, "/posts/view", methods=["POST"])
 async def view_posts() -> tuple[Response, int]:
     data = g.data

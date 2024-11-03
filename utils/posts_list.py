@@ -12,15 +12,17 @@ async def get_popular_posts(
     hide_viewed = hide_viewed or True
     offset = offset or 0
 
-    viewed_posts_query = """
-        SELECT post_id
-        FROM user_post_views
-        WHERE user_id = $1
-        ORDER BY timestamp DESC
-        LIMIT 10000
-    """
-    viewed_posts = await db.fetch(viewed_posts_query, user_id)
-    viewed_post_ids = {row['post_id'] for row in viewed_posts}
+    if hide_viewed:
+        viewed_posts_query = """
+            SELECT post_id
+            FROM user_post_views
+            WHERE user_id = $1
+            ORDER BY timestamp DESC
+            LIMIT 10000
+        """
+        viewed_posts = await db.fetch(viewed_posts_query, user_id)
+        viewed_post_ids = {row['post_id'] for row in viewed_posts}
+
     parameters: list = [limit, offset]
 
     query = """
@@ -37,6 +39,59 @@ async def get_popular_posts(
 
     query += """
         ORDER BY popularity_score DESC, comments_count DESC
+        LIMIT $1 OFFSET $2
+    """
+
+    rows = await db.fetch(
+        query, *parameters
+    )
+
+    if not rows:
+        return Status(False, message="NO_MORE_POSTS")
+
+    posts = [(row["post_id"], row["user_id"]) for row in rows]
+    return Status(True, data={
+        "posts": posts
+    })
+
+
+async def get_new_posts(
+    user_id: int,
+    db: connection_type,
+    limit: int = 50,
+    offset: int | None = None,
+    hide_viewed: bool | None = None
+) -> Status[dict[str, list[tuple[int, int]]]]:
+    hide_viewed = hide_viewed or True
+    offset = offset or 0
+
+    if hide_viewed:
+        viewed_posts_query = """
+            SELECT post_id
+            FROM user_post_views
+            WHERE user_id = $1
+            ORDER BY timestamp DESC
+            LIMIT 10000
+        """
+        viewed_posts = await db.fetch(viewed_posts_query, user_id)
+        viewed_post_ids = {row['post_id'] for row in viewed_posts}
+
+    parameters: list = [limit, offset]
+
+    query = """
+        SELECT CAST(post_id AS TEXT) AS post_id,
+            CAST(user_id AS TEXT) AS user_id,
+            created_at
+        FROM posts
+        WHERE is_deleted = FALSE
+    """
+
+    if hide_viewed:
+        parameters.append(viewed_post_ids)
+        query += " AND post_id NOT IN (SELECT UNNEST($3::bigint[]))"
+
+    query += """
+        ORDER BY created_at DESC
         LIMIT $1 OFFSET $2
     """
 
