@@ -81,7 +81,7 @@ async def generate_token(
 ) -> str:
     expiration = int((
         datetime.datetime.now(datetime.UTC) +
-        (datetime.timedelta(hours=24) if not long_term
+        (datetime.timedelta(hours=12) if not long_term
          else datetime.timedelta(days=7))
     ).timestamp())
 
