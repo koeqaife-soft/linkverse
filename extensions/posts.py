@@ -1,5 +1,5 @@
 import asyncpg
-from quart import Blueprint, Quart, Response
+from quart import Blueprint, Quart, Response, request
 from core import response, Global, route, error_response
 from quart import g
 import utils.posts as posts
@@ -102,6 +102,39 @@ async def get_post(id: int) -> tuple[Response, int]:
         data["user"] = user.data.dict
 
     return response(data=data), 200
+
+
+@route(bp, "/posts/batch", methods=["GET"])
+async def get_posts_batch() -> tuple[Response, int]:
+    posts_param = request.args.get('posts')
+    if posts_param:
+        posts = posts_param[:255].split(',')[:10]
+    else:
+        return response(error=True, error_msg="INCORRECT_PARAMS"), 400
+
+    _data = []
+    errors = []
+
+    async with AutoConnection(pool) as conn:
+        for post in posts:
+            result = await cache_posts.get_post(int(post), conn)
+            if not result.success:
+                errors.append({"post": post, "error_msg": result.message})
+                continue
+
+            assert result.data is not None
+            user = await cache_users.get_user(result.data.user_id, conn)
+            _temp = result.data.to_dict()
+
+            if user.data is not None:
+                _temp["user"] = user.data.dict
+
+            _data.append(_temp)
+
+    if errors:
+        return response(error=True, data={"errors": errors}), 400
+
+    return response(data={"posts": _data}), 200
 
 
 @route(bp, "/posts/<int:id>", methods=["DELETE"])
