@@ -7,8 +7,8 @@ from _types import connection_type
 
 @dataclass
 class Post:
-    post_id: int
-    user_id: int
+    post_id: str
+    user_id: str
     content: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
@@ -36,7 +36,7 @@ class Post:
 
 
 async def get_post(
-    post_id: int, db: connection_type
+    post_id: str, db: connection_type
 ) -> Status[Post | None]:
     query = """
         SELECT post_id, user_id, content, created_at, updated_at,
@@ -54,12 +54,12 @@ async def get_post(
 
 
 async def create_post(
-    user_id: int, content: str,
+    user_id: str, content: str,
     db: connection_type,
     tags: list[str] = [],
     media: list[str] = []
 ) -> Status[dict | None]:
-    post_id = await generate_id()
+    post_id = str(await generate_id())
     async with db.transaction():
         await db.execute(
             """
@@ -86,7 +86,7 @@ async def create_post(
 
 
 async def delete_post(
-    post_id: int, db: connection_type
+    post_id: str, db: connection_type
 ) -> Status[None]:
     async with db.transaction():
         await db.execute(
@@ -101,7 +101,7 @@ async def delete_post(
 
 
 async def update_post(
-    post_id: int, content: str | None,
+    post_id: str, content: str | None,
     tags: list[str] | None, media: list[str] | None,
     db: connection_type
 ) -> Status[None]:
@@ -132,8 +132,8 @@ async def update_post(
 
 
 async def add_reaction(
-    user_id: int, is_like: bool,
-    post_id: int, db: connection_type
+    user_id: str, is_like: bool,
+    post_id: str, db: connection_type
 ) -> Status[None]:
     result = await db.fetchval(
         """
@@ -157,7 +157,7 @@ async def add_reaction(
 
 
 async def rem_reaction(
-    user_id: int, post_id: int,
+    user_id: str, post_id: str,
     db: connection_type
 ) -> Status[None]:
     async with db.transaction():

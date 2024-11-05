@@ -40,8 +40,8 @@ async def update_profile_me() -> tuple[Response, int]:
     return response(), 204
 
 
-@route(bp, "/users/<int:user_id>", methods=["GET"])
-async def get_profile(user_id: int) -> tuple[Response, int]:
+@route(bp, "/users/<user_id>", methods=["GET"])
+async def get_profile(user_id: str) -> tuple[Response, int]:
     user = await cache_users.get_user(user_id, pool)
 
     if not user.success:

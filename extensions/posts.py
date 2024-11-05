@@ -86,8 +86,8 @@ async def view_posts() -> tuple[Response, int]:
     return response(), 204
 
 
-@route(bp, "/posts/<int:id>", methods=["GET"])
-async def get_post(id: int) -> tuple[Response, int]:
+@route(bp, "/posts/<id>", methods=["GET"])
+async def get_post(id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await cache_posts.get_post(id, conn)
 
@@ -117,7 +117,7 @@ async def get_posts_batch() -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         for post in posts:
-            result = await cache_posts.get_post(int(post), conn)
+            result = await cache_posts.get_post(str(post), conn)
             if not result.success:
                 errors.append({"post": post, "error_msg": result.message})
                 continue
@@ -137,8 +137,8 @@ async def get_posts_batch() -> tuple[Response, int]:
     return response(data={"posts": _data}), 200
 
 
-@route(bp, "/posts/<int:id>", methods=["DELETE"])
-async def delete_post(id: int) -> tuple[Response, int]:
+@route(bp, "/posts/<id>", methods=["DELETE"])
+async def delete_post(id: str) -> tuple[Response, int]:
     async with pool.acquire() as db:
         post = await cache_posts.get_post(id, db)
         if not post.success:
@@ -155,8 +155,8 @@ async def delete_post(id: int) -> tuple[Response, int]:
     return response(), 204
 
 
-@route(bp, "/posts/<int:id>", methods=["PATCH"])
-async def update_post(id: int) -> tuple[Response, int]:
+@route(bp, "/posts/<id>", methods=["PATCH"])
+async def update_post(id: str) -> tuple[Response, int]:
     data = g.data
     content: str | None = data.get("content")
     tags: list[str] | None = data.get("tags")
@@ -181,8 +181,8 @@ async def update_post(id: int) -> tuple[Response, int]:
     return response(), 204
 
 
-@route(bp, "/posts/<int:id>/reactions", methods=["POST"])
-async def add_reaction(id: int) -> tuple[Response, int]:
+@route(bp, "/posts/<id>/reactions", methods=["POST"])
+async def add_reaction(id: str) -> tuple[Response, int]:
     data = g.data
     is_like: bool = data.get("is_like")
 
@@ -198,8 +198,8 @@ async def add_reaction(id: int) -> tuple[Response, int]:
     return response(), 204
 
 
-@route(bp, "/posts/<int:id>/reactions", methods=["DELETE"])
-async def rem_reaction(id: int) -> tuple[Response, int]:
+@route(bp, "/posts/<id>/reactions", methods=["DELETE"])
+async def rem_reaction(id: str) -> tuple[Response, int]:
     async with pool.acquire() as db:
         post = await posts.get_post(id, db)
         if not post.success:

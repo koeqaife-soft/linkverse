@@ -53,7 +53,9 @@ class SnowflakeGeneration:
 
         return snowflake_id
 
-    def parse(self, snowflake_id: int) -> tuple[float, int, int, int]:
+    def parse(self, snowflake_id: int | str) -> tuple[float, int, int, int]:
+        if isinstance(snowflake_id, str):
+            snowflake_id = int(snowflake_id)
         counter_bits, pid_bits = self.counter_bits, self.pid_bits
         sid_bits = self.sid_bits
 
@@ -75,7 +77,7 @@ class SnowflakeGeneration:
 
 
 async def generate_token(
-    user_id: int, key: str | bytes,
+    user_id: str, key: str | bytes,
     long_term: bool = False,
     secret: str = "12"
 ) -> str:
@@ -133,7 +135,7 @@ async def decode_token(token: str, key: bytes | str) -> dict:
 
         return {
             "success": True,
-            "user_id": int(user_id),
+            "user_id": user_id,
             "is_expired": is_expired,
             "expiration_timestamp": expiration_timestamp,
             "secret": secret

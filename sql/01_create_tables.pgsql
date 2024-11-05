@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS users (
-    user_id BIGINT PRIMARY KEY,
+    user_id TEXT PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL
@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS auth_keys (
     -- uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id BIGINT NOT NULL,
+    user_id TEXT NOT NULL,
     token_secret TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS auth_keys (
 );
 
 CREATE TABLE IF NOT EXISTS posts (
-    post_id BIGINT PRIMARY KEY,
-    user_id BIGINT NOT NULL,
+    post_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS posts (
 );
 
 CREATE TABLE IF NOT EXISTS user_post_views (
-    user_id BIGINT NOT NULL,
-    post_id BIGINT NOT NULL,
+    user_id TEXT NOT NULL,
+    post_id TEXT NOT NULL,
     timestamp TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (user_id, post_id),
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
@@ -41,8 +41,8 @@ CREATE TABLE IF NOT EXISTS user_post_views (
 
 CREATE TABLE IF NOT EXISTS reactions (
     -- uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    post_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL,
+    post_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
     is_like BOOLEAN NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
     FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE,
@@ -51,9 +51,9 @@ CREATE TABLE IF NOT EXISTS reactions (
 );
 
 CREATE TABLE IF NOT EXISTS comments (
-    comment_id BIGINT PRIMARY KEY,
-    post_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL,
+    comment_id TEXT PRIMARY KEY,
+    post_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
     content TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
     FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE,
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS comments (
 );
 
 CREATE TABLE IF NOT EXISTS user_profiles (
-    user_id BIGINT PRIMARY KEY,
+    user_id TEXT PRIMARY KEY,
     display_name TEXT,
     avatar_url TEXT,
     banner_url TEXT,

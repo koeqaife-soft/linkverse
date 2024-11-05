@@ -6,7 +6,7 @@ from _types import connection_type
 
 @dataclass
 class User:
-    user_id: int
+    user_id: str
     username: str
     display_name: str | None = None
     avatar_url: str | None = None
@@ -34,7 +34,7 @@ class User:
 
 
 async def get_user(
-    user_id: int, db: connection_type
+    user_id: str, db: connection_type
 ) -> Status[User | None]:
     query = """
         SELECT u.user_id, u.username, p.display_name, p.avatar_url,
@@ -52,7 +52,7 @@ async def get_user(
 
 
 async def update_user(
-    user_id: int, values: dict[str, str],
+    user_id: str, values: dict[str, str],
     db: connection_type
 ) -> Status[None]:
     allowed_values = {"display_name", "avatar_url", "banner_url",
@@ -84,7 +84,7 @@ async def update_user(
 
 
 async def change_username(
-    user_id: int, username: str,
+    user_id: str, username: str,
     db: connection_type
 ) -> Status[None]:
     async with db.transaction():

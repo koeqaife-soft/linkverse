@@ -18,7 +18,7 @@ secret_refresh_key = os.environ["SECRET_REFRESH_KEY"]
 @dataclass
 class AuthUser:
     username: str
-    user_id: int
+    user_id: str
     email: str
     password_hash: str
 
@@ -110,12 +110,12 @@ async def get_user(
 async def create_user(
     username: str, email: str,
     password: str, db: connection_type
-) -> Status[int | None]:
+) -> Status[str | None]:
     user = await get_user({"email": email}, db)
     if user.data is not None:
         return Status(False, message="USER_ALREADY_EXISTS")
     password_hash = await store_password(password)
-    new_id = await generate_id()
+    new_id = str(await generate_id())
     async with db.transaction():
         await db.execute(
             """
@@ -170,7 +170,7 @@ async def login(
 
 
 async def create_token(
-    user_id: int,
+    user_id: str,
     db: connection_type
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
     user = await get_user({"user_id": user_id}, db)
@@ -272,7 +272,7 @@ async def check_token(
 
 
 async def remove_secret(
-    secret: str, user_id: int,
+    secret: str, user_id: str,
     db: connection_type
 ) -> Status[None]:
     async with db.transaction():

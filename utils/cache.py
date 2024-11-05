@@ -216,7 +216,7 @@ class _connection:
 class users:
     @staticmethod
     async def get_user(
-        user_id: int, conn: _connection_type,
+        user_id: str, conn: _connection_type,
         _cache_instance: Cache | None = None
     ) -> Status[User | None]:
         cache = _cache_instance or cache_instance
@@ -235,7 +235,7 @@ class users:
 
     @staticmethod
     async def delete_user_cache(
-        user_id: int, _cache_instance: Cache | None = None
+        user_id: str, _cache_instance: Cache | None = None
     ) -> Status[None]:
         cache = _cache_instance or cache_instance
         key = f"user_profile:{user_id}"
@@ -248,7 +248,7 @@ class users:
 class posts:
     @staticmethod
     async def get_post(
-        post_id: int, conn: _connection_type,
+        post_id: str, conn: _connection_type,
         _cache_instance: Cache | None = None
     ) -> Status[Post | None]:
         cache = _cache_instance or cache_instance
@@ -268,7 +268,7 @@ class posts:
 
     @staticmethod
     async def remove_post_cache(
-        post_id: int, _cache_instance: Cache | None = None
+        post_id: str, _cache_instance: Cache | None = None
     ) -> Status[None]:
         cache = _cache_instance or cache_instance
         key = f"posts:{post_id}"

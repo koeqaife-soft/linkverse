@@ -3,12 +3,12 @@ from core import Status
 
 
 async def get_popular_posts(
-    user_id: int,
+    user_id: str,
     db: connection_type,
     limit: int = 50,
     offset: int | None = None,
     hide_viewed: bool | None = None
-) -> Status[dict[str, list[tuple[int, int]]]]:
+) -> Status[dict[str, list[tuple[str, str]]]]:
     hide_viewed = hide_viewed or True
     offset = offset or 0
 
@@ -35,7 +35,7 @@ async def get_popular_posts(
 
     if hide_viewed:
         parameters.append(viewed_post_ids)
-        query += " AND post_id NOT IN (SELECT UNNEST($3::bigint[]))"
+        query += " AND post_id NOT IN (SELECT UNNEST($3::text[]))"
 
     query += """
         ORDER BY popularity_score DESC, comments_count DESC
@@ -56,12 +56,12 @@ async def get_popular_posts(
 
 
 async def get_new_posts(
-    user_id: int,
+    user_id: str,
     db: connection_type,
     limit: int = 50,
     offset: int | None = None,
     hide_viewed: bool | None = None
-) -> Status[dict[str, list[tuple[int, int]]]]:
+) -> Status[dict[str, list[tuple[str, str]]]]:
     hide_viewed = hide_viewed or True
     offset = offset or 0
 
@@ -88,7 +88,7 @@ async def get_new_posts(
 
     if hide_viewed:
         parameters.append(viewed_post_ids)
-        query += " AND post_id NOT IN (SELECT UNNEST($3::bigint[]))"
+        query += " AND post_id NOT IN (SELECT UNNEST($3::text[]))"
 
     query += """
         ORDER BY created_at DESC
@@ -109,24 +109,21 @@ async def get_new_posts(
 
 
 async def mark_post_as_viewed(
-    user_id: int, post_id: int | str,
+    user_id: str, post_id: str,
     db: connection_type
 ) -> Status[None]:
-    if isinstance(post_id, str):
-        if not post_id.isdigit():
-            return Status(False, message="INCORRECT_DATA")
     async with db.transaction():
         query = """
             INSERT INTO user_post_views (user_id, post_id)
             VALUES ($1, $2)
             ON CONFLICT (user_id, post_id) DO NOTHING
         """
-        await db.execute(query, user_id, int(post_id))
+        await db.execute(query, user_id, str(post_id))
     return Status(True)
 
 
 async def mark_posts_as_viewed(
-    user_id: int, post_ids: list[int] | list[str],
+    user_id: str, post_ids: list[str],
     db: connection_type
 ) -> Status[None]:
 
@@ -137,8 +134,5 @@ async def mark_posts_as_viewed(
     """
     async with db.transaction():
         for post_id in post_ids:
-            if isinstance(post_id, str):
-                if not post_id.isdigit():
-                    return Status(False, message="INCORRECT_DATA")
-            await db.execute(query, user_id, float(post_id))
+            await db.execute(query, user_id, str(post_id))
     return Status(True)
