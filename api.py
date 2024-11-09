@@ -1,5 +1,5 @@
 import asyncpg
-from core import app, response, setup_logger, Global
+from core import app, response, route, setup_logger, Global
 from core import worker_count, get_proc_identity, load_extensions
 import traceback
 import uuid
@@ -64,6 +64,10 @@ async def before():
         return '', 204
     if request.endpoint is None:
         return
+    url_rule = str(request.url_rule).lstrip("/").split("/")
+    if url_rule[1] == "ping":
+        return
+
     data_error = (response(error=True, error_msg="INCORRECT_DATA"), 400)
     _data = core.get_value_from_dict(endpoints_data, request.endpoint)
 
@@ -92,7 +96,6 @@ async def before():
                     if not core.validate(value, options):
                         return data_error
 
-    url_rule = str(request.url_rule).lstrip("/").split("/")
     if url_rule[1] != "auth":
         headers = request.headers
         token = headers.get("Authorization")
@@ -105,6 +108,11 @@ async def before():
             return response(error=True, error_msg=error_msg), 401
 
         g.user_id = result.data["user_id"]
+
+
+@route(app, "/ping", methods=['POST', 'GET'])
+async def ping():
+    return response(), 204
 
 
 @app.route('/v1/generate_upload_url', methods=['POST'])
