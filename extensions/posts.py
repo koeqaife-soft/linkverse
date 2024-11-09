@@ -13,22 +13,6 @@ _g = Global()
 pool: asyncpg.Pool = _g.pool
 
 
-@route(bp, "/posts", methods=["POST"])
-async def create_post() -> tuple[Response, int]:
-    data = g.data
-    content: str = data.get('content')
-    tags: list[str] = data.get("tags", [])
-    media: list[str] = data.get("media", [])
-
-    async with pool.acquire() as db:
-        result = await posts.create_post(g.user_id, content, db, tags, media)
-
-    if not result.success:
-        return error_response(result), 500
-
-    return response(data=result.data or {}), 201
-
-
 @route(bp, "/posts/popular", methods=["GET"])
 async def popular_posts() -> tuple[Response, int]:
     data = g.data
@@ -81,9 +65,23 @@ async def view_posts() -> tuple[Response, int]:
     if not result.success:
         return error_response(result), 400
 
-    assert result.data is not None
-
     return response(), 204
+
+
+@route(bp, "/posts", methods=["POST"])
+async def create_post() -> tuple[Response, int]:
+    data = g.data
+    content: str = data.get('content')
+    tags: list[str] = data.get("tags", [])
+    media: list[str] = data.get("media", [])
+
+    async with pool.acquire() as db:
+        result = await posts.create_post(g.user_id, content, db, tags, media)
+
+    if not result.success:
+        return error_response(result), 500
+
+    return response(data=result.data or {}), 201
 
 
 @route(bp, "/posts/<id>", methods=["GET"])
@@ -97,9 +95,15 @@ async def get_post(id: str) -> tuple[Response, int]:
 
         user = await cache_users.get_user(result.data.user_id, conn)
 
+        db = await conn.create_conn()
+
+        reaction = await posts.get_reaction(g.user_id, id, db)
+
     data = result.data.to_dict()
     if user.data is not None:
         data["user"] = user.data.dict
+    if reaction.success and reaction.data is not None:
+        data["is_like"] = reaction.data
 
     return response(data=data), 200
 
@@ -108,7 +112,7 @@ async def get_post(id: str) -> tuple[Response, int]:
 async def get_posts_batch() -> tuple[Response, int]:
     posts_param = request.args.get('posts')
     if posts_param:
-        posts = posts_param[:255].split(',')[:10]
+        _posts = posts_param[:255].split(',')[:10]
     else:
         return response(error=True, error_msg="INCORRECT_PARAMS"), 400
 
@@ -116,7 +120,7 @@ async def get_posts_batch() -> tuple[Response, int]:
     errors = []
 
     async with AutoConnection(pool) as conn:
-        for post in posts:
+        for post in _posts:
             result = await cache_posts.get_post(str(post), conn)
             if not result.success:
                 errors.append({"post": post, "error_msg": result.message})
@@ -124,10 +128,17 @@ async def get_posts_batch() -> tuple[Response, int]:
 
             assert result.data is not None
             user = await cache_users.get_user(result.data.user_id, conn)
+
+            db = await conn.create_conn()
+
+            reaction = await posts.get_reaction(g.user_id, post, db)
+
             _temp = result.data.to_dict()
 
             if user.data is not None:
                 _temp["user"] = user.data.dict
+            if reaction.success and reaction.data is not None:
+                _temp["is_like"] = reaction.data
 
             _data.append(_temp)
 

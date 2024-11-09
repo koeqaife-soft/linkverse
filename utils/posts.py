@@ -156,6 +156,22 @@ async def add_reaction(
     return Status(True)
 
 
+async def get_reaction(
+    user_id: str, post_id: str,
+    db: connection_type
+) -> Status[None | bool]:
+    result = await db.fetchval(
+        """
+        SELECT is_like FROM reactions
+        WHERE user_id = $1 AND post_id = $2
+        """, user_id, post_id
+    )
+    if result is not None:
+        return Status(True, data=result)
+    else:
+        return Status(True)
+
+
 async def rem_reaction(
     user_id: str, post_id: str,
     db: connection_type
