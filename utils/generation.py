@@ -84,7 +84,7 @@ async def generate_token(
     expiration = int((
         datetime.datetime.now(datetime.UTC) +
         (datetime.timedelta(hours=12) if not long_term
-         else datetime.timedelta(days=7))
+         else datetime.timedelta(days=30))
     ).timestamp())
 
     combined_data = f"{user_id}.{expiration}.{secret}"
