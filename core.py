@@ -278,7 +278,10 @@ def get_options(options: str | dict) -> dict:
     return options
 
 
-def validate(value: t.Any, options: dict) -> bool:
+def validate(
+    value: t.Any, options: dict,
+    is_parameters: bool = False
+) -> bool:
     if value is None:
         return False
 
@@ -286,7 +289,9 @@ def validate(value: t.Any, options: dict) -> bool:
 
     type = options.get("type", "str")
     _validate = getattr(
-        validator, f"validate_{type}",
+        validator,
+        (f"validate_{type}" if not is_parameters
+         else f"parameters_{type}"),
         validator.validate_string
     )
 
@@ -360,6 +365,41 @@ class Validator:
         options["max_len"] = 254
         options["regex"] = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
         return self.validate_string(value)
+
+    def parameters_list(self, value: str):
+        options = self.options
+        if not isinstance(value, str):
+            return False
+
+        if "f_max_len" in options and len(value) > options["f_max_len"]:
+            return False
+
+        _value = value.split(",")
+
+        checks = {
+            "min_len": lambda s, v: len(s) >= int(v),
+            "max_len": lambda s, v: len(s) <= int(v),
+            "len": lambda s, v: len(s) == int(v)
+        }
+
+        for option, check in checks.items():
+            if option in options and not check(_value, options[option]):
+                return False
+
+        v_checks = {
+            "v_min_len": lambda s, v: len(s) >= int(v),
+            "v_max_len": lambda s, v: len(s) <= int(v),
+            "v_len": lambda s, v: len(s) == int(v),
+            "is_digit": lambda s, v: v and str(s).isdigit()
+        }
+
+        for option, check in v_checks.items():
+            if option in options:
+                for x in _value:
+                    if not check(x, options[option]):
+                        return False
+
+        return True
 
 
 def are_all_keys_present(source: dict, target: dict) -> bool:
