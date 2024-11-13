@@ -15,7 +15,6 @@
 **Response:**
 
 - errors: `USER_ALREADY_EXISTS (400)`, `INCORRECT_FORMAT (400)`, `USERNAME_EXISTS (400)`, `USER_DOES_NOT_EXIST (500)`
-- data: `access`
 - codes: `201`, `500`, `400`
 
 ### auth/login (POST)
@@ -30,7 +29,6 @@
 **Response:**
 
 - errors: `INCORRECT_PASSWORD (400)`, `USER_DOES_NOT_EXIST (400)`
-- data: `access`
 - codes: `200`, `500`, `400`
 
 ### auth/refresh (POST)
@@ -44,7 +42,6 @@
 **Response:**
 
 - errors: `INVALID_SIGNATURE (400)`, `INVALID_TOKEN_FORMAT (400)`, `DECODE_ERROR (400)`, `EXPIRED_TOKEN (400)`, `INVALID_TOKEN (400)`
-- data: `access`
 - codes: `200`, `500`, `400`
 
 ### auth/logout (POST)
