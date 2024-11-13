@@ -1,3 +1,4 @@
+from random import randint
 import time
 from typing import Any
 import cmd
@@ -36,12 +37,7 @@ class Endpoints:
 
 class Session:
     is_login = False
-    current_token = ""
     cookies = None
-
-    @property
-    def headers(self) -> dict[str, str]:
-        return {"Authorization": self.current_token} if self.is_login else {}
 
 
 def dict_format(
@@ -116,7 +112,6 @@ class Auth:
         result = handle_response(r)
         if result:
             if result["success"]:
-                Session.current_token = result["data"]["access"]
                 Session.cookies = r.cookies
                 Session.is_login = True
                 print("Success")
@@ -142,7 +137,6 @@ class Auth:
         result = handle_response(r)
         if result:
             if result["success"]:
-                Session.current_token = result["data"]["access"]
                 Session.cookies = r.cookies
                 Session.is_login = True
                 print("Success")
@@ -163,7 +157,6 @@ class Auth:
         result = handle_response(r)
         if result:
             if result["success"]:
-                Session.current_token = result["data"]["access"]
                 Session.cookies = r.cookies
                 Session.is_login = True
                 print("Success")
@@ -177,12 +170,11 @@ class Auth:
 
     def do_logout(self, arg):
         r = requests.post(
-            Endpoints().logout, headers=Session().headers,
+            Endpoints().logout, cookies=Session().cookies,
             **rargs
         )
         Session.is_login = False
         Session.cookies = r.cookies
-        Session.current_token = ""
         result = handle_response(r)
         if result:
             print(dict_format(result))
@@ -191,11 +183,6 @@ class Auth:
         if not Session.is_login:
             print("Not in account!")
             return True
-
-    def do_get_tokens(self, arg):
-        print(dict_format({
-            "access": Session.current_token
-        }))
 
 
 class Posts:
@@ -227,12 +214,18 @@ class Posts:
     def do_create_post(self, arg, data):
         r = requests.post(
             Endpoints().posts, json=data,
-            headers=Session().headers, **rargs
+            cookies=Session().cookies, **rargs
         )
 
         result = handle_response(r)
         if result:
             print(dict_format(result))
+
+    def do_create_test_posts(self, arg):
+        for i in range(256):
+            self.do_create_post(
+                None, {"content": str(randint(i*5, i*100))}
+            )
 
     def pre_get_post(self, arg):
         if not Session.is_login:
@@ -242,7 +235,7 @@ class Posts:
     def do_get_post(self, arg):
         r = requests.get(
             Endpoints().post_actions.f(arg),
-            headers=Session().headers, **rargs
+            cookies=Session().cookies, **rargs
         )
         result = handle_response(r)
         if result:
@@ -256,7 +249,7 @@ class Posts:
     def do_delete_post(self, arg):
         r = requests.delete(
             Endpoints().post_actions.f(arg),
-            headers=Session().headers, **rargs
+            cookies=Session().cookies, **rargs
         )
         result = handle_response(r)
         if result:
@@ -288,7 +281,7 @@ class Posts:
     def do_update_post(self, arg, data):
         r = requests.patch(
             Endpoints().post_actions.f(arg),
-            headers=Session().headers, json=data,
+            cookies=Session().cookies, json=data,
             **rargs
         )
         result = handle_response(r)
@@ -319,7 +312,7 @@ class Posts:
 
         r = requests.post(
             Endpoints().post_reactions.f(arg),
-            headers=Session().headers, json=data,
+            cookies=Session().cookies, json=data,
             **rargs
         )
         result = handle_response(r)
@@ -334,7 +327,7 @@ class Posts:
     def do_rem_reaction(self, arg):
         r = requests.delete(
             Endpoints().post_reactions.f(arg),
-            headers=Session().headers, **rargs
+            cookies=Session().cookies, **rargs
         )
         result = handle_response(r)
         if result:
@@ -350,7 +343,7 @@ class Users:
     def do_me(self, arg):
         r = requests.get(
             Endpoints().user,
-            headers=Session().headers,
+            cookies=Session().cookies,
             **rargs
         )
 
@@ -393,7 +386,7 @@ class Users:
     def do_change_profile(self, arg, data):
         r = requests.patch(
             Endpoints().user, json=data,
-            headers=Session().headers,
+            cookies=Session().cookies,
             **rargs
         )
 
