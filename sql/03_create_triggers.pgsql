@@ -3,6 +3,10 @@ $$BEGIN
     CREATE TRIGGER update_posts_modified
     BEFORE UPDATE ON posts
     FOR EACH ROW
+    WHEN (OLD.* IS DISTINCT FROM NEW.* AND
+          (OLD.likes_count IS NOT DISTINCT FROM NEW.likes_count) AND
+          (OLD.dislikes_count IS NOT DISTINCT FROM NEW.dislikes_count) AND
+          (OLD.comments_count IS NOT DISTINCT FROM NEW.comments_count))
     EXECUTE FUNCTION update_modified_column();
 EXCEPTION
     WHEN duplicate_object THEN
