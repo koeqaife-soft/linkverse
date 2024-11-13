@@ -1,6 +1,10 @@
 {
+    ping: {
+        skip_checks: true
+    },
     auth: {
         register: {
+            no_auth: true,
             load_data: true,
             data: {
                 username: { min_len: 4, max_len: 16 },
@@ -9,6 +13,7 @@
             }
         },
         login: {
+            no_auth: true,
             load_data: true,
             data: {
                 password: { min_len: 8 },
@@ -16,10 +21,17 @@
             }
         },
         refresh: {
+            no_auth: true,
             load_data: true,
             optional_data: {
                 refresh_token: {}
             }
+        },
+        remove_cookies: {
+            no_auth: true
+        },
+        logout: {
+            no_auth: true
         }
     },
     posts: {
@@ -67,6 +79,17 @@
                 popular_posts: { type: "bool" },
                 offset: { type: "int", min: 0, max: 4294967296 },
                 limit: { type: "int", min: 1, max: 1000 }
+            }
+        },
+        get_posts_batch: {
+            params: {
+                posts: {
+                    type: "list",
+                    min_len: 1, max_len: 10,
+                    v_max_len: 32, v_min_len: 10,
+                    is_digit: true, 
+                    f_max_len: 400
+                }
             }
         }
     },
