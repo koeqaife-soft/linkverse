@@ -22,7 +22,7 @@
 ```json
 {
     "success": false,
-    "message": "INTERNAL_SERVER_ERROR",
+    "error": "INTERNAL_SERVER_ERROR",
     "data": {}
 }
 ```
