@@ -2,6 +2,23 @@ from _types import connection_type
 from core import Status
 
 
+async def get_viewed_posts(
+    user_id: str,
+    db: connection_type
+) -> set[str]:
+    viewed_posts_query = """
+        SELECT post_id
+        FROM user_post_views
+        WHERE user_id = $1
+        ORDER BY timestamp DESC
+        LIMIT 10000
+    """
+    viewed_posts = await db.fetch(viewed_posts_query, user_id)
+    viewed_post_ids = {row['post_id'] for row in viewed_posts}
+
+    return viewed_post_ids
+
+
 async def get_popular_posts(
     user_id: str,
     db: connection_type,
@@ -13,15 +30,7 @@ async def get_popular_posts(
     offset = offset or 0
 
     if hide_viewed:
-        viewed_posts_query = """
-            SELECT post_id
-            FROM user_post_views
-            WHERE user_id = $1
-            ORDER BY timestamp DESC
-            LIMIT 10000
-        """
-        viewed_posts = await db.fetch(viewed_posts_query, user_id)
-        viewed_post_ids = {row['post_id'] for row in viewed_posts}
+        viewed_post_ids = await get_viewed_posts(user_id, db)
 
     parameters: list = [limit, offset]
 
@@ -66,15 +75,7 @@ async def get_new_posts(
     offset = offset or 0
 
     if hide_viewed:
-        viewed_posts_query = """
-            SELECT post_id
-            FROM user_post_views
-            WHERE user_id = $1
-            ORDER BY timestamp DESC
-            LIMIT 10000
-        """
-        viewed_posts = await db.fetch(viewed_posts_query, user_id)
-        viewed_post_ids = {row['post_id'] for row in viewed_posts}
+        viewed_post_ids = await get_viewed_posts(user_id, db)
 
     parameters: list = [limit, offset]
 
