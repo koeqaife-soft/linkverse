@@ -52,12 +52,13 @@ CREATE TABLE IF NOT EXISTS reactions (
 
 CREATE TABLE IF NOT EXISTS comments (
     comment_id TEXT PRIMARY KEY,
+    parent_comment_id TEXT,
     post_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
     content TEXT NOT NULL,
+    FOREIGN KEY (parent_comment_id) REFERENCES comments (comment_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
-    FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE,
-    UNIQUE (post_id, user_id)
+    FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS user_profiles (
