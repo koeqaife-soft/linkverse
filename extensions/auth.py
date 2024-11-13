@@ -11,6 +11,23 @@ _g = Global()
 pool: asyncpg.Pool = _g.pool
 
 
+def _set_token(refresh: str, access: str, response: Response):
+    response.set_cookie(
+        "refresh_token", refresh,
+        httponly=True, secure=not debug,
+        samesite='Strict',
+        max_age=30*24*60*60
+    )
+
+    response.set_cookie(
+        "access_token", access,
+        httponly=True, secure=not debug,
+        samesite='Strict',
+        max_age=30*24*60*60
+    )
+    return response
+
+
 @route(bp, '/auth/register', methods=['POST'])
 async def register() -> tuple[Response, int]:
     data = g.data
@@ -33,15 +50,8 @@ async def register() -> tuple[Response, int]:
 
     assert result3.data is not None
 
-    data = {"access": result3.data["access"]}
-    _response = response(data=data)
-
-    _response.set_cookie(
-        "refresh_token", result3.data["refresh"],
-        httponly=True, secure=not debug,
-        samesite='Strict',
-        max_age=30*24*60*60
-    )
+    _response = response()
+    _set_token(result3.data["refresh"], result3.data['access'], _response)
 
     return _response, 201
 
@@ -57,15 +67,8 @@ async def login() -> tuple[Response, int]:
     if not result.success:
         return error_response(result), 400
 
-    data = {"access": result.data["access"]}
-    _response = response(data=data)
-
-    _response.set_cookie(
-        "refresh_token", result.data["refresh"],
-        httponly=True, secure=not debug,
-        samesite='Strict',
-        max_age=30*24*60*60
-    )
+    _response = response()
+    _set_token(result.data["refresh"], result.data['access'], _response)
 
     return _response, 200
 
@@ -82,22 +85,18 @@ async def refresh() -> tuple[Response, int]:
     if not result.success:
         return error_response(result), 400
 
-    data = {"access": result.data["access"]}
-    _response = response(data=data)
-
-    _response.set_cookie(
-        "refresh_token", result.data["refresh"],
-        httponly=True, secure=not debug,
-        samesite='Strict',
-        max_age=30*24*60*60
-    )
+    _response = response()
+    _set_token(result.data["refresh"], result.data['access'], _response)
 
     return _response, 200
 
 
 @route(bp, '/auth/logout', methods=['POST'])
 async def logout() -> tuple[Response, int]:
-    token = request.headers.get("Authorization")
+    token = (
+        request.headers.get("Authorization")
+        or request.cookies.get("access_token")
+    )
     if token is None:
         return response(error=True, error_msg="UNAUTHORIZED"), 401
 
@@ -118,6 +117,28 @@ async def logout() -> tuple[Response, int]:
     _response = response()
     _response.delete_cookie(
         "refresh_token", httponly=True,
+        secure=not debug,
+        samesite='Strict'
+    )
+    _response.delete_cookie(
+        "access_token", httponly=True,
+        secure=not debug,
+        samesite='Strict'
+    )
+
+    return _response, 204
+
+
+@route(bp, '/auth/remove_cookies', methods=['POST'])
+async def remove_cookies() -> tuple[Response, int]:
+    _response = response()
+    _response.delete_cookie(
+        "refresh_token", httponly=True,
+        secure=not debug,
+        samesite='Strict'
+    )
+    _response.delete_cookie(
+        "access_token", httponly=True,
         secure=not debug,
         samesite='Strict'
     )
