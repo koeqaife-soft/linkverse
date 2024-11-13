@@ -64,12 +64,13 @@ async def before():
         return '', 204
     if request.endpoint is None:
         return
-    url_rule = str(request.url_rule).lstrip("/").split("/")
-    if url_rule[1] == "ping":
+
+    _data = core.get_value_from_dict(endpoints_data, request.endpoint)
+    if _data.get("skip_checks", False):
         return
 
     data_error = (response(error=True, error_msg="INCORRECT_DATA"), 400)
-    _data = core.get_value_from_dict(endpoints_data, request.endpoint)
+    params_error = (response(error=True, error_msg="INCORRECT_PARAMS"), 400)
 
     if _data.get("load_data"):
         data = (await request.get_json()) or {}
@@ -96,9 +97,26 @@ async def before():
                     if not core.validate(value, options):
                         return data_error
 
-    if url_rule[1] != "auth":
+    if _data.get("params"):
+        params = request.args
+        keys_present = (
+            params and core.are_all_keys_present(_data["params"], params)
+        )
+        if not keys_present:
+            return params_error
+
+        valid_data = all(
+            core.validate(params[key], core.get_options(value), True)
+            for key, value in _data["params"].items()
+            if key in params
+        )
+        if not valid_data:
+            return params_error
+
+    if not _data.get("no_auth", False):
         headers = request.headers
-        token = headers.get("Authorization")
+        cookies = request.cookies
+        token = headers.get("Authorization") or cookies.get("access_token")
         if token is None:
             return response(error=True, error_msg="UNAUTHORIZED"), 401
         async with pool.acquire() as db:
