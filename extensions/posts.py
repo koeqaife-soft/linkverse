@@ -110,11 +110,8 @@ async def get_post(id: str) -> tuple[Response, int]:
 
 @route(bp, "/posts/batch", methods=["GET"])
 async def get_posts_batch() -> tuple[Response, int]:
-    posts_param = request.args.get('posts')
-    if posts_param:
-        _posts = posts_param[:255].split(',')[:10]
-    else:
-        return response(error=True, error_msg="INCORRECT_PARAMS"), 400
+    posts_param = request.args.get('posts', "")
+    _posts = posts_param.split(',')
 
     _data = []
     errors = []
