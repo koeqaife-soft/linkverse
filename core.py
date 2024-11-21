@@ -292,7 +292,7 @@ def validate(
         validator,
         (f"validate_{type}" if not is_parameters
          else f"parameters_{type}"),
-        validator.validate_string
+        validator.validate_str
     )
 
     return _validate(value)
@@ -339,7 +339,7 @@ class Validator:
 
         return True
 
-    def validate_string(self, value: str) -> bool:
+    def validate_str(self, value: str) -> bool:
         options = self.options
         if not isinstance(value, str):
             return False
@@ -364,9 +364,12 @@ class Validator:
         options["min_len"] = 4
         options["max_len"] = 254
         options["regex"] = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        return self.validate_string(value)
+        return self.validate_str(value)
 
-    def parameters_list(self, value: str):
+    def parameters_str(self, value: str) -> bool:
+        return self.validate_str(value)
+
+    def parameters_list(self, value: str) -> bool:
         options = self.options
         if not isinstance(value, str):
             return False
