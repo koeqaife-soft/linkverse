@@ -39,26 +39,30 @@ CREATE TABLE IF NOT EXISTS user_post_views (
     FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS reactions (
-    -- uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    post_id TEXT NOT NULL,
-    user_id TEXT NOT NULL,
-    is_like BOOLEAN NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
-    FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (post_id, user_id)
-);
-
 CREATE TABLE IF NOT EXISTS comments (
     comment_id TEXT PRIMARY KEY,
     parent_comment_id TEXT,
     post_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
     content TEXT NOT NULL,
+    likes_count BIGINT DEFAULT 0,
+    dislikes_count BIGINT DEFAULT 0,
     FOREIGN KEY (parent_comment_id) REFERENCES comments (comment_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
     FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS reactions (
+    post_id TEXT,
+    comment_id TEXT,
+    user_id TEXT NOT NULL,
+    is_like BOOLEAN NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (post_id, user_id),
+    UNIQUE (comment_id, user_id),
+    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
+    FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE,
+    FOREIGN KEY (comment_id) REFERENCES comments (comment_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS user_profiles (
