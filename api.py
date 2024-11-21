@@ -113,6 +113,17 @@ async def before():
         if not valid_data:
             return params_error
 
+    if _data.get("optional_params"):
+        params = request.args
+
+        valid_data = all(
+            core.validate(params[key], core.get_options(value), True)
+            for key, value in _data["optional_params"].items()
+            if key in params
+        )
+        if not valid_data:
+            return params_error
+
     if not _data.get("no_auth", False):
         headers = request.headers
         cookies = request.cookies
