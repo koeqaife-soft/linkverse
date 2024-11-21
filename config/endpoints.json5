@@ -38,7 +38,7 @@
         create_post: {
             load_data: true,
             data: {
-                content: { min_len: 1, max_len: 1024 }
+                content: { min_len: 1, max_len: 16384 }
             },
             optional_data: {
                 tags: { type: "list" },
@@ -48,7 +48,7 @@
         update_post: {
             load_data: true,
             optional_data: {
-                content: { min_len: 1, max_len: 1024 },
+                content: { min_len: 1, max_len: 16384 },
                 tags: { type: "list" },
                 media: { type: "list" }
             }
@@ -90,6 +90,17 @@
                     is_digit: true, 
                     f_max_len: 400
                 }
+            }
+        },
+        create_comment: {
+            load_data: true,
+            data: {
+                content: { min_len: 1, max_len: 1024 }
+            }
+        },
+        get_comments: {
+            optional_params: {
+                cursor: { min_len: 1, max_len: 256 }
             }
         }
     },

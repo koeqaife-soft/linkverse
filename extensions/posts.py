@@ -195,7 +195,7 @@ async def add_reaction(id: str) -> tuple[Response, int]:
     is_like: bool = data.get("is_like")
 
     async with pool.acquire() as db:
-        post = await posts.get_post(id, db)
+        post = await cache_posts.get_post(id, db)
         if not post.success:
             return error_response(post), 400
         result = await posts.add_reaction(g.user_id, is_like, id, db)
@@ -209,7 +209,7 @@ async def add_reaction(id: str) -> tuple[Response, int]:
 @route(bp, "/posts/<id>/reactions", methods=["DELETE"])
 async def rem_reaction(id: str) -> tuple[Response, int]:
     async with pool.acquire() as db:
-        post = await posts.get_post(id, db)
+        post = await cache_posts.get_post(id, db)
         if not post.success:
             return error_response(post), 400
         result = await posts.rem_reaction(g.user_id, id, db)
@@ -218,6 +218,56 @@ async def rem_reaction(id: str) -> tuple[Response, int]:
         return error_response(result), 500
 
     return response(), 204
+
+
+@route(bp, "/posts/<id>/comments", methods=["POST"])
+async def create_comment(id: str) -> tuple[Response, int]:
+    data = g.data
+    content = data.get("content")
+
+    async with pool.acquire() as db:
+        post = await cache_posts.get_post(id, db)
+        if not post.success:
+            return error_response(post), 400
+        result = await posts.create_comment(g.user_id, id, content, db)
+
+    if not result.success:
+        return error_response(result), 500
+
+    return response(data=result.data.to_dict()), 201
+
+
+@route(bp, "/posts/<id>/comments", methods=["GET"])
+async def get_comments(id: str) -> tuple[Response, int]:
+    cursor = request.args.get("cursor", None)
+
+    async with pool.acquire() as db:
+        post = await cache_posts.get_post(id, db)
+        if not post.success:
+            return error_response(post), 400
+        result = await posts.get_comments(id, cursor, g.user_id, db)
+
+        if not result.success:
+            if result.message == "NO_MORE_COMMENTS":
+                return response(error=True, error_msg=result.message), 200
+            return error_response(result), 500
+
+        assert result.data is not None
+
+        users = {}
+
+        for x in result.data["comments"]:
+            if x.user_id not in users:
+                users[x.user_id] = (
+                    (await cache_users.get_user(x.user_id, db)).data.dict
+                )
+
+    _data = result.data | {"users": users}
+    _data["comments"] = [
+        comment.to_dict() for comment in result.data["comments"]
+    ]
+
+    return response(data=_data), 200
 
 
 def load(app: Quart):
