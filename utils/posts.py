@@ -3,6 +3,7 @@ import datetime
 from core import Status
 from utils.generation import generate_id
 from _types import connection_type
+import typing as t
 
 
 @dataclass
@@ -33,6 +34,20 @@ class Post:
         post_dict['created_at_unix'] = self.created_at_unix
         post_dict['updated_at_unix'] = self.updated_at_unix
         return post_dict
+
+
+@dataclass
+class Comment:
+    comment_id: str
+    post_id: str
+    user_id: str
+    content: str
+    parent_comment_id: str | None
+    likes_count: int
+    dislikes_count: int
+
+    def to_dict(self) -> dict:
+        return asdict(self)
 
 
 async def get_post(
@@ -184,3 +199,107 @@ async def rem_reaction(
             """, user_id, post_id
         )
     return Status(True)
+
+
+async def create_comment(
+    user_id: str, post_id: str, content: str,
+    db: connection_type
+) -> Status[Comment | None]:
+    comment_id = str(await generate_id())
+    async with db.transaction():
+        await db.execute(
+            """
+            INSERT INTO comments (comment_id, post_id, user_id, content)
+            VALUES ($1, $2, $3, $4)
+            """, comment_id, post_id, user_id, content
+        )
+        comment = await db.fetchrow(
+            """
+                SELECT comment_id, parent_comment_id, post_id, user_id,
+                       content, likes_count, dislikes_count
+                FROM comments
+                WHERE post_id = $1 AND comment_id = $2
+            """, post_id, comment_id
+        )
+
+    return Status(True, data=Comment(**dict(comment)))
+
+
+async def get_comment(
+    post_id: str, comment_id: str,
+    db: connection_type
+) -> Status[Comment | None]:
+    query = """
+        SELECT comment_id, parent_comment_id, post_id, user_id, content,
+               likes_count, dislikes_count
+        FROM comments
+        WHERE post_id = $1 AND comment_id = $2
+    """
+    row = await db.fetchrow(query, post_id, comment_id)
+
+    if row is None:
+        return Status(False, message="COMMENT_DOES_NOT_EXIST")
+
+    return Status(True, data=Comment(**dict(row)))
+
+
+async def get_comments(
+    post_id: str,
+    cursor: str | None,
+    user_id: str,
+    db: connection_type
+) -> Status[dict[
+            t.Literal["comments"] | t.Literal["next_cursor"],
+            list[Comment] | str] | None]:
+    query = """
+        SELECT comment_id, parent_comment_id, post_id, user_id, content,
+               likes_count, dislikes_count,
+               (likes_count - dislikes_count) AS popularity_score,
+               CASE WHEN user_id = $2 THEN 1 ELSE 0 END AS is_user_comment
+        FROM comments
+        WHERE post_id = $1
+    """
+    params: list[t.Any] = [post_id, user_id]
+
+    if cursor:
+        try:
+            _popularity_score, comment_id = cursor.split(",")
+            popularity_score = int(_popularity_score)
+        except ValueError:
+            return Status(False, message="INVALID_CURSOR")
+
+        query += """
+            AND (
+                (likes_count - dislikes_count) > $3 OR
+                ((likes_count - dislikes_count) = $3 AND comment_id < $4)
+            )
+        """
+        params.extend([popularity_score, comment_id])
+
+    query += """
+        ORDER BY is_user_comment DESC, popularity_score DESC, comment_id DESC
+        LIMIT 21
+    """
+
+    rows = await db.fetch(query, *params)
+    if not rows:
+        return Status(False, message="NO_MORE_COMMENTS")
+
+    has_more = len(rows) > 20
+    rows = rows[:20]
+
+    last_row = rows[-1]
+    next_cursor = f"{last_row['popularity_score']},{last_row['comment_id']}"
+
+    comments = [
+        Comment(
+            **{k: v for k, v in row.items()
+               if k not in ['popularity_score', 'is_user_comment']}
+        )
+        for row in rows
+    ]
+    return Status(
+        success=True,
+        data={"comments": comments, "next_cursor": next_cursor,
+              "has_more": has_more}
+    )
