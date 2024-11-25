@@ -15,6 +15,7 @@ import importlib
 import datetime
 import glob
 from quart_cors import cors
+import bleach
 
 _logger = logging.getLogger("linkverse")
 worker_count = int(os.getenv('_WORKER_COUNT', '1'))
@@ -22,6 +23,7 @@ init(autoreset=True)
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 T = t.TypeVar("T")
+ALLOWED_TAGS = ["i", "strong", "b", "em", "u", "br", "mark", "blockquote"]
 
 
 load_dotenv()
@@ -353,6 +355,9 @@ class Validator:
             "max_len": lambda s, v: len(s) <= int(v),
             "len": lambda s, v: len(s) == int(v)
         }
+        filters = {
+            "xss": lambda v: bleach.clean(v, tags=ALLOWED_TAGS)
+        }
 
         if "regex" in options:
             if not re.match(options["regex"], value):
@@ -362,7 +367,14 @@ class Validator:
             if option in options and not check(value, options[option]):
                 return False, None
 
-        return True, None
+        if "filter" in options:
+            if isinstance(options["filter"], list):
+                for x in options["filter"]:
+                    value = filters[x](value)
+            if isinstance(options["filter"], str):
+                value = filters[options["filter"]](value)
+
+        return True, value
 
     def validate_email(self, value: str) -> ReturnType:
         options = self.options
