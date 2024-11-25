@@ -38,7 +38,7 @@
         create_post: {
             load_data: true,
             data: {
-                content: { min_len: 1, max_len: 16384 }
+                content: { min_len: 1, max_len: 16384, filter: "xss" }
             },
             optional_data: {
                 tags: { type: "list" },
@@ -95,7 +95,7 @@
         create_comment: {
             load_data: true,
             data: {
-                content: { min_len: 1, max_len: 1024 }
+                content: { min_len: 1, max_len: 1024, filter: "xss" }
             }
         },
         get_comments: {
