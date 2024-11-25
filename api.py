@@ -58,6 +58,31 @@ async def handle_500(error: werkzeug.exceptions.InternalServerError):
     return response(error=True, error_msg="INTERNAL_SERVER_ERROR"), 500
 
 
+def validate_data(
+    _data: dict, params: bool, validate: dict,
+    optional: bool
+) -> tuple[bool, dict | None]:
+    data = dict(_data)
+    keys_present = (
+        optional or (data and core.are_all_keys_present(validate, data))
+    )
+    if not keys_present:
+        return False, None
+
+    for key, value in validate.items():
+        if key not in data:
+            continue
+        valid, modified = core.validate(
+            data[key], core.get_options(value),
+            params
+        )
+        if not valid:
+            return False, None
+        data[key] = modified
+
+    return True, data
+
+
 @app.before_request
 async def before():
     if request.method == 'OPTIONS':
@@ -73,55 +98,39 @@ async def before():
     params_error = (response(error=True, error_msg="INCORRECT_PARAMS"), 400)
 
     if _data.get("load_data"):
-        data = (await request.get_json()) or {}
-        g.data = data
+        data = await request.get_json() or {}
         if "data" in _data:
-            keys_present = (
-                data and core.are_all_keys_present(_data["data"], data)
+            valid, modified = validate_data(
+                data, False, _data["data"], False
             )
-            if not keys_present:
+            if not valid:
                 return data_error
-
-            valid_data = all(
-                core.validate(data[key], core.get_options(value))
-                for key, value in _data["data"].items()
-                if key in data
-            )
-            if not valid_data:
-                return data_error
+            data = modified
 
         if "optional_data" in _data:
-            for key, value in data.items():
-                if key in _data["optional_data"]:
-                    options = core.get_options(_data["optional_data"][key])
-                    if not core.validate(value, options):
-                        return data_error
+            valid, modified = validate_data(
+                data, False, _data["optional_data"], True
+            )
+            if not valid:
+                return data_error
+            data = modified
+
+        g.data = data
 
     if _data.get("params"):
         params = request.args
-        keys_present = (
-            params and core.are_all_keys_present(_data["params"], params)
+        valid, modified = validate_data(
+            params, True, _data["params"], False
         )
-        if not keys_present:
-            return params_error
-
-        valid_data = all(
-            core.validate(params[key], core.get_options(value), True)
-            for key, value in _data["params"].items()
-            if key in params
-        )
-        if not valid_data:
+        if not valid:
             return params_error
 
     if _data.get("optional_params"):
         params = request.args
-
-        valid_data = all(
-            core.validate(params[key], core.get_options(value), True)
-            for key, value in _data["optional_params"].items()
-            if key in params
+        valid, modified = validate_data(
+            params, True, _data["optional_params"], True
         )
-        if not valid_data:
+        if not valid:
             return params_error
 
     if not _data.get("no_auth", False):

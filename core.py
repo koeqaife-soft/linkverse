@@ -278,12 +278,15 @@ def get_options(options: str | dict) -> dict:
     return options
 
 
+ReturnType = tuple[bool, t.Any | None]
+
+
 def validate(
     value: t.Any, options: dict,
     is_parameters: bool = False
-) -> bool:
+) -> ReturnType:
     if value is None:
-        return False
+        return False, None
 
     validator = Validator(options)
 
@@ -295,23 +298,25 @@ def validate(
         validator.validate_str
     )
 
-    return _validate(value)
+    _result = _validate(value)
+
+    return _result[0], _result[1] or value
 
 
 class Validator:
     def __init__(self, options: dict) -> None:
         self.options = options
 
-    def validate_dict(self, value: dict) -> bool:
-        return isinstance(value, dict)
+    def validate_dict(self, value: dict) -> ReturnType:
+        return isinstance(value, dict), None
 
-    def validate_bool(self, value: bool) -> bool:
-        return isinstance(value, bool)
+    def validate_bool(self, value: bool) -> ReturnType:
+        return isinstance(value, bool), None
 
-    def validate_list(self, value: list) -> bool:
+    def validate_list(self, value: list) -> ReturnType:
         options = self.options
         if not isinstance(value, list):
-            return False
+            return False, None
         checks = {
             "min_len": lambda s, v: len(s) >= int(v),
             "max_len": lambda s, v: len(s) <= int(v),
@@ -320,14 +325,14 @@ class Validator:
 
         for option, check in checks.items():
             if option in options and not check(value, options[option]):
-                return False
+                return False, None
 
-        return True
+        return True, None
 
-    def validate_int(self, value: int) -> bool:
+    def validate_int(self, value: int) -> ReturnType:
         options = self.options
         if not isinstance(value, int):
-            return False
+            return False, None
         checks = {
             "min": lambda s, v: s >= int(v),
             "max": lambda s, v: s <= int(v)
@@ -335,14 +340,14 @@ class Validator:
 
         for option, check in checks.items():
             if option in options and not check(value, options[option]):
-                return False
+                return False, None
 
-        return True
+        return True, None
 
-    def validate_str(self, value: str) -> bool:
+    def validate_str(self, value: str) -> ReturnType:
         options = self.options
         if not isinstance(value, str):
-            return False
+            return False, None
         checks = {
             "min_len": lambda s, v: len(s) >= int(v),
             "max_len": lambda s, v: len(s) <= int(v),
@@ -351,31 +356,31 @@ class Validator:
 
         if "regex" in options:
             if not re.match(options["regex"], value):
-                return False
+                return False, None
 
         for option, check in checks.items():
             if option in options and not check(value, options[option]):
-                return False
+                return False, None
 
-        return True
+        return True, None
 
-    def validate_email(self, value: str) -> bool:
+    def validate_email(self, value: str) -> ReturnType:
         options = self.options
         options["min_len"] = 4
         options["max_len"] = 254
         options["regex"] = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        return self.validate_str(value)
+        return self.validate_str(value), None
 
-    def parameters_str(self, value: str) -> bool:
-        return self.validate_str(value)
+    def parameters_str(self, value: str) -> ReturnType:
+        return self.validate_str(value), None
 
-    def parameters_list(self, value: str) -> bool:
+    def parameters_list(self, value: str) -> ReturnType:
         options = self.options
         if not isinstance(value, str):
-            return False
+            return False, None
 
         if "f_max_len" in options and len(value) > options["f_max_len"]:
-            return False
+            return False, None
 
         _value = value.split(",")
 
@@ -387,7 +392,7 @@ class Validator:
 
         for option, check in checks.items():
             if option in options and not check(_value, options[option]):
-                return False
+                return False, None
 
         v_checks = {
             "v_min_len": lambda s, v: len(s) >= int(v),
@@ -400,9 +405,9 @@ class Validator:
             if option in options:
                 for x in _value:
                     if not check(x, options[option]):
-                        return False
+                        return False, None
 
-        return True
+        return True, None
 
 
 def are_all_keys_present(source: dict, target: dict) -> bool:
