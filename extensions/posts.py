@@ -97,7 +97,7 @@ async def get_post(id: str) -> tuple[Response, int]:
 
         db = await conn.create_conn()
 
-        reaction = await posts.get_reaction(g.user_id, id, db)
+        reaction = await posts.get_reaction(g.user_id, id, None, db)
 
     data = result.data.to_dict()
     if user.data is not None:
@@ -128,7 +128,7 @@ async def get_posts_batch() -> tuple[Response, int]:
 
             db = await conn.create_conn()
 
-            reaction = await posts.get_reaction(g.user_id, post, db)
+            reaction = await posts.get_reaction(g.user_id, post, None, db)
 
             _temp = result.data.to_dict()
 
@@ -198,7 +198,7 @@ async def add_reaction(id: str) -> tuple[Response, int]:
         post = await cache_posts.get_post(id, db)
         if not post.success:
             return error_response(post), 400
-        result = await posts.add_reaction(g.user_id, is_like, id, db)
+        result = await posts.add_reaction(g.user_id, is_like, id, None, db)
 
     if not result.success:
         return error_response(result), 500
@@ -212,7 +212,7 @@ async def rem_reaction(id: str) -> tuple[Response, int]:
         post = await cache_posts.get_post(id, db)
         if not post.success:
             return error_response(post), 400
-        result = await posts.rem_reaction(g.user_id, id, db)
+        result = await posts.rem_reaction(g.user_id, id, None, db)
 
     if not result.success:
         return error_response(result), 500
@@ -245,8 +245,8 @@ async def get_comments(id: str) -> tuple[Response, int]:
         post = await cache_posts.get_post(id, db)
         if not post.success:
             return error_response(post), 400
-        result = await posts.get_comments(id, cursor, g.user_id, db)
 
+        result = await posts.get_comments(id, cursor, g.user_id, db)
         if not result.success:
             if result.message == "NO_MORE_COMMENTS":
                 return response(error=True, error_msg=result.message), 200
@@ -255,19 +255,63 @@ async def get_comments(id: str) -> tuple[Response, int]:
         assert result.data is not None
 
         users = {}
+        comments = []
 
-        for x in result.data["comments"]:
-            if x.user_id not in users:
-                users[x.user_id] = (
-                    (await cache_users.get_user(x.user_id, db)).data.dict
-                )
+        for comment in result.data["comments"]:
+            reaction = await posts.get_reaction(
+                g.user_id, None, comment.comment_id, db
+            )
 
-    _data = result.data | {"users": users}
-    _data["comments"] = [
-        comment.to_dict() for comment in result.data["comments"]
-    ]
+            if comment.user_id not in users:
+                user_data = await cache_users.get_user(comment.user_id, db)
+                if user_data.success:
+                    users[comment.user_id] = user_data.data.dict
 
+            _temp = comment.to_dict()
+            if reaction.data is not None:
+                _temp["is_like"] = reaction.data
+
+            comments.append(_temp)
+
+    _data = result.data | {"users": users, "comments": comments}
     return response(data=_data), 200
+
+
+@route(bp, "/posts/<id>/comments/<cid>/reactions", methods=["POST"])
+async def comment_add_reaction(id: str, cid: str) -> tuple[Response, int]:
+    data = g.data
+    is_like: bool = data.get("is_like")
+
+    async with pool.acquire() as db:
+        post = await cache_posts.get_post(id, db)
+        if not post.success:
+            return error_response(post), 400
+        comment = await posts.get_comment(id, cid, db)
+        if not comment.success:
+            return error_response(comment), 400
+        result = await posts.add_reaction(g.user_id, is_like, None, cid, db)
+
+    if not result.success:
+        return error_response(result), 500
+
+    return response(), 204
+
+
+@route(bp, "/posts/<id>/comments/<cid>/reactions", methods=["DELETE"])
+async def comment_rem_reaction(id: str, cid: str) -> tuple[Response, int]:
+    async with pool.acquire() as db:
+        post = await cache_posts.get_post(id, db)
+        if not post.success:
+            return error_response(post), 400
+        comment = await posts.get_comment(id, cid, db)
+        if not comment.success:
+            return error_response(comment), 400
+        result = await posts.rem_reaction(g.user_id, None, cid, db)
+
+    if not result.success:
+        return error_response(result), 500
+
+    return response(), 204
 
 
 def load(app: Quart):

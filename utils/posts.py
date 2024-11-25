@@ -148,38 +148,47 @@ async def update_post(
 
 async def add_reaction(
     user_id: str, is_like: bool,
-    post_id: str, db: connection_type
+    post_id: str | None,
+    comment_id: str | None,
+    db: connection_type
 ) -> Status[None]:
+    key = "post_id" if post_id is not None else "comment_id"
+    _value = post_id or comment_id
     result = await db.fetchval(
-        """
+        f"""
         SELECT is_like FROM reactions
-        WHERE user_id = $1 AND post_id = $2
-        """, user_id, post_id
+        WHERE user_id = $1 AND {key} = $2
+        """, user_id, _value
     )
     if result == is_like:
         return Status(True)
 
     async with db.transaction():
         await db.execute(
-            """
-            INSERT INTO reactions (user_id, post_id, is_like)
+            f"""
+            INSERT INTO reactions (user_id, {key}, is_like)
             VALUES ($1, $2, $3)
-            ON CONFLICT (user_id, post_id)
+            ON CONFLICT (user_id, {key})
             DO UPDATE SET is_like = excluded.is_like
-            """, user_id, post_id, is_like
+            """, user_id, _value, is_like
         )
     return Status(True)
 
 
 async def get_reaction(
-    user_id: str, post_id: str,
+    user_id: str,
+    post_id: str,
+    comment_id: str | None,
     db: connection_type
 ) -> Status[None | bool]:
+    key = "post_id" if post_id is not None else "comment_id"
+    _value = post_id or comment_id
+
     result = await db.fetchval(
-        """
+        f"""
         SELECT is_like FROM reactions
-        WHERE user_id = $1 AND post_id = $2
-        """, user_id, post_id
+        WHERE user_id = $1 AND {key} = $2
+        """, user_id, _value
     )
     if result is not None:
         return Status(True, data=result)
@@ -188,15 +197,20 @@ async def get_reaction(
 
 
 async def rem_reaction(
-    user_id: str, post_id: str,
+    user_id: str,
+    post_id: str,
+    comment_id: str | None,
     db: connection_type
 ) -> Status[None]:
+    key = "post_id" if post_id is not None else "comment_id"
+    _value = post_id or comment_id
+
     async with db.transaction():
         await db.execute(
-            """
+            f"""
             DELETE FROM reactions
-            WHERE user_id = $1 AND post_id = $2
-            """, user_id, post_id
+            WHERE user_id = $1 AND {key} = $2
+            """, user_id, _value
         )
     return Status(True)
 

@@ -102,6 +102,12 @@
             optional_params: {
                 cursor: { min_len: 1, max_len: 256 }
             }
+        },
+        comment_add_reaction: {
+            load_data: true,
+            data: {
+                is_like: { type: "bool" }
+            }
         }
     },
     users: {
