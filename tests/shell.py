@@ -179,11 +179,6 @@ class Auth:
         if result:
             print(dict_format(result))
 
-    def pre_get_tokens(self, arg):
-        if not Session.is_login:
-            print("Not in account!")
-            return True
-
 
 class Posts:
     def pre_create_post(self, arg):
