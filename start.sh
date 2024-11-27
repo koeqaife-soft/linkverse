@@ -23,11 +23,12 @@ export _WORKER_COUNT=$WORKER_COUNT
 export PYTHONPATH=$SCRIPT_DIR
 
 source $SCRIPT_DIR/env/bin/activate
+python setup.py build_ext --inplace -q
 python -OO init_db.py
 python -O -m \
     hypercorn \
     -w "$WORKER_COUNT" \
-    -b 0.0.0.0:6169 api:app \
+    -b localhost:6169 api:app \
     --keep-alive 30 \
     --log-level error \
     -k uvloop

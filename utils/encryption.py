@@ -1,78 +1,22 @@
+from functools import lru_cache
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
 import os
-from functools import lru_cache
 import string
-import hmac
-import hashlib
-import random
 import asyncio
+from utils_cy.encryption import (  # noqa
+    encode_base62, decode_base62,
+    prepare_key as _prepare_key,
+    generate_nonce,
+    generate_alphabet
+)
 
 BASE62_ALPHABET = string.digits + string.ascii_letters
 
 
-def generate_signature(data: str, key: bytes) -> str:
-    return encode_base62(
-        hmac.new(key, data.encode(), hashlib.sha256).digest()
-    )
-
-
-def verify_signature(token_payload: str, signature: str, key: bytes) -> bool:
-    expected_signature = generate_signature(token_payload, key)
-    return hmac.compare_digest(expected_signature, signature)
-
-
-@lru_cache(maxsize=16)
-def prepare_key(key: str | bytes) -> bytes:
-    if isinstance(key, str):
-        key = key.encode()
-
-    digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-    digest.update(key)
-    return digest.finalize()
-
-
-def encode_base62(data: bytes) -> str:
-    num = int.from_bytes(data, byteorder='big', signed=False)
-
-    if num == 0:
-        return BASE62_ALPHABET[0]
-
-    base62 = []
-    base = len(BASE62_ALPHABET)
-
-    while num:
-        num, rem = divmod(num, base)
-        base62.append(BASE62_ALPHABET[rem])
-
-    return ''.join(reversed(base62))
-
-
-def decode_base62(encoded: str) -> bytes:
-    base = len(BASE62_ALPHABET)
-    num = 0
-
-    for char in encoded:
-        num = num * base + BASE62_ALPHABET.index(char)
-
-    byte_length = (num.bit_length() + 7) // 8
-    return num.to_bytes(byte_length, byteorder='big')
-
-
-def _generate_nonce(length: int = 4) -> str:
-    alphabet = BASE62_ALPHABET
-    return ''.join(random.choice(alphabet) for _ in range(length))
-
-
-def generate_alphabet(seed: str | bytes, nonce: str | bytes = "") -> str:
-    _seed = prepare_key(seed)
-    if isinstance(nonce, str):
-        nonce = nonce.encode()
-    _random = random.Random(_seed + nonce)
-    alphabet = list(BASE62_ALPHABET)
-    _random.shuffle(alphabet)
-    return ''.join(alphabet)
+@lru_cache
+def prepare_key(key: str) -> bytes:
+    return _prepare_key(key)
 
 
 async def _decode_char_to_index(char: str, alphabet: str) -> int:
@@ -135,7 +79,7 @@ async def encode_seeded_base62_parallel(
     data: str | bytes, seed: str | bytes,
     group_size: int = 3
 ) -> str:
-    nonce = _generate_nonce(12)
+    nonce = generate_nonce(12)
     groups = [
         data[i:i + group_size]
         for i in range(0, len(data), group_size)

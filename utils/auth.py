@@ -115,7 +115,7 @@ async def create_user(
     if user.data is not None:
         return Status(False, message="USER_ALREADY_EXISTS")
     password_hash = await store_password(password)
-    new_id = str(await generate_id())
+    new_id = str(generate_id())
     async with db.transaction():
         await db.execute(
             """

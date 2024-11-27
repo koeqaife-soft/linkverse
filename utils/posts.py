@@ -74,7 +74,7 @@ async def create_post(
     tags: list[str] = [],
     media: list[str] = []
 ) -> Status[dict | None]:
-    post_id = str(await generate_id())
+    post_id = str(generate_id())
     async with db.transaction():
         await db.execute(
             """
@@ -219,7 +219,7 @@ async def create_comment(
     user_id: str, post_id: str, content: str,
     db: connection_type
 ) -> Status[Comment | None]:
-    comment_id = str(await generate_id())
+    comment_id = str(generate_id())
     async with db.transaction():
         await db.execute(
             """
