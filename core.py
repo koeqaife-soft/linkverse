@@ -123,7 +123,7 @@ class Status(t.Generic[T]):
         }
 
 
-def error_response(status: Status, ):
+def error_response(status: Status):
     if status.success:
         return response()
     else:
