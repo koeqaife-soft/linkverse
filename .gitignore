@@ -7,3 +7,11 @@ redis.json
 logs/*
 .vscode/*
 dump.rdb
+
+*.c
+*.cpp
+*.pyd
+*.so
+
+build/
+dist/
