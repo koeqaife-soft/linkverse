@@ -25,12 +25,18 @@ export PYTHONPATH=$SCRIPT_DIR
 source $SCRIPT_DIR/env/bin/activate
 python setup.py build_ext --inplace -q
 python -OO init_db.py
+
+SSL_ARGS=()
+if [[ "$USE_SSL" == "True" ]]; then
+    SSL_ARGS+=(--certfile "$CERT_FILE" --keyfile "$KEY_FILE")
+fi
+
 python -O -m \
     hypercorn \
     -w "$WORKER_COUNT" \
-    -b localhost:6169 api:app \
+    -b "$HOST:$PORT" \
+    api:app \
     --keep-alive 30 \
     --log-level error \
-    -k uvloop
-    # --certfile /etc/ssl/certs/localhost.crt \
-    # --keyfile /etc/ssl/private/localhost.key
+    -k uvloop \
+    "${SSL_ARGS[@]}"
