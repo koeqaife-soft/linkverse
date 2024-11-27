@@ -13,8 +13,8 @@ hypercorn[uvloop]
 colorama
 types-colorama
 json5
-atomic
 aiocache
 aiocache[redis]
 quart-cors
 bleach
+cython
