@@ -18,3 +18,4 @@ aiocache[redis]
 quart-cors
 bleach
 cython
+setuptools
