@@ -6,12 +6,13 @@ from hashlib import sha256
 import hmac
 
 cdef str BASE62_ALPHABET = string.digits + string.ascii_letters
+cdef dict BASE62_INDEX = {ch: i for i, ch in enumerate(BASE62_ALPHABET)}
 cdef int BASE62_LEN = len(BASE62_ALPHABET)
 cdef _random = Random()
 
 cpdef str encode_base62(bytes data):
     cdef int base = BASE62_LEN
-    cdef unsigned long long num = 0
+    cdef object num = 0
     cdef int i, rem
     cdef list base62 = []
 
@@ -31,14 +32,14 @@ cpdef str encode_base62(bytes data):
 
 cpdef bytes decode_base62(str encoded):
     cdef int base = BASE62_LEN
-    cdef unsigned long long num = 0
+    cdef object num = 0
     cdef int i, index
 
     for i in range(len(encoded)):
-        index = BASE62_ALPHABET.index(encoded[i])
+        index = BASE62_INDEX[encoded[i]]
         num = num * base + index
 
-    cdef int byte_length = (num.bit_length() + 7) // 8
+    byte_length = (num.bit_length() + 7) // 8
 
     cdef bytearray result = bytearray(byte_length)
     for i in range(byte_length):
