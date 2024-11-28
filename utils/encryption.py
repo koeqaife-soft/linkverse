@@ -1,5 +1,7 @@
 from functools import lru_cache
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers import (
+    Cipher, algorithms, modes, AEADDecryptionContext, AEADEncryptionContext
+)
 from cryptography.hazmat.backends import default_backend
 import os
 import string
@@ -14,7 +16,7 @@ from utils_cy.encryption import (  # noqa
 BASE62_ALPHABET = string.digits + string.ascii_letters
 
 
-@lru_cache
+@lru_cache(maxsize=32)
 def prepare_key(key: str) -> bytes:
     return _prepare_key(key)
 
@@ -123,7 +125,7 @@ async def chacha20_encrypt(message: bytes, key: bytes | str) -> str:
         backend=default_backend()
     )
 
-    ct = await asyncio.to_thread(_encrypt_data, cipher, message)
+    ct, _ = await asyncio.to_thread(_encrypt_data, cipher, message)
     return encode_base62(nonce + ct)
 
 
@@ -137,8 +139,8 @@ async def chacha20_decrypt(encrypted_message: str, key: bytes | str) -> bytes:
         mode=None,
         backend=default_backend()
     )
-
-    return await asyncio.to_thread(_decrypt_data, cipher, ct)
+    decrypted, _ = await asyncio.to_thread(_decrypt_data, cipher, ct)
+    return decrypted
 
 
 async def aes_encrypt(message: bytes, key: bytes | str) -> str:
@@ -149,27 +151,36 @@ async def aes_encrypt(message: bytes, key: bytes | str) -> str:
         modes.GCM(nonce),
         backend=default_backend()
     )
-    ct = await asyncio.to_thread(_encrypt_data, cipher, message)
-    return encode_base62(nonce + ct)
+    ct, context = await asyncio.to_thread(_encrypt_data, cipher, message)
+    tag = context.tag
+    return encode_base62(nonce + ct + tag)
 
 
 async def aes_decrypt(encrypted_message: str, key: bytes | str) -> bytes:
     key = prepare_key(key)
     _encrypted_message = decode_base62(encrypted_message)
-    nonce, ct = _encrypted_message[:12], _encrypted_message[12:]
+    nonce, ct, tag = (
+        _encrypted_message[:12], _encrypted_message[12:-16],
+        _encrypted_message[-16:]
+    )
     cipher = Cipher(
         algorithms.AES(key),
-        modes.GCM(nonce),
+        modes.GCM(nonce, tag),
         backend=default_backend()
     )
-    return await asyncio.to_thread(_decrypt_data, cipher, ct)
+    decrypted, _ = await asyncio.to_thread(_decrypt_data, cipher, ct)
+    return decrypted
 
 
-def _encrypt_data(cipher: Cipher, data: bytes) -> bytes:
+def _encrypt_data(
+    cipher: Cipher, data: bytes
+) -> tuple[bytes, AEADEncryptionContext]:
     encryptor = cipher.encryptor()
-    return encryptor.update(data) + encryptor.finalize()
+    return (encryptor.update(data) + encryptor.finalize(), encryptor)
 
 
-def _decrypt_data(cipher: Cipher, data: bytes) -> bytes:
+def _decrypt_data(
+    cipher: Cipher, data: bytes
+) -> tuple[bytes, AEADDecryptionContext]:
     decryptor = cipher.decryptor()
-    return decryptor.update(data) + decryptor.finalize()
+    return (decryptor.update(data) + decryptor.finalize(), decryptor)
