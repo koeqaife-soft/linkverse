@@ -1,8 +1,3 @@
-import asyncpg
+from utils.database import AutoConnection
 
-try:
-    from asyncpg.pool import PoolConnectionProxy
-except ImportError:
-    PoolConnectionProxy = asyncpg.Connection  # type: ignore
-
-connection_type = asyncpg.Connection | PoolConnectionProxy
+connection_type = AutoConnection

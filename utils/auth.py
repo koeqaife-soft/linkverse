@@ -83,8 +83,9 @@ async def check_password(stored: str, password: str) -> bool:
 
 
 async def get_user(
-    where: dict[str, t.Any], db: connection_type
+    where: dict[str, t.Any], conn: connection_type
 ) -> Status[AuthUser | None]:
+    db = await conn.create_conn()
     if not where:
         raise ValueError("The 'where' dictionary must not be empty")
 
@@ -109,9 +110,10 @@ async def get_user(
 
 async def create_user(
     username: str, email: str,
-    password: str, db: connection_type
+    password: str, conn: connection_type
 ) -> Status[str | None]:
-    user = await get_user({"email": email}, db)
+    db = await conn.create_conn()
+    user = await get_user({"email": email}, conn)
     if user.data is not None:
         return Status(False, message="USER_ALREADY_EXISTS")
     password_hash = await store_password(password)
@@ -127,11 +129,11 @@ async def create_user(
 
 
 async def check_username(
-    username: str, db: connection_type
+    username: str, conn: connection_type
 ) -> Status[None]:
     if len(username) < 4 or not AuthUser.validate_username(username):
         return Status(False, message="INCORRECT_FORMAT")
-    user = await get_user({"username": username}, db)
+    user = await get_user({"username": username}, conn)
     if user.data is not None:
         return Status(False, message="USERNAME_EXISTS")
     return Status(True)
@@ -139,9 +141,10 @@ async def check_username(
 
 async def login(
     email: str, password: str,
-    db: connection_type
+    conn: connection_type
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
-    user = await get_user({"email": email}, db)
+    db = await conn.create_conn()
+    user = await get_user({"email": email}, conn)
 
     if not user.success or user.data is None:
         return Status(False, message=user.message)
@@ -171,9 +174,10 @@ async def login(
 
 async def create_token(
     user_id: str,
-    db: connection_type
+    conn: connection_type
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
-    user = await get_user({"user_id": user_id}, db)
+    db = await conn.create_conn()
+    user = await get_user({"user_id": user_id}, conn)
     if user.data is None:
         return Status(False, message="USER_DOES_NOT_EXISTS")
     new_secret = generate_key()
@@ -199,8 +203,9 @@ async def create_token(
 
 
 async def refresh(
-    refresh_token: str, db: connection_type
+    refresh_token: str, conn: connection_type
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
+    db = await conn.create_conn()
     decoded = await decode_token(refresh_token, secret_refresh_key)
     if not decoded["success"]:
         return Status(False, message=decoded.get("msg"))
@@ -250,8 +255,9 @@ async def refresh(
 
 
 async def check_token(
-    token: str, db: connection_type
+    token: str, conn: connection_type
 ) -> Status[dict | None]:
+    db = await conn.create_conn()
     decoded = await decode_token(token, secret_key)
     if not decoded["success"]:
         return Status(False, message=decoded.get("msg"))
@@ -273,8 +279,9 @@ async def check_token(
 
 async def remove_secret(
     secret: str, user_id: str,
-    db: connection_type
+    conn: connection_type
 ) -> Status[None]:
+    db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
             """

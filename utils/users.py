@@ -34,8 +34,9 @@ class User:
 
 
 async def get_user(
-    user_id: str, db: connection_type
+    user_id: str, conn: connection_type
 ) -> Status[User | None]:
+    db = await conn.create_conn()
     query = """
         SELECT u.user_id, u.username, p.display_name, p.avatar_url,
                p.banner_url, p.bio, p.gender, p.languages
@@ -53,8 +54,9 @@ async def get_user(
 
 async def update_user(
     user_id: str, values: dict[str, str],
-    db: connection_type
+    conn: connection_type
 ) -> Status[None]:
+    db = await conn.create_conn()
     allowed_values = {"display_name", "avatar_url", "banner_url",
                       "bio", "gender", "languages"}
 
@@ -85,8 +87,9 @@ async def update_user(
 
 async def change_username(
     user_id: str, username: str,
-    db: connection_type
+    conn: connection_type
 ) -> Status[None]:
+    db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
             """

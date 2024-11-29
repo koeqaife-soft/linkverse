@@ -13,7 +13,6 @@ import utils.posts
 from utils.users import User
 from utils.posts import Post
 from _types import connection_type
-from asyncpg import Pool
 from core import Global
 
 R = TypeVar('R')
@@ -171,62 +170,22 @@ class Cache:
         )
 
 
-class AutoConnection:
-    def __init__(self, pool: Pool) -> None:
-        self.pool = pool
-        self._conn = None
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *exc):
-        if self._conn is not None:
-            await self.pool.release(self._conn)
-
-    async def create_conn(self, **kwargs):
-        if self._conn is not None and not self._conn.is_closed():
-            return self._conn
-        self._conn = await self.pool.acquire(**kwargs)
-        return self._conn
-
-
 cache_instance: Cache = _g._cache
-_connection_type = connection_type | Pool | AutoConnection
-
-
-class _connection:
-    def __init__(self, conn: _connection_type) -> None:
-        self.conn = conn
-        self._conn_proxy = None
-
-    async def __aenter__(self):
-        if isinstance(self.conn, connection_type):
-            return self.conn
-        if isinstance(self.conn, AutoConnection):
-            return await self.conn.create_conn()
-        else:
-            self._conn_proxy = await self.conn.acquire()
-            return self._conn_proxy
-
-    async def __aexit__(self, *exc):
-        if self._conn_proxy is not None:
-            await self.conn.release(self._conn_proxy)
 
 
 class users:
     @staticmethod
     async def get_user(
-        user_id: str, conn: _connection_type,
+        user_id: str, conn: connection_type,
         _cache_instance: Cache | None = None
     ) -> Status[User | None]:
         cache = _cache_instance or cache_instance
         key = f"user_profile:{user_id}"
         value = await cache.get(key)
         if value is None:
-            async with _connection(conn) as db:
-                result = await utils.users.get_user(user_id, db)
-                if not result.success:
-                    return Status(False, message=result.message)
+            result = await utils.users.get_user(user_id, conn)
+            if not result.success:
+                return Status(False, message=result.message)
             assert result.data is not None
             await cache.set(key, asdict(result.data), 600)
             return Status(True, result.data)
@@ -248,21 +207,20 @@ class users:
 class posts:
     @staticmethod
     async def get_post(
-        post_id: str, conn: _connection_type,
+        post_id: str, conn: connection_type,
         _cache_instance: Cache | None = None
     ) -> Status[Post | None]:
         cache = _cache_instance or cache_instance
         key = f"posts:{post_id}"
         value = await cache.get(key)
         if value is None:
-            async with _connection(conn) as db:
-                result = await utils.posts.get_post(post_id, db)
-                if not result.success:
-                    return Status(False, message=result.message)
+            result = await utils.posts.get_post(post_id, conn)
+            if not result.success:
+                return Status(False, message=result.message)
 
-                assert result.data is not None
-                await cache.set(key, asdict(result.data), 15)
-                return Status(True, result.data)
+            assert result.data is not None
+            await cache.set(key, asdict(result.data), 15)
+            return Status(True, result.data)
         else:
             return Status(True, Post(**value))
 

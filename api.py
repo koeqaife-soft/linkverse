@@ -17,6 +17,7 @@ import werkzeug.exceptions
 import core
 import json5
 import utils.cache as cache
+from utils.database import AutoConnection
 
 debug = os.getenv('DEBUG') == 'True'
 supabase_url: str = os.environ.get("SUPABASE_URL")  # type: ignore
@@ -139,8 +140,8 @@ async def before():
         token = headers.get("Authorization") or cookies.get("access_token")
         if token is None:
             return response(error=True, error_msg="UNAUTHORIZED"), 401
-        async with pool.acquire() as db:
-            result = await auth.check_token(token, db)
+        async with AutoConnection(pool) as conn:
+            result = await auth.check_token(token, conn)
         if not result.success:
             error_msg = result.message or "UNAUTHORIZED"
             return response(error=True, error_msg=error_msg), 401

@@ -2,7 +2,6 @@ import os
 import re
 import asyncpg
 from core import worker_count, _logger
-from _types import connection_type
 
 
 def calculate_max_connections(max_shared: int, worker_count: int) -> int:
@@ -28,14 +27,14 @@ async def create_pool(**config) -> asyncpg.pool.Pool:
     return pool
 
 
-async def execute_sql_file(db: connection_type, file_path: str):
+async def execute_sql_file(db: asyncpg.Connection, file_path: str):
     with open(file_path, 'r') as file:
         sql = file.read()
         await db.execute(sql)
 
 
 async def initialize_database(
-    db: connection_type, sql_dir: str = "./sql/",
+    db: asyncpg.Connection, sql_dir: str = "./sql/",
     debug: bool = False
 ) -> None:
     sql_files = [f for f in os.listdir(sql_dir) if f.endswith('.pgsql')]
@@ -52,3 +51,22 @@ async def initialize_database(
             ((_logger.info if debug else _logger.debug)
              (f"Running {file_path}..."))
             await execute_sql_file(db, file_path)
+
+
+class AutoConnection:
+    def __init__(self, pool: asyncpg.Pool) -> None:
+        self.pool = pool
+        self._conn = None
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        if self._conn is not None:
+            await self.pool.release(self._conn)
+
+    async def create_conn(self, **kwargs):
+        if self._conn is not None and not self._conn.is_closed():
+            return self._conn
+        self._conn = await self.pool.acquire(**kwargs)
+        return self._conn

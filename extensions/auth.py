@@ -3,6 +3,7 @@ from quart import Blueprint, Quart, Response
 from core import response, Global, error_response, route
 from quart import g, request
 import utils.auth as auth
+from utils.database import AutoConnection
 import os
 
 debug = os.getenv('DEBUG') == 'True'
@@ -40,16 +41,16 @@ async def register() -> tuple[Response, int]:
     email = data.get('email')
     password = data.get('password')
 
-    async with pool.acquire() as db:
-        result = await auth.check_username(username, db)
+    async with AutoConnection(pool) as conn:
+        result = await auth.check_username(username, conn)
         if not result.success:
             return error_response(result), 400
 
-        result2 = await auth.create_user(username, email, password, db)
+        result2 = await auth.create_user(username, email, password, conn)
         if not result2.success:
             return error_response(result2), 400
 
-        result3 = await auth.create_token(result2.data, db)  # type: ignore
+        result3 = await auth.create_token(result2.data, conn)  # type: ignore
         if not result3.success:
             return error_response(result3), 500
 
@@ -67,8 +68,9 @@ async def login() -> tuple[Response, int]:
     email = data.get('email')
     password = data.get('password')
 
-    async with pool.acquire() as db:
-        result = await auth.login(email, password, db)
+    async with AutoConnection(pool) as conn:
+        result = await auth.login(email, password, conn)
+
     if not result.success:
         return error_response(result), 400
 
@@ -85,8 +87,8 @@ async def refresh() -> tuple[Response, int]:
     if token is None:
         return response(error=True, error_msg="UNAUTHORIZED"), 401
 
-    async with pool.acquire() as db:
-        result = await auth.refresh(token, db)
+    async with AutoConnection(pool) as conn:
+        result = await auth.refresh(token, conn)
     if not result.success:
         return error_response(result), 400
 
@@ -105,15 +107,15 @@ async def logout() -> tuple[Response, int]:
     if token is None:
         return response(error=True, error_msg="UNAUTHORIZED"), 401
 
-    async with pool.acquire() as db:
-        result = await auth.check_token(token, db)
+    async with AutoConnection(pool) as conn:
+        result = await auth.check_token(token, conn)
 
         if not result.success:
             return error_response(result), 400
 
         data = result.data or {}
         result2 = await auth.remove_secret(
-            data["secret"], data["user_id"], db
+            data["secret"], data["user_id"], conn
         )
 
         if not result2.success:

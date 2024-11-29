@@ -51,8 +51,9 @@ class Comment:
 
 
 async def get_post(
-    post_id: str, db: connection_type
+    post_id: str, conn: connection_type
 ) -> Status[Post | None]:
+    db = await conn.create_conn()
     query = """
         SELECT post_id, user_id, content, created_at, updated_at,
                likes_count, comments_count, tags, media, status, is_deleted,
@@ -70,10 +71,11 @@ async def get_post(
 
 async def create_post(
     user_id: str, content: str,
-    db: connection_type,
+    conn: connection_type,
     tags: list[str] = [],
     media: list[str] = []
 ) -> Status[dict | None]:
+    db = await conn.create_conn()
     post_id = str(generate_id())
     async with db.transaction():
         await db.execute(
@@ -101,8 +103,9 @@ async def create_post(
 
 
 async def delete_post(
-    post_id: str, db: connection_type
+    post_id: str, conn: connection_type
 ) -> Status[None]:
+    db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
             """
@@ -118,8 +121,9 @@ async def delete_post(
 async def update_post(
     post_id: str, content: str | None,
     tags: list[str] | None, media: list[str] | None,
-    db: connection_type
+    conn: connection_type
 ) -> Status[None]:
+    db = await conn.create_conn()
     if content is None and tags is None and media is None:
         raise ValueError("All arguments is None!")
     _parameters = []
@@ -150,8 +154,9 @@ async def add_reaction(
     user_id: str, is_like: bool,
     post_id: str | None,
     comment_id: str | None,
-    db: connection_type
+    conn: connection_type
 ) -> Status[None]:
+    db = await conn.create_conn()
     key = "post_id" if post_id is not None else "comment_id"
     _value = post_id or comment_id
     result = await db.fetchval(
@@ -179,8 +184,9 @@ async def get_reaction(
     user_id: str,
     post_id: str,
     comment_id: str | None,
-    db: connection_type
+    conn: connection_type
 ) -> Status[None | bool]:
+    db = await conn.create_conn()
     key = "post_id" if post_id is not None else "comment_id"
     _value = post_id or comment_id
 
@@ -200,8 +206,9 @@ async def rem_reaction(
     user_id: str,
     post_id: str,
     comment_id: str | None,
-    db: connection_type
+    conn: connection_type
 ) -> Status[None]:
+    db = await conn.create_conn()
     key = "post_id" if post_id is not None else "comment_id"
     _value = post_id or comment_id
 
@@ -217,8 +224,9 @@ async def rem_reaction(
 
 async def create_comment(
     user_id: str, post_id: str, content: str,
-    db: connection_type
+    conn: connection_type
 ) -> Status[Comment | None]:
+    db = await conn.create_conn()
     comment_id = str(generate_id())
     async with db.transaction():
         await db.execute(
@@ -241,8 +249,9 @@ async def create_comment(
 
 async def get_comment(
     post_id: str, comment_id: str,
-    db: connection_type
+    conn: connection_type
 ) -> Status[Comment | None]:
+    db = await conn.create_conn()
     query = """
         SELECT comment_id, parent_comment_id, post_id, user_id, content,
                likes_count, dislikes_count
@@ -261,10 +270,11 @@ async def get_comments(
     post_id: str,
     cursor: str | None,
     user_id: str,
-    db: connection_type
+    conn: connection_type
 ) -> Status[dict[
-            t.Literal["comments"] | t.Literal["next_cursor"],
-            list[Comment] | str] | None]:
+            t.Literal["comments", "next_cursor", "has_more"],
+            list[Comment] | str | bool] | None]:
+    db = await conn.create_conn()
     query = """
         SELECT comment_id, parent_comment_id, post_id, user_id, content,
                likes_count, dislikes_count,

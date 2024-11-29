@@ -4,8 +4,9 @@ from core import Status
 
 async def get_viewed_posts(
     user_id: str,
-    db: connection_type
+    conn: connection_type
 ) -> set[str]:
+    db = await conn.create_conn()
     viewed_posts_query = """
         SELECT post_id
         FROM user_post_views
@@ -21,16 +22,17 @@ async def get_viewed_posts(
 
 async def get_popular_posts(
     user_id: str,
-    db: connection_type,
+    conn: connection_type,
     limit: int = 50,
     offset: int | None = None,
     hide_viewed: bool | None = None
 ) -> Status[dict[str, list[tuple[str, str]]]]:
+    db = await conn.create_conn()
     hide_viewed = hide_viewed or True
     offset = offset or 0
 
     if hide_viewed:
-        viewed_post_ids = await get_viewed_posts(user_id, db)
+        viewed_post_ids = await get_viewed_posts(user_id, conn)
 
     parameters: list = [limit, offset]
 
@@ -66,16 +68,17 @@ async def get_popular_posts(
 
 async def get_new_posts(
     user_id: str,
-    db: connection_type,
+    conn: connection_type,
     limit: int = 50,
     offset: int | None = None,
     hide_viewed: bool | None = None
 ) -> Status[dict[str, list[tuple[str, str]]]]:
+    db = await conn.create_conn()
     hide_viewed = hide_viewed or True
     offset = offset or 0
 
     if hide_viewed:
-        viewed_post_ids = await get_viewed_posts(user_id, db)
+        viewed_post_ids = await get_viewed_posts(user_id, conn)
 
     parameters: list = [limit, offset]
 
@@ -111,8 +114,9 @@ async def get_new_posts(
 
 async def mark_post_as_viewed(
     user_id: str, post_id: str,
-    db: connection_type
+    conn: connection_type
 ) -> Status[None]:
+    db = await conn.create_conn()
     async with db.transaction():
         query = """
             INSERT INTO user_post_views (user_id, post_id)
@@ -125,8 +129,9 @@ async def mark_post_as_viewed(
 
 async def mark_posts_as_viewed(
     user_id: str, post_ids: list[str],
-    db: connection_type
+    conn: connection_type
 ) -> Status[None]:
+    db = await conn.create_conn()
 
     query = """
         INSERT INTO user_post_views (user_id, post_id)
