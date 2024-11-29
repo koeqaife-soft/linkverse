@@ -86,3 +86,48 @@ cpdef str generate_alphabet(str seed, bytes nonce = b""):
     cdef list alphabet = list(BASE62_ALPHABET)
     _random.shuffle(alphabet)
     return ''.join(alphabet)
+
+
+cpdef str encode_alphabet_base62(bytes data, str alphabet):
+    cdef int base = len(alphabet)
+    cdef object num = 0
+    cdef int i, rem
+    cdef list base62 = []
+
+    for i in range(len(data)):
+        num = (num << 8) | data[i]
+
+    if num == 0:
+        return alphabet[0:1]
+
+    while num:
+        rem = num % base
+        num //= base
+        base62.append(alphabet[rem])
+
+    return ''.join(reversed(base62))
+
+
+cpdef bytes decode_alphabet_base62(str encoded, str alphabet, dict base_index = {}):
+    cdef int base = len(alphabet)
+    cdef object num = 0
+    cdef int i, index
+    base_index = base_index or generate_index(alphabet)
+
+    for i in range(len(encoded)):
+        index = base_index[encoded[i]]
+        num = num * base + index
+
+    byte_length = (num.bit_length() + 7) // 8
+
+    cdef bytearray result = bytearray(byte_length)
+    for i in range(byte_length):
+        result[byte_length - 1 - i] = num & 0xFF
+        num >>= 8
+
+    return bytes(result)
+
+
+cpdef dict generate_index(str object):
+    cdef dict index = {ch: i for i, ch in enumerate(object)}
+    return index

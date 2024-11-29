@@ -10,7 +10,10 @@ from utils_cy.encryption import (  # noqa
     encode_base62, decode_base62,
     prepare_key as _prepare_key,
     generate_nonce,
-    generate_alphabet
+    generate_alphabet,
+    generate_index,
+    encode_alphabet_base62,
+    decode_alphabet_base62
 )
 
 BASE62_ALPHABET = string.digits + string.ascii_letters
@@ -21,66 +24,12 @@ def prepare_key(key: str) -> bytes:
     return _prepare_key(key)
 
 
-async def _decode_char_to_index(char: str, alphabet: str) -> int:
-    try:
-        return alphabet.index(char)
-    except ValueError:
-        return -1
-
-
-async def encode_alphabet_base62(
-    data: bytes | str, alphabet: str | bytes
-) -> str:
-    if isinstance(data, str):
-        data = data.encode()
-    if isinstance(alphabet, str):
-        alphabet = alphabet.encode()
-    num = int.from_bytes(data, byteorder='big', signed=False)
-
-    if num == 0:
-        return bytes(alphabet[0]).decode()
-
-    base = len(alphabet)
-    base62 = bytearray()
-
-    while num:
-        num, rem = divmod(num, base)
-        base62.append(alphabet[rem])
-
-    base62.reverse()
-    return base62.decode()
-
-
-async def decode_alphabet_base62(encoded: str, alphabet: str) -> bytes:
-    base = len(alphabet)
-    char_to_index = bytearray(len(encoded))
-
-    tasks = [
-        asyncio.create_task(_decode_char_to_index(char, alphabet))
-        for char in encoded
-    ]
-    indices = await asyncio.gather(*tasks)
-
-    for i, idx in enumerate(indices):
-        if idx < 0:
-            raise ValueError(
-                f"Character '{encoded[i]}' not found in alphabet."
-            )
-        char_to_index[i] = idx
-
-    num = sum(
-        idx * (base ** power)
-        for power, idx in enumerate(reversed(char_to_index))
-    )
-
-    byte_length = (num.bit_length() + 7) // 8 or 1
-    return num.to_bytes(byte_length, byteorder='big')
-
-
 async def encode_seeded_base62_parallel(
     data: str | bytes, seed: str | bytes,
     group_size: int = 3
 ) -> str:
+    if isinstance(data, str):
+        data = data.encode()
     nonce = generate_nonce(12)
     groups = [
         data[i:i + group_size]
@@ -90,7 +39,8 @@ async def encode_seeded_base62_parallel(
     alphabet = generate_alphabet(seed, nonce.encode())
 
     encoded_groups = await asyncio.gather(
-        *(encode_alphabet_base62(group, alphabet) for group in groups)
+        *(asyncio.to_thread(encode_alphabet_base62, group, alphabet)
+          for group in groups)
     )
 
     return nonce + "-".join(encoded_groups)
@@ -103,9 +53,11 @@ async def decode_seeded_base62_parallel(
     groups = encoded.split("-")
 
     alphabet = generate_alphabet(seed, nonce.encode())
+    index = generate_index(alphabet)
 
     decoded_groups = await asyncio.gather(
-        *(decode_alphabet_base62(group, alphabet) for group in groups)
+        *(asyncio.to_thread(decode_alphabet_base62, group, alphabet, index)
+          for group in groups)
     )
 
     return b''.join(decoded_groups)

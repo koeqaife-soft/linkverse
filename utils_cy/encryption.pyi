@@ -24,3 +24,17 @@ def generate_nonce(length: int = 4) -> str:
 
 def generate_alphabet(seed: str | bytes, nonce: bytes = b"") -> str:
     ...
+
+
+def encode_alphabet_base62(data: bytes, alphabet: str) -> str:
+    ...
+
+
+def decode_alphabet_base62(
+    encoded: str, alphabet: str, base_index: dict = ...
+) -> bytes:
+    ...
+
+
+def generate_index(object: str) -> dict:
+    ...
