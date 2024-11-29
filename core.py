@@ -381,10 +381,10 @@ class Validator:
         options["min_len"] = 4
         options["max_len"] = 254
         options["regex"] = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        return self.validate_str(value), None
+        return self.validate_str(value)
 
     def parameters_str(self, value: str) -> ReturnType:
-        return self.validate_str(value), None
+        return self.validate_str(value)
 
     def parameters_list(self, value: str) -> ReturnType:
         options = self.options
