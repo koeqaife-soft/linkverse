@@ -124,13 +124,11 @@ async def logout() -> tuple[Response, int]:
     _response = response()
     _response.delete_cookie(
         "refresh_token", httponly=True,
-        secure=not debug,
-        samesite='Strict'
+        **secure_cookie_kwargs
     )
     _response.delete_cookie(
         "access_token", httponly=True,
-        secure=not debug,
-        samesite='Strict'
+        **secure_cookie_kwargs
     )
 
     return _response, 204
@@ -141,13 +139,11 @@ async def remove_cookies() -> tuple[Response, int]:
     _response = response()
     _response.delete_cookie(
         "refresh_token", httponly=True,
-        secure=not debug,
-        samesite='Strict'
+        **secure_cookie_kwargs
     )
     _response.delete_cookie(
         "access_token", httponly=True,
-        secure=not debug,
-        samesite='Strict'
+        **secure_cookie_kwargs
     )
 
     return _response, 204
