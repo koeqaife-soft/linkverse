@@ -10,20 +10,25 @@ bp = Blueprint('auth', __name__)
 _g = Global()
 pool: asyncpg.Pool = _g.pool
 
+secure_cookie_kwargs = {
+    "secure": not debug,
+    "samesite": "Strict" if debug else "None"
+}
+
 
 def _set_token(refresh: str, access: str, response: Response):
     response.set_cookie(
         "refresh_token", refresh,
-        httponly=True, secure=not debug,
-        samesite='Strict',
-        max_age=30*24*60*60
+        httponly=True,
+        max_age=30*24*60*60,
+        **secure_cookie_kwargs
     )
 
     response.set_cookie(
         "access_token", access,
-        httponly=True, secure=not debug,
-        samesite='Strict',
-        max_age=30*24*60*60
+        httponly=True,
+        max_age=30*24*60*60,
+        **secure_cookie_kwargs
     )
     return response
 
