@@ -182,7 +182,7 @@ async def startup():
 
     worker_id = get_proc_identity()
 
-    with open("postgres.json") as f:
+    with open("config/postgres.json") as f:
         config = json.load(f)
     pool = await create_pool(**config)
     _g.pool = pool
@@ -193,7 +193,7 @@ async def startup():
         )
     )
 
-    with open("redis.json") as f:
+    with open("config/redis.json") as f:
         redis = json.load(f)
     await cache.Cache(redis["url"]).init()
 
