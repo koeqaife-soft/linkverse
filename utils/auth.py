@@ -8,7 +8,7 @@ import hashlib
 import typing as t
 from core import Status
 from concurrent.futures import ThreadPoolExecutor
-from _types import connection_type
+from utils.database import AutoConnection
 
 executor = ThreadPoolExecutor()
 secret_key = os.environ["SECRET_KEY"]
@@ -83,7 +83,7 @@ async def check_password(stored: str, password: str) -> bool:
 
 
 async def get_user(
-    where: dict[str, t.Any], conn: connection_type
+    where: dict[str, t.Any], conn: AutoConnection
 ) -> Status[AuthUser | None]:
     db = await conn.create_conn()
     if not where:
@@ -110,7 +110,7 @@ async def get_user(
 
 async def create_user(
     username: str, email: str,
-    password: str, conn: connection_type
+    password: str, conn: AutoConnection
 ) -> Status[str | None]:
     db = await conn.create_conn()
     user = await get_user({"email": email}, conn)
@@ -129,7 +129,7 @@ async def create_user(
 
 
 async def check_username(
-    username: str, conn: connection_type
+    username: str, conn: AutoConnection
 ) -> Status[None]:
     if len(username) < 4 or not AuthUser.validate_username(username):
         return Status(False, message="INCORRECT_FORMAT")
@@ -141,7 +141,7 @@ async def check_username(
 
 async def login(
     email: str, password: str,
-    conn: connection_type
+    conn: AutoConnection
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
     db = await conn.create_conn()
     user = await get_user({"email": email}, conn)
@@ -174,7 +174,7 @@ async def login(
 
 async def create_token(
     user_id: str,
-    conn: connection_type
+    conn: AutoConnection
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
     db = await conn.create_conn()
     user = await get_user({"user_id": user_id}, conn)
@@ -203,7 +203,7 @@ async def create_token(
 
 
 async def refresh(
-    refresh_token: str, conn: connection_type
+    refresh_token: str, conn: AutoConnection
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
     db = await conn.create_conn()
     decoded = await decode_token(refresh_token, secret_refresh_key)
@@ -255,7 +255,7 @@ async def refresh(
 
 
 async def check_token(
-    token: str, conn: connection_type
+    token: str, conn: AutoConnection
 ) -> Status[dict | None]:
     db = await conn.create_conn()
     decoded = await decode_token(token, secret_key)
@@ -279,7 +279,7 @@ async def check_token(
 
 async def remove_secret(
     secret: str, user_id: str,
-    conn: connection_type
+    conn: AutoConnection
 ) -> Status[None]:
     db = await conn.create_conn()
     async with db.transaction():

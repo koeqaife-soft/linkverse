@@ -2,8 +2,8 @@ from dataclasses import dataclass, asdict
 import datetime
 from core import Status
 from utils.generation import generate_id
-from _types import connection_type
 import typing as t
+from utils.database import AutoConnection
 
 
 @dataclass
@@ -51,7 +51,7 @@ class Comment:
 
 
 async def get_post(
-    post_id: str, conn: connection_type
+    post_id: str, conn: AutoConnection
 ) -> Status[Post | None]:
     db = await conn.create_conn()
     query = """
@@ -71,7 +71,7 @@ async def get_post(
 
 async def create_post(
     user_id: str, content: str,
-    conn: connection_type,
+    conn: AutoConnection,
     tags: list[str] = [],
     media: list[str] = []
 ) -> Status[dict | None]:
@@ -103,7 +103,7 @@ async def create_post(
 
 
 async def delete_post(
-    post_id: str, conn: connection_type
+    post_id: str, conn: AutoConnection
 ) -> Status[None]:
     db = await conn.create_conn()
     async with db.transaction():
@@ -121,7 +121,7 @@ async def delete_post(
 async def update_post(
     post_id: str, content: str | None,
     tags: list[str] | None, media: list[str] | None,
-    conn: connection_type
+    conn: AutoConnection
 ) -> Status[None]:
     db = await conn.create_conn()
     if content is None and tags is None and media is None:
@@ -154,7 +154,7 @@ async def add_reaction(
     user_id: str, is_like: bool,
     post_id: str | None,
     comment_id: str | None,
-    conn: connection_type
+    conn: AutoConnection
 ) -> Status[None]:
     db = await conn.create_conn()
     key = "post_id" if post_id is not None else "comment_id"
@@ -184,7 +184,7 @@ async def get_reaction(
     user_id: str,
     post_id: str,
     comment_id: str | None,
-    conn: connection_type
+    conn: AutoConnection
 ) -> Status[None | bool]:
     db = await conn.create_conn()
     key = "post_id" if post_id is not None else "comment_id"
@@ -206,7 +206,7 @@ async def rem_reaction(
     user_id: str,
     post_id: str,
     comment_id: str | None,
-    conn: connection_type
+    conn: AutoConnection
 ) -> Status[None]:
     db = await conn.create_conn()
     key = "post_id" if post_id is not None else "comment_id"
@@ -224,7 +224,7 @@ async def rem_reaction(
 
 async def create_comment(
     user_id: str, post_id: str, content: str,
-    conn: connection_type
+    conn: AutoConnection
 ) -> Status[Comment | None]:
     db = await conn.create_conn()
     comment_id = str(generate_id())
@@ -249,7 +249,7 @@ async def create_comment(
 
 async def get_comment(
     post_id: str, comment_id: str,
-    conn: connection_type
+    conn: AutoConnection
 ) -> Status[Comment | None]:
     db = await conn.create_conn()
     query = """
@@ -270,7 +270,7 @@ async def get_comments(
     post_id: str,
     cursor: str | None,
     user_id: str,
-    conn: connection_type
+    conn: AutoConnection
 ) -> Status[dict[
             t.Literal["comments", "next_cursor", "has_more"],
             list[Comment] | str | bool] | None]:

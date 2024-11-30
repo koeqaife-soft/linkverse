@@ -1,7 +1,7 @@
 from dataclasses import dataclass, asdict
 from utils.generation import parse_id
 from core import Status
-from _types import connection_type
+from utils.database import AutoConnection
 
 
 @dataclass
@@ -34,7 +34,7 @@ class User:
 
 
 async def get_user(
-    user_id: str, conn: connection_type
+    user_id: str, conn: AutoConnection
 ) -> Status[User | None]:
     db = await conn.create_conn()
     query = """
@@ -54,7 +54,7 @@ async def get_user(
 
 async def update_user(
     user_id: str, values: dict[str, str],
-    conn: connection_type
+    conn: AutoConnection
 ) -> Status[None]:
     db = await conn.create_conn()
     allowed_values = {"display_name", "avatar_url", "banner_url",
@@ -87,7 +87,7 @@ async def update_user(
 
 async def change_username(
     user_id: str, username: str,
-    conn: connection_type
+    conn: AutoConnection
 ) -> Status[None]:
     db = await conn.create_conn()
     async with db.transaction():

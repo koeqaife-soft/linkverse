@@ -12,8 +12,8 @@ import utils.users
 import utils.posts
 from utils.users import User
 from utils.posts import Post
-from _types import connection_type
 from core import Global
+from utils.database import AutoConnection
 
 R = TypeVar('R')
 
@@ -176,7 +176,7 @@ cache_instance: Cache = _g._cache
 class users:
     @staticmethod
     async def get_user(
-        user_id: str, conn: connection_type,
+        user_id: str, conn: AutoConnection,
         _cache_instance: Cache | None = None
     ) -> Status[User | None]:
         cache = _cache_instance or cache_instance
@@ -207,7 +207,7 @@ class users:
 class posts:
     @staticmethod
     async def get_post(
-        post_id: str, conn: connection_type,
+        post_id: str, conn: AutoConnection,
         _cache_instance: Cache | None = None
     ) -> Status[Post | None]:
         cache = _cache_instance or cache_instance

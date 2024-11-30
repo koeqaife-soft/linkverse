@@ -1,10 +1,10 @@
-from _types import connection_type
 from core import Status
+from utils.database import AutoConnection
 
 
 async def get_viewed_posts(
     user_id: str,
-    conn: connection_type
+    conn: AutoConnection
 ) -> set[str]:
     db = await conn.create_conn()
     viewed_posts_query = """
@@ -22,7 +22,7 @@ async def get_viewed_posts(
 
 async def get_popular_posts(
     user_id: str,
-    conn: connection_type,
+    conn: AutoConnection,
     limit: int = 50,
     offset: int | None = None,
     hide_viewed: bool | None = None
@@ -68,7 +68,7 @@ async def get_popular_posts(
 
 async def get_new_posts(
     user_id: str,
-    conn: connection_type,
+    conn: AutoConnection,
     limit: int = 50,
     offset: int | None = None,
     hide_viewed: bool | None = None
@@ -114,7 +114,7 @@ async def get_new_posts(
 
 async def mark_post_as_viewed(
     user_id: str, post_id: str,
-    conn: connection_type
+    conn: AutoConnection
 ) -> Status[None]:
     db = await conn.create_conn()
     async with db.transaction():
@@ -129,7 +129,7 @@ async def mark_post_as_viewed(
 
 async def mark_posts_as_viewed(
     user_id: str, post_ids: list[str],
-    conn: connection_type
+    conn: AutoConnection
 ) -> Status[None]:
     db = await conn.create_conn()
 
