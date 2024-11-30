@@ -7,13 +7,10 @@ import os
 import string
 import asyncio
 from utils_cy.encryption import (  # noqa
-    encode_base62, decode_base62,
+    encode_base64, decode_base64,
     prepare_key as _prepare_key,
-    generate_nonce,
-    generate_alphabet,
-    generate_index,
-    encode_alphabet_base62,
-    decode_alphabet_base62
+    encode_shuffle_base64,
+    decode_shuffle_base64
 )
 
 BASE62_ALPHABET = string.digits + string.ascii_letters
@@ -30,33 +27,35 @@ async def encode_seeded_base62_parallel(
 ) -> str:
     if isinstance(data, str):
         data = data.encode()
-    nonce = generate_nonce(12)
+    if isinstance(seed, bytes):
+        seed = seed.decode()
+    nonce = os.urandom(6).hex()
     groups = [
         data[i:i + group_size]
         for i in range(0, len(data), group_size)
     ]
-
-    alphabet = generate_alphabet(seed, nonce.encode())
+    key = nonce + seed
 
     encoded_groups = await asyncio.gather(
-        *(asyncio.to_thread(encode_alphabet_base62, group, alphabet)
+        *(asyncio.to_thread(encode_shuffle_base64, group, key)
           for group in groups)
     )
 
-    return nonce + "-".join(encoded_groups)
+    return nonce + ":".join(encoded_groups)
 
 
 async def decode_seeded_base62_parallel(
     encoded: str, seed: str | bytes
 ) -> bytes:
+    if isinstance(seed, bytes):
+        seed = seed.decode()
     nonce, encoded = encoded[:12], encoded[12:]
-    groups = encoded.split("-")
+    groups = encoded.split(":")
 
-    alphabet = generate_alphabet(seed, nonce.encode())
-    index = generate_index(alphabet)
+    key = nonce + seed
 
     decoded_groups = await asyncio.gather(
-        *(asyncio.to_thread(decode_alphabet_base62, group, alphabet, index)
+        *(asyncio.to_thread(decode_shuffle_base64, group, key)
           for group in groups)
     )
 
@@ -78,13 +77,13 @@ async def chacha20_encrypt(message: bytes, key: bytes | str) -> str:
     )
 
     ct, _ = await asyncio.to_thread(_encrypt_data, cipher, message)
-    return encode_base62(nonce + ct)
+    return encode_base64(nonce + ct)
 
 
 async def chacha20_decrypt(encrypted_message: str, key: bytes | str) -> bytes:
     key = prepare_key(key)
 
-    _encrypted_message = decode_base62(encrypted_message)
+    _encrypted_message = decode_base64(encrypted_message)
     nonce, ct = _encrypted_message[:16], _encrypted_message[16:]
     cipher = Cipher(
         algorithms.ChaCha20(key, nonce),
@@ -105,12 +104,12 @@ async def aes_encrypt(message: bytes, key: bytes | str) -> str:
     )
     ct, context = await asyncio.to_thread(_encrypt_data, cipher, message)
     tag = context.tag
-    return encode_base62(nonce + ct + tag)
+    return encode_base64(nonce + ct + tag)
 
 
 async def aes_decrypt(encrypted_message: str, key: bytes | str) -> bytes:
     key = prepare_key(key)
-    _encrypted_message = decode_base62(encrypted_message)
+    _encrypted_message = decode_base64(encrypted_message)
     nonce, ct, tag = (
         _encrypted_message[:12], _encrypted_message[12:-16],
         _encrypted_message[-16:]
