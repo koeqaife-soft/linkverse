@@ -178,14 +178,13 @@ class users:
     async def get_user(
         user_id: str, conn: AutoConnection,
         _cache_instance: Cache | None = None
-    ) -> Status[User | None]:
+    ) -> Status[User]:
         cache = _cache_instance or cache_instance
         key = f"user_profile:{user_id}"
         value = await cache.get(key)
         if value is None:
             result = await utils.users.get_user(user_id, conn)
-            if not result.success:
-                return Status(False, message=result.message)
+
             assert result.data is not None
             await cache.set(key, asdict(result.data), 600)
             return Status(True, result.data)
@@ -209,14 +208,12 @@ class posts:
     async def get_post(
         post_id: str, conn: AutoConnection,
         _cache_instance: Cache | None = None
-    ) -> Status[Post | None]:
+    ) -> Status[Post]:
         cache = _cache_instance or cache_instance
         key = f"posts:{post_id}"
         value = await cache.get(key)
         if value is None:
             result = await utils.posts.get_post(post_id, conn)
-            if not result.success:
-                return Status(False, message=result.message)
 
             assert result.data is not None
             await cache.set(key, asdict(result.data), 15)

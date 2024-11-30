@@ -1,6 +1,6 @@
 import asyncpg
 from quart import Blueprint, Quart, Response
-from core import response, Global, error_response, route
+from core import response, Global, route
 from quart import g
 import utils.users as users
 from utils.cache import users as cache_users
@@ -17,10 +17,7 @@ async def get_profile_me() -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         user = await cache_users.get_user(user_id, conn)
-    if not user.success:
-        return error_response(user), 500
 
-    assert user.data is not None
     return response(data=user.data.dict), 200
 
 
@@ -32,10 +29,7 @@ async def update_profile_me() -> tuple[Response, int]:
         return response(error=True, error_msg="INCORRECT_DATA"), 400
 
     async with AutoConnection(pool) as conn:
-        user = await users.update_user(user_id, data, conn)
-
-        if not user.success:
-            return error_response(user), 400
+        await users.update_user(user_id, data, conn)
 
     await cache_users.delete_user_cache(user_id)
 
@@ -47,10 +41,6 @@ async def get_profile(user_id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         user = await cache_users.get_user(user_id, conn)
 
-    if not user.success:
-        return error_response(user), 400
-
-    assert user.data is not None
     return response(data=user.data.dict), 200
 
 

@@ -1,5 +1,5 @@
 import asyncpg
-from core import app, response, route, setup_logger, Global
+from core import app, response, route, setup_logger, Global, FunctionError
 from core import worker_count, get_proc_identity, load_extensions
 import traceback
 import uuid
@@ -36,14 +36,20 @@ async def log_error_to_file(message: str, file: str):
         await f.write(message)
 
 
+@app.errorhandler(FunctionError)
+async def handle_error(error: FunctionError):
+    return error.response()
+
+
 @app.errorhandler(500)
 async def handle_500(error: werkzeug.exceptions.InternalServerError):
+    e = error.original_exception or error
+
     current_time = (
         datetime.now(timezone.utc)
         .strftime('%Y-%m-%d %H:%M:%S')
     )
 
-    e = error.original_exception or error
     tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
 
     error_message = (

@@ -123,13 +123,33 @@ class Status(t.Generic[T]):
         }
 
 
-def error_response(status: Status):
-    if status.success:
-        return response()
-    else:
+class FunctionError(Exception):
+    def __init__(
+        self, message: str | None, code: int, data: dict | None, *args
+    ) -> None:
+        self.message = message or "UNKNOWN_ERROR"
+        self.code = code
+        self.data = data
+        super().__init__(message, *args)
+
+    def response(self) -> tuple[Response, int]:
         return response(
-            error=True, error_msg=(status.message or "UNKNOWN_ERROR")
-        )
+            error=True,
+            data=self.data or {},
+            error_msg=self.message
+        ), self.code
+
+
+def except_value(
+    e: FunctionError,
+    code: int | None = None,
+    message: str | None = None
+) -> None:
+    if e.code != code:
+        raise e
+    if e.message != message:
+        raise e
+    return None
 
 
 def get_proc_identity() -> int:

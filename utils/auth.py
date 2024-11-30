@@ -6,7 +6,7 @@ from utils.generation import parse_id, generate_id
 from utils.generation import generate_token, decode_token
 import hashlib
 import typing as t
-from core import Status
+from core import Status, FunctionError
 from concurrent.futures import ThreadPoolExecutor
 from utils.database import AutoConnection
 
@@ -82,13 +82,41 @@ async def check_password(stored: str, password: str) -> bool:
     return new_hash == stored_hash
 
 
+@t.overload
+async def get_user(
+    where: dict[str, t.Any], conn: AutoConnection,
+    return_bool: t.Literal[True]
+) -> Status[bool]:
+    ...
+
+
+@t.overload
+async def get_user(
+    where: dict[str, t.Any], conn: AutoConnection,
+    return_bool: t.Literal[False]
+) -> Status[AuthUser]:
+    ...
+
+
+@t.overload
 async def get_user(
     where: dict[str, t.Any], conn: AutoConnection
-) -> Status[AuthUser | None]:
+) -> Status[AuthUser]:
+    ...
+
+
+async def get_user(
+    where: dict[str, t.Any], conn: AutoConnection,
+    return_bool: bool | None = None
+) -> Status[bool] | Status[AuthUser]:
     db = await conn.create_conn()
     if not where:
         raise ValueError("The 'where' dictionary must not be empty")
 
+    select = (
+        "user_id" if return_bool
+        else "username, user_id, email, password_hash"
+    )
     conditions: list[str] = []
     values = []
     for key, value in where.items():
@@ -96,26 +124,29 @@ async def get_user(
         values.append(value)
 
     query = f"""
-        SELECT username, user_id, email, password_hash
+        SELECT {select}
         FROM users
         WHERE {' AND '.join(conditions)}
     """
     row = await db.fetchrow(query, *values)
 
-    if row is None:
-        return Status(False, message="USER_DOES_NOT_EXIST")
-
-    return Status(True, data=AuthUser(**dict(row)))
+    if return_bool:
+        print(row)
+        return Status(True, data=(row is not None))
+    else:
+        if row is None:
+            raise FunctionError("USER_DOES_NOT_EXIST", 404, None)
+        return Status(True, data=AuthUser(**dict(row)))
 
 
 async def create_user(
     username: str, email: str,
     password: str, conn: AutoConnection
-) -> Status[str | None]:
+) -> Status[str]:
     db = await conn.create_conn()
-    user = await get_user({"email": email}, conn)
-    if user.data is not None:
-        return Status(False, message="USER_ALREADY_EXISTS")
+    user = await get_user({"email": email}, conn, True)
+    if user.data:
+        raise FunctionError("USER_ALREADY_EXISTS", 409, None)
     password_hash = await store_password(password)
     new_id = str(generate_id())
     async with db.transaction():
@@ -132,10 +163,10 @@ async def check_username(
     username: str, conn: AutoConnection
 ) -> Status[None]:
     if len(username) < 4 or not AuthUser.validate_username(username):
-        return Status(False, message="INCORRECT_FORMAT")
-    user = await get_user({"username": username}, conn)
-    if user.data is not None:
-        return Status(False, message="USERNAME_EXISTS")
+        raise FunctionError("INCORRECT_FORMAT", 400, None)
+    user = await get_user({"username": username}, conn, True)
+    if user.data:
+        raise FunctionError("USERNAME_EXISTS", 409, None)
     return Status(True)
 
 
@@ -146,10 +177,9 @@ async def login(
     db = await conn.create_conn()
     user = await get_user({"email": email}, conn)
 
-    if not user.success or user.data is None:
-        return Status(False, message=user.message)
     if not (await check_password(user.data.password_hash, password)):
-        return Status(False, message="INCORRECT_PASSWORD")
+        raise FunctionError("INCORRECT_PASSWORD", 401, None)
+
     new_secret = generate_key()
     access = await generate_token(
         user.data.user_id, secret_key, False,
@@ -177,9 +207,8 @@ async def create_token(
     conn: AutoConnection
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
     db = await conn.create_conn()
-    user = await get_user({"user_id": user_id}, conn)
-    if user.data is None:
-        return Status(False, message="USER_DOES_NOT_EXISTS")
+    await get_user({"user_id": user_id}, conn)
+
     new_secret = generate_key()
     access = await generate_token(
         user_id, secret_key, False,
@@ -208,9 +237,9 @@ async def refresh(
     db = await conn.create_conn()
     decoded = await decode_token(refresh_token, secret_refresh_key)
     if not decoded["success"]:
-        return Status(False, message=decoded.get("msg"))
+        raise FunctionError(decoded.get("msg"), 400, None)
     elif decoded["is_expired"]:
-        return Status(False, message="EXPIRED_TOKEN")
+        raise FunctionError("EXPIRED_TOKEN", 401, None)
 
     secret = decoded["secret"]
     user_id = decoded["user_id"]
@@ -222,7 +251,7 @@ async def refresh(
     )
 
     if result is None:
-        return Status(False, message="INVALID_TOKEN")
+        raise FunctionError("INVALID_TOKEN", 401, None)
 
     new_secret = generate_key()
     access = await generate_token(
@@ -256,13 +285,13 @@ async def refresh(
 
 async def check_token(
     token: str, conn: AutoConnection
-) -> Status[dict | None]:
+) -> Status[dict]:
     db = await conn.create_conn()
     decoded = await decode_token(token, secret_key)
     if not decoded["success"]:
-        return Status(False, message=decoded.get("msg"))
+        raise FunctionError(decoded.get("msg"), 400, None)
     elif decoded["is_expired"]:
-        return Status(False, message="EXPIRED_TOKEN")
+        raise FunctionError("EXPIRED_TOKEN", 401, None)
 
     result = await db.fetchrow(
         """
@@ -272,7 +301,7 @@ async def check_token(
     )
 
     if result is None:
-        return Status(False, message="INVALID_TOKEN")
+        raise FunctionError("INVALID_TOKEN", 401, None)
 
     return Status(True, data=decoded)
 

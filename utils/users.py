@@ -1,6 +1,6 @@
 from dataclasses import dataclass, asdict
 from utils.generation import parse_id
-from core import Status
+from core import Status, FunctionError
 from utils.database import AutoConnection
 
 
@@ -35,7 +35,7 @@ class User:
 
 async def get_user(
     user_id: str, conn: AutoConnection
-) -> Status[User | None]:
+) -> Status[User]:
     db = await conn.create_conn()
     query = """
         SELECT u.user_id, u.username, p.display_name, p.avatar_url,
@@ -47,7 +47,7 @@ async def get_user(
     row = await db.fetchrow(query, user_id)
 
     if row is None:
-        return Status(False, message="USER_DOES_NOT_EXIST")
+        raise FunctionError("USER_DOES_NOT_EXIST", 404, None)
 
     return Status(True, data=User(**dict(row)))
 
@@ -66,7 +66,7 @@ async def update_user(
     }
 
     if not new_values:
-        return Status(False, message="NO_DATA")
+        raise FunctionError("NO_DATA", 404, None)
 
     columns = ', '.join(new_values.keys())
     placeholders = ', '.join(f'${i+2}' for i in range(len(new_values)))

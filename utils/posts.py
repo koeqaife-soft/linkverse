@@ -1,6 +1,6 @@
 from dataclasses import dataclass, asdict
 import datetime
-from core import Status
+from core import Status, FunctionError
 from utils.generation import generate_id
 import typing as t
 from utils.database import AutoConnection
@@ -52,7 +52,7 @@ class Comment:
 
 async def get_post(
     post_id: str, conn: AutoConnection
-) -> Status[Post | None]:
+) -> Status[Post]:
     db = await conn.create_conn()
     query = """
         SELECT post_id, user_id, content, created_at, updated_at,
@@ -64,7 +64,7 @@ async def get_post(
     row = await db.fetchrow(query, post_id)
 
     if row is None:
-        return Status(False, message="POST_DOES_NOT_EXIST")
+        raise FunctionError("POST_DOES_NOT_EXIST", 404, None)
 
     return Status(True, data=Post(**dict(row)))
 
@@ -225,7 +225,7 @@ async def rem_reaction(
 async def create_comment(
     user_id: str, post_id: str, content: str,
     conn: AutoConnection
-) -> Status[Comment | None]:
+) -> Status[Comment]:
     db = await conn.create_conn()
     comment_id = str(generate_id())
     async with db.transaction():
@@ -250,7 +250,7 @@ async def create_comment(
 async def get_comment(
     post_id: str, comment_id: str,
     conn: AutoConnection
-) -> Status[Comment | None]:
+) -> Status[Comment]:
     db = await conn.create_conn()
     query = """
         SELECT comment_id, parent_comment_id, post_id, user_id, content,
@@ -261,7 +261,7 @@ async def get_comment(
     row = await db.fetchrow(query, post_id, comment_id)
 
     if row is None:
-        return Status(False, message="COMMENT_DOES_NOT_EXIST")
+        raise FunctionError("COMMENT_DOES_NOT_EXIST", 404, None)
 
     return Status(True, data=Comment(**dict(row)))
 
@@ -273,7 +273,7 @@ async def get_comments(
     conn: AutoConnection
 ) -> Status[dict[
             t.Literal["comments", "next_cursor", "has_more"],
-            list[Comment] | str | bool] | None]:
+            list[Comment] | str | bool]]:
     db = await conn.create_conn()
     query = """
         SELECT comment_id, parent_comment_id, post_id, user_id, content,
@@ -290,7 +290,7 @@ async def get_comments(
             _popularity_score, comment_id = cursor.split(",")
             popularity_score = int(_popularity_score)
         except ValueError:
-            return Status(False, message="INVALID_CURSOR")
+            raise FunctionError("INVALID_CURSOR", 400, None)
 
         query += """
             AND (
@@ -307,7 +307,7 @@ async def get_comments(
 
     rows = await db.fetch(query, *params)
     if not rows:
-        return Status(False, message="NO_MORE_COMMENTS")
+        raise FunctionError("NO_MORE_COMMENTS", 200, None)
 
     has_more = len(rows) > 20
     rows = rows[:20]

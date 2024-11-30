@@ -1,6 +1,6 @@
 import asyncpg
 from quart import Blueprint, Quart, Response, request
-from core import response, Global, route, error_response
+from core import response, Global, route, FunctionError
 from quart import g
 import utils.posts as posts
 from utils.cache import users as cache_users
@@ -25,11 +25,6 @@ async def popular_posts() -> tuple[Response, int]:
             g.user_id, conn, limit, offset, show_viewed
         )
 
-    if not result.success:
-        return error_response(result), 500
-
-    assert result.data is not None
-
     return response(data=result.data), 200
 
 
@@ -45,11 +40,6 @@ async def new_posts() -> tuple[Response, int]:
             g.user_id, conn, limit, offset, show_viewed
         )
 
-    if not result.success:
-        return error_response(result), 500
-
-    assert result.data is not None
-
     return response(data=result.data), 200
 
 
@@ -60,10 +50,7 @@ async def view_posts() -> tuple[Response, int]:
     user_id = g.user_id
 
     async with AutoConnection(pool) as conn:
-        result = await posts_list.mark_posts_as_viewed(user_id, posts, conn)
-
-    if not result.success:
-        return error_response(result), 400
+        await posts_list.mark_posts_as_viewed(user_id, posts, conn)
 
     return response(), 204
 
@@ -78,9 +65,6 @@ async def create_post() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await posts.create_post(g.user_id, content, conn, tags, media)
 
-    if not result.success:
-        return error_response(result), 500
-
     return response(data=result.data or {}), 201
 
 
@@ -89,10 +73,6 @@ async def get_post(id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await cache_posts.get_post(id, conn)
 
-        if not result.success:
-            return error_response(result), 400
-        assert result.data is not None
-
         user = await cache_users.get_user(result.data.user_id, conn)
 
         reaction = await posts.get_reaction(g.user_id, id, None, conn)
@@ -100,7 +80,7 @@ async def get_post(id: str) -> tuple[Response, int]:
     data = result.data.to_dict()
     if user.data is not None:
         data["user"] = user.data.dict
-    if reaction.success and reaction.data is not None:
+    if reaction.data is not None:
         data["is_like"] = reaction.data
 
     return response(data=data), 200
@@ -116,12 +96,12 @@ async def get_posts_batch() -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         for post in _posts:
-            result = await cache_posts.get_post(str(post), conn)
-            if not result.success:
-                errors.append({"post": post, "error_msg": result.message})
+            try:
+                result = await cache_posts.get_post(str(post), conn)
+            except FunctionError as e:
+                errors.append({"post": post, "error_msg": e.message})
                 continue
 
-            assert result.data is not None
             user = await cache_users.get_user(result.data.user_id, conn)
 
             reaction = await posts.get_reaction(g.user_id, post, None, conn)
@@ -130,7 +110,7 @@ async def get_posts_batch() -> tuple[Response, int]:
 
             if user.data is not None:
                 _temp["user"] = user.data.dict
-            if reaction.success and reaction.data is not None:
+            if reaction.data is not None:
                 _temp["is_like"] = reaction.data
 
             _data.append(_temp)
@@ -145,16 +125,13 @@ async def get_posts_batch() -> tuple[Response, int]:
 async def delete_post(id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         post = await cache_posts.get_post(id, conn)
-        if not post.success:
-            return error_response(post), 400
-        if post.data.user_id != g.user_id:  # type: ignore
+
+        if post.data.user_id != g.user_id:
             return response(error=True, error_msg="FORBIDDEN"), 403
-        result = await posts.delete_post(id, conn)
+
+        await posts.delete_post(id, conn)
 
     await cache_posts.remove_post_cache(id)
-
-    if not result.success:
-        return error_response(result), 500
 
     return response(), 204
 
@@ -171,16 +148,13 @@ async def update_post(id: str) -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         post = await posts.get_post(id, conn)
-        if not post.success:
-            return error_response(post), 400
-        if post.data.user_id != g.user_id:  # type: ignore
+
+        if post.data.user_id != g.user_id:
             return response(error=True, error_msg="FORBIDDEN"), 403
-        result = await posts.update_post(id, content, tags, media, conn)
+
+        await posts.update_post(id, content, tags, media, conn)
 
     await cache_posts.remove_post_cache(id)
-
-    if not result.success:
-        return error_response(result), 500
 
     return response(), 204
 
@@ -191,13 +165,8 @@ async def add_reaction(id: str) -> tuple[Response, int]:
     is_like: bool = data.get("is_like")
 
     async with AutoConnection(pool) as conn:
-        post = await cache_posts.get_post(id, conn)
-        if not post.success:
-            return error_response(post), 400
-        result = await posts.add_reaction(g.user_id, is_like, id, None, conn)
-
-    if not result.success:
-        return error_response(result), 500
+        await cache_posts.get_post(id, conn)
+        await posts.add_reaction(g.user_id, is_like, id, None, conn)
 
     return response(), 204
 
@@ -205,13 +174,8 @@ async def add_reaction(id: str) -> tuple[Response, int]:
 @route(bp, "/posts/<id>/reactions", methods=["DELETE"])
 async def rem_reaction(id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
-        post = await cache_posts.get_post(id, conn)
-        if not post.success:
-            return error_response(post), 400
-        result = await posts.rem_reaction(g.user_id, id, None, conn)
-
-    if not result.success:
-        return error_response(result), 500
+        await cache_posts.get_post(id, conn)
+        await posts.rem_reaction(g.user_id, id, None, conn)
 
     return response(), 204
 
@@ -222,13 +186,8 @@ async def create_comment(id: str) -> tuple[Response, int]:
     content = data.get("content")
 
     async with AutoConnection(pool) as conn:
-        post = await cache_posts.get_post(id, conn)
-        if not post.success:
-            return error_response(post), 400
+        await cache_posts.get_post(id, conn)
         result = await posts.create_comment(g.user_id, id, content, conn)
-
-    if not result.success:
-        return error_response(result), 500
 
     return response(data=result.data.to_dict()), 201
 
@@ -238,17 +197,9 @@ async def get_comments(id: str) -> tuple[Response, int]:
     cursor = request.args.get("cursor", None)
 
     async with AutoConnection(pool) as conn:
-        post = await cache_posts.get_post(id, conn)
-        if not post.success:
-            return error_response(post), 400
+        await cache_posts.get_post(id, conn)
 
         result = await posts.get_comments(id, cursor, g.user_id, conn)
-        if not result.success:
-            if result.message == "NO_MORE_COMMENTS":
-                return response(error=True, error_msg=result.message), 200
-            return error_response(result), 500
-
-        assert result.data is not None
 
         users = {}
         comments = []
@@ -259,9 +210,14 @@ async def get_comments(id: str) -> tuple[Response, int]:
             )
 
             if comment.user_id not in users:
-                user_data = await cache_users.get_user(comment.user_id, conn)
-                if user_data.success:
+                try:
+                    user_data = await cache_users.get_user(
+                        comment.user_id, conn
+                    )
                     users[comment.user_id] = user_data.data.dict
+                except FunctionError as e:
+                    if e.code != 404:
+                        raise e
 
             _temp = comment.to_dict()
             if reaction.data is not None:
@@ -279,16 +235,9 @@ async def comment_add_reaction(id: str, cid: str) -> tuple[Response, int]:
     is_like: bool = data.get("is_like")
 
     async with AutoConnection(pool) as conn:
-        post = await cache_posts.get_post(id, conn)
-        if not post.success:
-            return error_response(post), 400
-        comment = await posts.get_comment(id, cid, conn)
-        if not comment.success:
-            return error_response(comment), 400
-        result = await posts.add_reaction(g.user_id, is_like, None, cid, conn)
-
-    if not result.success:
-        return error_response(result), 500
+        await cache_posts.get_post(id, conn)
+        await posts.get_comment(id, cid, conn)
+        await posts.add_reaction(g.user_id, is_like, None, cid, conn)
 
     return response(), 204
 
@@ -296,16 +245,9 @@ async def comment_add_reaction(id: str, cid: str) -> tuple[Response, int]:
 @route(bp, "/posts/<id>/comments/<cid>/reactions", methods=["DELETE"])
 async def comment_rem_reaction(id: str, cid: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
-        post = await cache_posts.get_post(id, conn)
-        if not post.success:
-            return error_response(post), 400
-        comment = await posts.get_comment(id, cid, conn)
-        if not comment.success:
-            return error_response(comment), 400
-        result = await posts.rem_reaction(g.user_id, None, cid, conn)
-
-    if not result.success:
-        return error_response(result), 500
+        await cache_posts.get_post(id, conn)
+        await posts.get_comment(id, cid, conn)
+        await posts.rem_reaction(g.user_id, None, cid, conn)
 
     return response(), 204
 

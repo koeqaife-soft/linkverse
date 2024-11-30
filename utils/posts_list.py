@@ -1,4 +1,4 @@
-from core import Status
+from core import Status, FunctionError
 from utils.database import AutoConnection
 
 
@@ -58,7 +58,7 @@ async def get_popular_posts(
     )
 
     if not rows:
-        return Status(False, message="NO_MORE_POSTS")
+        raise FunctionError("NO_MORE_POSTS", 400, None)
 
     posts = [(row["post_id"], row["user_id"]) for row in rows]
     return Status(True, data={
@@ -104,7 +104,7 @@ async def get_new_posts(
     )
 
     if not rows:
-        return Status(False, message="NO_MORE_POSTS")
+        raise FunctionError("NO_MORE_POSTS", 400, None)
 
     posts = [(row["post_id"], row["user_id"]) for row in rows]
     return Status(True, data={

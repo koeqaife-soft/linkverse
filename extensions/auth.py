@@ -1,6 +1,6 @@
 import asyncpg
 from quart import Blueprint, Quart, Response
-from core import response, Global, error_response, route
+from core import response, Global, route
 from quart import g, request
 import utils.auth as auth
 from utils.database import AutoConnection
@@ -42,19 +42,10 @@ async def register() -> tuple[Response, int]:
     password = data.get('password')
 
     async with AutoConnection(pool) as conn:
-        result = await auth.check_username(username, conn)
-        if not result.success:
-            return error_response(result), 400
+        await auth.check_username(username, conn)
 
         result2 = await auth.create_user(username, email, password, conn)
-        if not result2.success:
-            return error_response(result2), 400
-
-        result3 = await auth.create_token(result2.data, conn)  # type: ignore
-        if not result3.success:
-            return error_response(result3), 500
-
-    assert result3.data is not None
+        result3 = await auth.create_token(result2.data, conn)
 
     _response = response()
     _set_token(result3.data["refresh"], result3.data['access'], _response)
@@ -71,9 +62,6 @@ async def login() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await auth.login(email, password, conn)
 
-    if not result.success:
-        return error_response(result), 400
-
     _response = response()
     _set_token(result.data["refresh"], result.data['access'], _response)
 
@@ -89,8 +77,6 @@ async def refresh() -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         result = await auth.refresh(token, conn)
-    if not result.success:
-        return error_response(result), 400
 
     _response = response()
     _set_token(result.data["refresh"], result.data['access'], _response)
@@ -110,16 +96,10 @@ async def logout() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await auth.check_token(token, conn)
 
-        if not result.success:
-            return error_response(result), 400
-
         data = result.data or {}
-        result2 = await auth.remove_secret(
+        await auth.remove_secret(
             data["secret"], data["user_id"], conn
         )
-
-        if not result2.success:
-            return error_response(result2), 500
 
     _response = response()
     _response.delete_cookie(
