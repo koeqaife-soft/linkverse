@@ -142,8 +142,7 @@ async def before():
 
     if not _data.get("no_auth", False):
         headers = request.headers
-        cookies = request.cookies
-        token = headers.get("Authorization") or cookies.get("access_token")
+        token = headers.get("Authorization")
         if token is None:
             return response(error=True, error_msg="UNAUTHORIZED"), 401
         async with AutoConnection(pool) as conn:
