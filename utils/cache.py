@@ -12,8 +12,10 @@ import utils.users
 import utils.posts
 from utils.users import User
 from utils.posts import Post
-from core import Global
+from core import Global, FunctionError
 from utils.database import AutoConnection
+from utils.generation import decode_token
+from utils.auth import secret_key, check_token
 
 R = TypeVar('R')
 
@@ -227,6 +229,40 @@ class posts:
     ) -> Status[None]:
         cache = _cache_instance or cache_instance
         key = f"posts:{post_id}"
+        value = await cache.get(key)
+        if value is not None:
+            await cache.delete(key)
+        return Status(True)
+
+
+class auth:
+    async def check_token(
+        token: str, conn: AutoConnection,
+        _cache_instance: Cache | None = None
+    ) -> Status[dict]:
+
+        cache = _cache_instance or cache_instance
+        decoded = await decode_token(token, secret_key)
+        if not decoded["success"]:
+            raise FunctionError(decoded.get("msg"), 401, None)
+        elif decoded["is_expired"]:
+            raise FunctionError("EXPIRED_TOKEN", 401, None)
+
+        key = f"auth:{decoded["user_id"]}:{decoded["secret"]}"
+        value = await cache.get(key)
+        if value is None:
+            await check_token(token, conn, decoded)
+            ttl = decoded["expiration_timestamp"] - int(time.time())
+            await cache.set(key, "1", min(max(0, ttl), 60))
+        return Status(True, decoded)
+
+    async def clear_token_cache(
+        token: str,
+        _cache_instance: Cache | None = None
+    ) -> Status[None]:
+        cache = _cache_instance or cache_instance
+        decoded = await decode_token(token, secret_key)
+        key = f"auth:{decoded["user_id"]}:{decoded["secret"]}"
         value = await cache.get(key)
         if value is not None:
             await cache.delete(key)

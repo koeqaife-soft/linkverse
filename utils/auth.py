@@ -131,7 +131,6 @@ async def get_user(
     row = await db.fetchrow(query, *values)
 
     if return_bool:
-        print(row)
         return Status(True, data=(row is not None))
     else:
         if row is None:
@@ -284,12 +283,13 @@ async def refresh(
 
 
 async def check_token(
-    token: str, conn: AutoConnection
+    token: str, conn: AutoConnection,
+    decoded: dict | None = None
 ) -> Status[dict]:
     db = await conn.create_conn()
-    decoded = await decode_token(token, secret_key)
+    decoded = decoded or await decode_token(token, secret_key)
     if not decoded["success"]:
-        raise FunctionError(decoded.get("msg"), 400, None)
+        raise FunctionError(decoded.get("msg"), 401, None)
     elif decoded["is_expired"]:
         raise FunctionError("EXPIRED_TOKEN", 401, None)
 

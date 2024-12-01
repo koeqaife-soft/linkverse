@@ -3,6 +3,7 @@ from quart import Blueprint, Quart, Response
 from core import response, Global, route
 from quart import g, request
 import utils.auth as auth
+from utils.cache import auth as auth_cache
 from utils.database import AutoConnection
 import os
 
@@ -63,10 +64,11 @@ async def logout() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await auth.check_token(token, conn)
 
-        data = result.data or {}
+        data = result.data
         await auth.remove_secret(
             data["secret"], data["user_id"], conn
         )
+        await auth_cache.clear_token_cache(token)
 
     return response(), 204
 
