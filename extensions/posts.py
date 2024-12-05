@@ -252,5 +252,19 @@ async def comment_rem_reaction(id: str, cid: str) -> tuple[Response, int]:
     return response(), 204
 
 
+@route(bp, "/users/<user_id>/posts", methods=["GET"])
+async def get_user_posts(user_id: str) -> tuple[Response, int]:
+    cursor = request.args.get("cursor", None)
+    sort = request.args.get("sort", None)
+
+    async with AutoConnection(pool) as conn:
+        await cache_users.get_user(user_id, conn)
+        user_posts = await posts.get_user_posts(user_id, cursor, conn, sort)
+        _posts = [post.to_dict() for post in user_posts.data["posts"]]
+        user_posts.data["posts"] = _posts
+
+    return response(data=user_posts.data), 200
+
+
 def load(app: Quart):
     app.register_blueprint(bp)

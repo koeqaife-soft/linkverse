@@ -327,3 +327,77 @@ async def get_comments(
         data={"comments": comments, "next_cursor": next_cursor,
               "has_more": has_more}
     )
+
+
+async def get_user_posts(
+    user_id: str,
+    cursor: str | None,
+    conn: AutoConnection,
+    sort: t.Literal["popular", "new", "old"] | None = None
+) -> Status[dict[
+            t.Literal["posts", "next_cursor", "has_more"],
+            list[Post] | str | bool]]:
+    sort = sort or "new"
+    db = await conn.create_conn()
+    query = """
+        SELECT post_id, user_id, content, created_at, updated_at,
+               likes_count, comments_count, tags, media, status,
+               is_deleted, dislikes_count
+        FROM posts WHERE user_id = $1
+    """
+    params: list[t.Any] = [user_id]
+
+    if cursor:
+        try:
+            _popularity_score, post_id = cursor.split(",")
+            popularity_score = int(_popularity_score)
+        except ValueError:
+            raise FunctionError("INVALID_CURSOR", 400, None)
+
+        if sort == "popular":
+            query += """
+                AND (
+                    (likes_count - dislikes_count) > $2 OR
+                    ((likes_count - dislikes_count) = $2 AND post_id < $3)
+                )
+            """
+        elif sort == "new":
+            query += " AND post_id < $2"
+        elif sort == "old":
+            query += " AND post_id > $2"
+        params.append(popularity_score if sort == "popular" else post_id)
+
+    if sort == "popular":
+        query += """
+            ORDER BY (likes_count - dislikes_count) DESC, post_id DESC
+        """
+    elif sort == "new":
+        query += " ORDER BY post_id DESC"
+    elif sort == "old":
+        query += " ORDER BY post_id ASC"
+
+    query += " LIMIT 21"
+
+    rows = await db.fetch(query, *params)
+    if not rows:
+        raise FunctionError("NO_MORE_POSTS", 200, None)
+
+    has_more = len(rows) > 20
+    rows = rows[:20]
+
+    last_row = rows[-1]
+    next_cursor = (
+        f"{last_row['likes_count'] - last_row['dislikes_count']}" +
+        f",{last_row['post_id']}"
+    )
+
+    posts = [
+        Post(
+            **{k: v for k, v in row.items()}
+        )
+        for row in rows
+    ]
+    return Status(
+        success=True,
+        data={"posts": posts, "next_cursor": next_cursor, "has_more": has_more}
+    )
