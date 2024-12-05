@@ -236,6 +236,7 @@ class posts:
 
 
 class auth:
+    @staticmethod
     async def check_token(
         token: str, conn: AutoConnection,
         _cache_instance: Cache | None = None
@@ -256,6 +257,7 @@ class auth:
             await cache.set(key, "1", min(max(0, ttl), 60))
         return Status(True, decoded)
 
+    @staticmethod
     async def clear_token_cache(
         token: str,
         _cache_instance: Cache | None = None
