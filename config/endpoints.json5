@@ -108,7 +108,13 @@
             data: {
                 is_like: { type: "bool" }
             }
-        }
+        },
+        get_user_posts: {
+            optional_params: {
+                cursor: { min_len: 1, max_len: 256 },
+                sort: { values: ["old", "new", "popular"] }
+            }
+        },
     },
     users: {
         update_profile_me: {
