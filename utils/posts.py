@@ -294,7 +294,7 @@ async def get_comments(
 
         query += """
             AND (
-                (likes_count - dislikes_count) > $3 OR
+                (likes_count - dislikes_count) < $3 OR
                 ((likes_count - dislikes_count) = $3 AND comment_id < $4)
             )
         """
@@ -342,7 +342,8 @@ async def get_user_posts(
     query = """
         SELECT post_id, user_id, content, created_at, updated_at,
                likes_count, comments_count, tags, media, status,
-               is_deleted, dislikes_count
+               is_deleted, dislikes_count,
+               (likes_count - dislikes_count) AS popularity_score
         FROM posts WHERE user_id = $1
     """
     params: list[t.Any] = [user_id]
@@ -357,20 +358,20 @@ async def get_user_posts(
         if sort == "popular":
             query += """
                 AND (
-                    (likes_count - dislikes_count) > $2 OR
+                    (likes_count - dislikes_count) < $2 OR
                     ((likes_count - dislikes_count) = $2 AND post_id < $3)
                 )
             """
+            params.extend([popularity_score, post_id])
         elif sort == "new":
             query += " AND post_id < $2"
+            params.append(post_id)
         elif sort == "old":
             query += " AND post_id > $2"
-        params.append(popularity_score if sort == "popular" else post_id)
+            params.append(post_id)
 
     if sort == "popular":
-        query += """
-            ORDER BY (likes_count - dislikes_count) DESC, post_id DESC
-        """
+        query += " ORDER BY popularity_score DESC, post_id DESC"
     elif sort == "new":
         query += " ORDER BY post_id DESC"
     elif sort == "old":
@@ -387,13 +388,12 @@ async def get_user_posts(
 
     last_row = rows[-1]
     next_cursor = (
-        f"{last_row['likes_count'] - last_row['dislikes_count']}" +
-        f",{last_row['post_id']}"
+        f"{last_row['popularity_score']},{last_row['post_id']}"
     )
-
     posts = [
         Post(
-            **{k: v for k, v in row.items()}
+            **{k: v for k, v in row.items()
+               if k != 'popularity_score'}
         )
         for row in rows
     ]
