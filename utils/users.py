@@ -34,12 +34,14 @@ class User:
 
 
 async def get_user(
-    user_id: str, conn: AutoConnection
+    user_id: str, conn: AutoConnection,
+    minimize_info: bool = False
 ) -> Status[User]:
     db = await conn.create_conn()
-    query = """
-        SELECT u.user_id, u.username, p.display_name, p.avatar_url,
-               p.banner_url, p.bio, p.gender, p.languages
+    query = f"""
+        SELECT u.user_id, u.username, p.display_name, p.avatar_url
+               {",p.banner_url, p.bio, p.gender, p.languages"
+                if not minimize_info else ""}
         FROM users u
         LEFT JOIN user_profiles p ON u.user_id = p.user_id
         WHERE u.user_id = $1;

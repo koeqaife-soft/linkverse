@@ -73,7 +73,7 @@ async def get_post(id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await cache_posts.get_post(id, conn)
 
-        user = await cache_users.get_user(result.data.user_id, conn)
+        user = await cache_users.get_user(result.data.user_id, conn, True)
 
         reaction = await posts.get_reaction(g.user_id, id, None, conn)
 
@@ -102,7 +102,7 @@ async def get_posts_batch() -> tuple[Response, int]:
                 errors.append({"post": post, "error_msg": e.message})
                 continue
 
-            user = await cache_users.get_user(result.data.user_id, conn)
+            user = await cache_users.get_user(result.data.user_id, conn, True)
 
             reaction = await posts.get_reaction(g.user_id, post, None, conn)
 
@@ -212,7 +212,7 @@ async def get_comments(id: str) -> tuple[Response, int]:
             if comment.user_id not in users:
                 try:
                     user_data = await cache_users.get_user(
-                        comment.user_id, conn
+                        comment.user_id, conn, True
                     )
                     users[comment.user_id] = user_data.data.dict
                 except FunctionError as e:
@@ -258,7 +258,7 @@ async def get_user_posts(user_id: str) -> tuple[Response, int]:
     sort = request.args.get("sort", None)
 
     async with AutoConnection(pool) as conn:
-        await cache_users.get_user(user_id, conn)
+        await cache_users.get_user(user_id, conn, True)
         user_posts = await posts.get_user_posts(user_id, cursor, conn, sort)
         _posts = [post.to_dict() for post in user_posts.data["posts"]]
         user_posts.data["posts"] = _posts

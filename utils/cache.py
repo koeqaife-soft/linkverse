@@ -179,13 +179,14 @@ class users:
     @staticmethod
     async def get_user(
         user_id: str, conn: AutoConnection,
+        minimize_info: bool = False,
         _cache_instance: Cache | None = None
     ) -> Status[User]:
         cache = _cache_instance or cache_instance
-        key = f"user_profile:{user_id}"
+        key = f"user_profile:{user_id}{":min" if minimize_info else ""}"
         value = await cache.get(key)
         if value is None:
-            result = await utils.users.get_user(user_id, conn)
+            result = await utils.users.get_user(user_id, conn, minimize_info)
 
             assert result.data is not None
             await cache.set(key, asdict(result.data), 600)
@@ -199,9 +200,13 @@ class users:
     ) -> Status[None]:
         cache = _cache_instance or cache_instance
         key = f"user_profile:{user_id}"
+        key2 = f"user_profile:{user_id}:min"
         value = await cache.get(key)
+        value2 = await cache.get(key2)
         if value is not None:
             await cache.delete(key)
+        if value2 is not None:
+            await cache.delete(key2)
         return Status(True)
 
 
