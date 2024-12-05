@@ -2,24 +2,6 @@ from core import Status, FunctionError
 from utils.database import AutoConnection
 
 
-async def get_viewed_posts(
-    user_id: str,
-    conn: AutoConnection
-) -> set[str]:
-    db = await conn.create_conn()
-    viewed_posts_query = """
-        SELECT post_id
-        FROM user_post_views
-        WHERE user_id = $1
-        ORDER BY timestamp DESC
-        LIMIT 10000
-    """
-    viewed_posts = await db.fetch(viewed_posts_query, user_id)
-    viewed_post_ids = {row['post_id'] for row in viewed_posts}
-
-    return viewed_post_ids
-
-
 async def get_popular_posts(
     user_id: str,
     conn: AutoConnection,
@@ -31,10 +13,7 @@ async def get_popular_posts(
     hide_viewed = hide_viewed or True
     offset = offset or 0
 
-    if hide_viewed:
-        viewed_post_ids = await get_viewed_posts(user_id, conn)
-
-    parameters: list = [limit, offset]
+    parameters: list = [user_id, limit, offset]
 
     query = """
         SELECT CAST(post_id AS TEXT) AS post_id,
@@ -45,17 +24,21 @@ async def get_popular_posts(
     """
 
     if hide_viewed:
-        parameters.append(viewed_post_ids)
-        query += " AND post_id NOT IN (SELECT UNNEST($3::text[]))"
+        query += """
+            AND NOT EXISTS (
+                SELECT 1
+                FROM user_post_views
+                WHERE user_post_views.user_id = $1
+                AND user_post_views.post_id = posts.post_id
+            )
+        """
 
     query += """
         ORDER BY popularity_score DESC, comments_count DESC
-        LIMIT $1 OFFSET $2
+        LIMIT $2 OFFSET $3
     """
 
-    rows = await db.fetch(
-        query, *parameters
-    )
+    rows = await db.fetch(query, *parameters)
 
     if not rows:
         raise FunctionError("NO_MORE_POSTS", 400, None)
@@ -77,10 +60,7 @@ async def get_new_posts(
     hide_viewed = hide_viewed or True
     offset = offset or 0
 
-    if hide_viewed:
-        viewed_post_ids = await get_viewed_posts(user_id, conn)
-
-    parameters: list = [limit, offset]
+    parameters: list = [user_id, limit, offset]
 
     query = """
         SELECT CAST(post_id AS TEXT) AS post_id,
@@ -91,17 +71,21 @@ async def get_new_posts(
     """
 
     if hide_viewed:
-        parameters.append(viewed_post_ids)
-        query += " AND post_id NOT IN (SELECT UNNEST($3::text[]))"
+        query += """
+            AND NOT EXISTS (
+                SELECT 1
+                FROM user_post_views
+                WHERE user_post_views.user_id = $1
+                AND user_post_views.post_id = posts.post_id
+            )
+        """
 
     query += """
         ORDER BY created_at DESC
-        LIMIT $1 OFFSET $2
+        LIMIT $2 OFFSET $3
     """
 
-    rows = await db.fetch(
-        query, *parameters
-    )
+    rows = await db.fetch(query, *parameters)
 
     if not rows:
         raise FunctionError("NO_MORE_POSTS", 400, None)
