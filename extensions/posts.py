@@ -260,9 +260,16 @@ async def get_user_posts(user_id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         await cache_users.get_user(user_id, conn, True)
         user_posts = await posts.get_user_posts(user_id, cursor, conn, sort)
-        _posts = [post.to_dict() for post in user_posts.data["posts"]]
+        _posts = []
+        for post in user_posts.data["posts"]:
+            _temp = post.to_dict()
+            reaction = await posts.get_reaction(
+                g.user_id, post.post_id, None, conn
+            )
+            if reaction.data is not None:
+                _temp["is_like"] = reaction.data
+            _posts.append(_temp)
         user_posts.data["posts"] = _posts
-
     return response(data=user_posts.data), 200
 
 
