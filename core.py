@@ -373,7 +373,8 @@ class Validator:
         checks = {
             "min_len": lambda s, v: len(s) >= int(v),
             "max_len": lambda s, v: len(s) <= int(v),
-            "len": lambda s, v: len(s) == int(v)
+            "len": lambda s, v: len(s) == int(v),
+            "values": lambda s, v: s in v
         }
         filters = {
             "xss": lambda v: bleach.clean(v, tags=ALLOWED_TAGS)
