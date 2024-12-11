@@ -3,7 +3,7 @@
 from hashlib import sha256
 import hmac
 from base64 import urlsafe_b64decode, urlsafe_b64encode
-
+import hashlib
 
 cpdef str encode_base64(bytes data):
     cdef str encoded = urlsafe_b64encode(data).decode('utf-8')
@@ -11,10 +11,8 @@ cpdef str encode_base64(bytes data):
 
 
 cpdef bytes decode_base64(str encoded):
-    cdef int padding_needed = (4 - len(encoded) % 4) % 4
-    if padding_needed:
-        encoded += '=' * padding_needed
-    cdef bytes decoded = urlsafe_b64decode(encoded)
+    cdef int padding_needed = (4 - len(encoded) & 3) & 3
+    cdef bytes decoded = urlsafe_b64decode(encoded + '=' * padding_needed)
     return decoded
 
 
@@ -48,24 +46,21 @@ cpdef bytes decode_shuffle_base64(str encoded, str seed):
 
 
 cdef bytes shuffle_bytes(bytes data, str key):
-    cdef list[int] key_int = [ord(c) for c in key]
     cdef bytearray shuffled = bytearray(data)
-    cdef int key_idx
+    cdef bytes key_hash = hashlib.sha256(key.encode(), usedforsecurity=True).digest()
+    cdef int data_len = len(shuffled)
+    cdef int i
 
-    for i in range(len(shuffled)):
-        key_idx = key_int[i % len(key)]
-        shuffled[i] ^= key_idx
-    return bytes(shuffled)
+    cdef memoryview mv_shuffled = memoryview(shuffled)
+    cdef memoryview mv_key_hash = memoryview(key_hash)
+
+    for i in range(data_len):
+        mv_shuffled[i] ^= mv_key_hash[i % 32]
+
+    return bytes(mv_shuffled)
 
 
 cdef bytes unshuffle_bytes(bytes shuffled, str key):
-    cdef list[int] key_int = [ord(c) for c in key]
-    cdef bytearray original = bytearray(shuffled)
-    cdef int key_idx
-
-    for i in range(len(original)):
-        key_idx = key_int[i % len(key)]
-        original[i] ^= key_idx
-    return bytes(original)
+    return shuffle_bytes(shuffled, key)
 
 
