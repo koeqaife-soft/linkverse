@@ -275,37 +275,45 @@ async def get_comments(
             t.Literal["comments", "next_cursor", "has_more"],
             list[Comment] | str | bool]]:
     db = await conn.create_conn()
-    query = """
-        SELECT comment_id, parent_comment_id, post_id, user_id, content,
-               likes_count, dislikes_count,
-               (likes_count - dislikes_count) AS popularity_score,
-               CASE WHEN user_id = $2 THEN 1 ELSE 0 END AS is_user_comment
-        FROM comments
-        WHERE post_id = $1
-    """
     params: list[t.Any] = [post_id, user_id]
+
+    cte_query = """
+        WITH ranked_comments AS (
+            SELECT comment_id, parent_comment_id, post_id, user_id, content,
+                   likes_count, dislikes_count,
+                   (likes_count - dislikes_count) AS popularity_score,
+                   CASE WHEN user_id = $2 THEN 1 ELSE 0 END AS is_user_comment
+            FROM comments
+            WHERE post_id = $1
+        )
+    """
+
+    main_query = """
+        SELECT * FROM ranked_comments
+    """
 
     if cursor:
         try:
-            _popularity_score, comment_id = cursor.split(",")
+            _is_user, _popularity_score, comment_id = cursor.split(",")
+            is_user_comment = int(_is_user)
             popularity_score = int(_popularity_score)
         except ValueError:
             raise FunctionError("INVALID_CURSOR", 400, None)
 
-        query += """
-            AND (
-                (likes_count - dislikes_count) < $3 OR
-                ((likes_count - dislikes_count) = $3 AND comment_id < $4)
-            )
+        main_query += """
+            WHERE (is_user_comment < $3 OR
+                   (is_user_comment = $3 AND popularity_score < $4) OR
+                   (is_user_comment = $3 AND popularity_score = $4
+                    AND comment_id < $5))
         """
-        params.extend([popularity_score, comment_id])
+        params.extend([is_user_comment, popularity_score, comment_id])
 
-    query += """
+    main_query += """
         ORDER BY is_user_comment DESC, popularity_score DESC, comment_id DESC
         LIMIT 21
     """
 
-    rows = await db.fetch(query, *params)
+    rows = await db.fetch(cte_query + main_query, *params)
     if not rows:
         raise FunctionError("NO_MORE_COMMENTS", 200, None)
 
@@ -313,7 +321,10 @@ async def get_comments(
     rows = rows[:20]
 
     last_row = rows[-1]
-    next_cursor = f"{last_row['popularity_score']},{last_row['comment_id']}"
+    next_cursor = (
+        f"{last_row['is_user_comment']},{last_row['popularity_score']}" +
+        f",{last_row['comment_id']}"
+    )
 
     comments = [
         Comment(
@@ -322,6 +333,7 @@ async def get_comments(
         )
         for row in rows
     ]
+
     return Status(
         success=True,
         data={"comments": comments, "next_cursor": next_cursor,
