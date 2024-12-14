@@ -94,6 +94,8 @@ async def refresh(
 async def stress(n: int) -> tuple[float, float]:
     session = aiohttp.ClientSession()
     try:
+        async with session.post(f"{ip}:6169/v1/ping") as r:
+            r.raise_for_status()
         logging.debug("Generating account list")
         accounts = []
         for _ in range(n):
