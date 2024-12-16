@@ -16,6 +16,7 @@ import datetime
 import glob
 from quart_cors import cors
 import bleach
+from quart_compress import Compress
 
 _logger = logging.getLogger("linkverse")
 worker_count = int(os.getenv('_WORKER_COUNT', '1'))
@@ -28,8 +29,13 @@ ALLOWED_TAGS = ["i", "strong", "b", "em", "u", "br", "mark", "blockquote"]
 
 load_dotenv()
 app = Quart(__name__)
+Compress(app)
+app.config['COMPRESS_ALGORITHM'] = 'gzip'
+app.config['COMPRESS_LEVEL'] = 6
+app.config['COMPRESS_MIN_SIZE'] = 500
 
-allow_origin = ["http://localhost:9000", "http://localhost:9300"]
+allow_origin = ["http://localhost:9000", "http://localhost:9300",
+                "http://192.168.1.35:9000", "http://koeqaife.ddns.net:9000"]
 app = cors(
     app, allow_origin=allow_origin,
     allow_headers=["Content-Type", "Authorization"],

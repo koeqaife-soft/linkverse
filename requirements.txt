@@ -5,6 +5,7 @@ asyncpg
 asyncpg-stubs
 python-dotenv
 quart
+quart-compress
 cryptography
 aiohttp
 uvloop
