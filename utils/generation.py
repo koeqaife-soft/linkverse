@@ -12,7 +12,8 @@ SECRET_KEY = os.environ["SIGNATURE_KEY"].encode()
 async def generate_token(
     user_id: str, key: str | bytes,
     long_term: bool = False,
-    secret: str = "12"
+    secret: str = "12",
+    session_id: str = "abc"
 ) -> str:
     expiration = int((
         datetime.datetime.now(datetime.UTC) +
@@ -20,7 +21,7 @@ async def generate_token(
          else datetime.timedelta(days=30))
     ).timestamp())
 
-    combined_data = f"{user_id}.{expiration}.{secret}"
+    combined_data = f"{user_id}.{expiration}.{secret}.{session_id}"
     encrypted_data = await encode(
         combined_data, key,
         len(combined_data) // 3 + 1
@@ -57,7 +58,7 @@ async def decode_token(token: str, key: bytes | str) -> dict:
             }
 
         decrypted_data = (await decode(token_payload, key)).decode()
-        user_id, expiration, secret = decrypted_data.split('.')
+        user_id, expiration, secret, session_id = decrypted_data.split('.')
 
         expiration_timestamp = int(expiration)
         current_timestamp = int(
@@ -71,7 +72,8 @@ async def decode_token(token: str, key: bytes | str) -> dict:
             "user_id": user_id,
             "is_expired": is_expired,
             "expiration_timestamp": expiration_timestamp,
-            "secret": secret
+            "secret": secret,
+            "session_id": session_id
         }
     except (ValueError, IndexError):
         return {

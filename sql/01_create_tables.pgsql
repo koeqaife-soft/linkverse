@@ -6,12 +6,12 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS auth_keys (
-    -- uuid UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
     token_secret TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    UNIQUE (token_secret, user_id)
+    UNIQUE (token_secret, user_id, session_id)
 );
 
 CREATE TABLE IF NOT EXISTS posts (

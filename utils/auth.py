@@ -180,20 +180,21 @@ async def login(
         raise FunctionError("INCORRECT_PASSWORD", 401, None)
 
     new_secret = generate_key()
+    session_id = str(generate_id())
     access = await generate_token(
         user.data.user_id, secret_key, False,
-        new_secret
+        new_secret, session_id
     )
     refresh = await generate_token(
         user.data.user_id, secret_refresh_key, True,
-        new_secret
+        new_secret, session_id
     )
     async with db.transaction():
         await db.execute(
             """
-            INSERT INTO auth_keys (user_id, token_secret)
-            VALUES ($1, $2)
-            """, user.data.user_id, new_secret
+            INSERT INTO auth_keys (user_id, token_secret, session_id)
+            VALUES ($1, $2, $3)
+            """, user.data.user_id, new_secret, session_id
         )
     return Status(True, {
         "access": access,
@@ -209,20 +210,21 @@ async def create_token(
     await get_user({"user_id": user_id}, conn)
 
     new_secret = generate_key()
+    session_id = str(generate_id())
     access = await generate_token(
         user_id, secret_key, False,
-        new_secret
+        new_secret, session_id
     )
     refresh = await generate_token(
         user_id, secret_refresh_key, True,
-        new_secret
+        new_secret, session_id
     )
     async with db.transaction():
         await db.execute(
             """
-            INSERT INTO auth_keys (user_id, token_secret)
-            VALUES ($1, $2)
-            """, user_id, new_secret
+            INSERT INTO auth_keys (user_id, token_secret, session_id)
+            VALUES ($1, $2, $3)
+            """, user_id, new_secret, session_id
         )
     return Status(True, {
         "access": access,
@@ -242,11 +244,14 @@ async def refresh(
 
     secret = decoded["secret"]
     user_id = decoded["user_id"]
+    session_id = decoded["session_id"]
     result = await db.fetchrow(
         """
         SELECT user_id FROM auth_keys
-        WHERE user_id = $1 AND token_secret = $2
-        """, user_id, secret
+        WHERE user_id = $1
+        AND token_secret = $2
+        AND session_id = $3
+        """, user_id, secret, session_id
     )
 
     if result is None:
@@ -255,25 +260,21 @@ async def refresh(
     new_secret = generate_key()
     access = await generate_token(
         user_id, secret_key,
-        False, new_secret)
+        False, new_secret, session_id
+    )
 
     refresh = await generate_token(
         user_id, secret_refresh_key,
-        True, new_secret
+        True, new_secret, session_id
     )
 
     async with db.transaction():
         await db.execute(
             """
-            INSERT INTO auth_keys (user_id, token_secret)
-            VALUES ($1, $2)
-            """, user_id, new_secret
-        )
-        await db.execute(
-            """
-            DELETE FROM auth_keys
-            WHERE user_id = $1 AND token_secret = $2;
-            """, user_id, secret
+            UPDATE auth_keys
+            SET token_secret = $2
+            WHERE session_id = $1
+            """, session_id, new_secret
         )
 
     return Status(True, {
@@ -296,8 +297,10 @@ async def check_token(
     result = await db.fetchrow(
         """
         SELECT user_id FROM auth_keys
-        WHERE user_id = $1 AND token_secret = $2
-        """, decoded["user_id"], decoded["secret"]
+        WHERE user_id = $1
+        AND token_secret = $2
+        AND session_id = $3
+        """, decoded["user_id"], decoded["secret"], decoded["session_id"]
     )
 
     if result is None:
