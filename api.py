@@ -198,9 +198,10 @@ async def startup():
         )
     )
 
-    with open("config/redis.json") as f:
-        redis = json.load(f)
-    await cache.Cache(redis["url"]).init()
+    redis_host = os.environ["REDIS_HOST"]
+    redis_port = os.environ["REDIS_PORT"]
+    url = f"redis://{redis_host}:{redis_port}"
+    await cache.Cache(url).init()
 
     logger.info(
         "Worker started!" +
