@@ -4,15 +4,27 @@ from hashlib import sha256
 import hmac
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 import hashlib
+from libc.stdlib cimport malloc, free
 
 cpdef str encode_base64(bytes data):
-    cdef str encoded = urlsafe_b64encode(data).decode('utf-8')
-    return encoded.rstrip('=')
+    cdef str encoded
+    encoded = urlsafe_b64encode(data).decode('utf-8')
+    
+    cdef int len_encoded = len(encoded)
+    cdef int i = len_encoded - 1
+    with nogil:
+        while i >= 0 and encoded[i] == '=':
+            i -= 1
+    encoded = encoded[:i + 1]
+    
+    return encoded
 
 
 cpdef bytes decode_base64(str encoded):
     cdef int padding_needed = (4 - len(encoded) & 3) & 3
-    cdef bytes decoded = urlsafe_b64decode(encoded + '=' * padding_needed)
+    cdef bytes decoded
+    decoded = urlsafe_b64decode(encoded + '=' * padding_needed)
+    
     return decoded
 
 
@@ -46,18 +58,26 @@ cpdef bytes decode_shuffle_base64(str encoded, str seed):
 
 
 cdef bytes shuffle_bytes(bytes data, str key):
-    cdef bytearray shuffled = bytearray(data)
+    cdef int data_len = len(data)
     cdef bytes key_hash = hashlib.sha256(key.encode(), usedforsecurity=True).digest()
-    cdef int data_len = len(shuffled)
     cdef int i
+    
+    cdef char* shuffled = <char*>malloc(data_len)
+    cdef char* key_hash_ptr = <char*>key_hash
+    cdef char* data_ptr = <char*>data
 
-    cdef memoryview mv_shuffled = memoryview(shuffled)
-    cdef memoryview mv_key_hash = memoryview(key_hash)
+    if not shuffled:
+        raise MemoryError("Unable to allocate memory for shuffled data.")
+    
+    with nogil:
+        for i in range(data_len):
+            shuffled[i] = data_ptr[i] ^ key_hash_ptr[i % 32]
+    
+    result = bytes(<bytearray>shuffled[:data_len])
 
-    for i in range(data_len):
-        mv_shuffled[i] ^= mv_key_hash[i % 32]
-
-    return bytes(mv_shuffled)
+    free(shuffled)
+    
+    return result
 
 
 cdef bytes unshuffle_bytes(bytes shuffled, str key):

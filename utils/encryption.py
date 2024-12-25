@@ -21,45 +21,8 @@ def prepare_key(key: str) -> bytes:
     return _prepare_key(key)
 
 
-async def encode_seeded_base62_parallel(
-    data: str | bytes, seed: str | bytes,
-    group_size: int = 3
-) -> str:
-    if isinstance(data, str):
-        data = data.encode()
-    if isinstance(seed, bytes):
-        seed = seed.decode()
-    nonce = os.urandom(6).hex()
-    groups = [
-        data[i:i + group_size]
-        for i in range(0, len(data), group_size)
-    ]
-    key = nonce + seed
-
-    encoded_groups = await asyncio.gather(
-        *(asyncio.to_thread(encode_shuffle_base64, group, key)
-          for group in groups)
-    )
-
-    return nonce + ":".join(encoded_groups)
-
-
-async def decode_seeded_base62_parallel(
-    encoded: str, seed: str | bytes
-) -> bytes:
-    if isinstance(seed, bytes):
-        seed = seed.decode()
-    nonce, encoded = encoded[:12], encoded[12:]
-    groups = encoded.split(":")
-
-    key = nonce + seed
-
-    decoded_groups = await asyncio.gather(
-        *(asyncio.to_thread(decode_shuffle_base64, group, key)
-          for group in groups)
-    )
-
-    return b''.join(decoded_groups)
+def generate_nonce(length: int = 16) -> str:
+    return os.urandom(length).hex()
 
 
 def generate_chacha20_key() -> bytes:
