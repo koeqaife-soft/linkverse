@@ -14,6 +14,7 @@
 
 **Response:**
 
+- data: `access`, `refresh`
 - errors: `USER_ALREADY_EXISTS (409)`, `INCORRECT_FORMAT (400)`, `USERNAME_EXISTS (409)`, `USER_DOES_NOT_EXIST (404)`
 - codes: `201`, `409`, `404`, `500`
 
@@ -28,6 +29,7 @@
 
 **Response:**
 
+- data: `access`, `refresh`
 - errors: `INCORRECT_PASSWORD (401)`, `USER_DOES_NOT_EXIST (404)`
 - codes: `200`, `500`, `401`, `404`
 
