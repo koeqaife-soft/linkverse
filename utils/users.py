@@ -12,7 +12,7 @@ class User:
     avatar_url: str | None = None
     banner_url: str | None = None
     bio: str | None = None
-    gender: str | None = None
+    badges: list[str] | None = None
     languages: list[str] | None = None
 
     @property
@@ -40,7 +40,7 @@ async def get_user(
     db = await conn.create_conn()
     query = f"""
         SELECT u.user_id, u.username, p.display_name, p.avatar_url
-               {",p.banner_url, p.bio, p.gender, p.languages"
+               {",p.banner_url, p.bio, p.badges, p.languages"
                 if not minimize_info else ""}
         FROM users u
         LEFT JOIN user_profiles p ON u.user_id = p.user_id
@@ -60,7 +60,7 @@ async def update_user(
 ) -> Status[None]:
     db = await conn.create_conn()
     allowed_values = {"display_name", "avatar_url", "banner_url",
-                      "bio", "gender", "languages"}
+                      "bio", "languages"}
 
     new_values = {
         k: v for k, v in values.items()
@@ -99,5 +99,55 @@ async def change_username(
             SET username = $1
             WHERE user_id = $2
             """, username, user_id
+        )
+    return Status(True)
+
+
+async def add_badge(
+    user_id: str, badge: int,
+    conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+    query = """
+        INSERT INTO user_profiles (user_id, badges)
+        VALUES ($1, $2)
+        ON CONFLICT (user_id)
+        DO UPDATE SET badges = array_append(user_profiles.badges, $2)
+    """
+    async with db.transaction():
+        await db.execute(
+            query, user_id, badge
+        )
+    return Status(True)
+
+
+async def rem_badge(
+    user_id: str, badge: int,
+    conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+    query = """
+        UPDATE user_profiles
+        SET badges = array_remove(badges, $2)
+        WHERE user_id = $1
+    """
+    async with db.transaction():
+        await db.execute(
+            query, user_id, badge
+        )
+    return Status(True)
+
+
+async def clear_badges(
+    user_id: str, conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+    async with db.transaction():
+        await db.execute(
+            """
+            UPDATE user_profiles
+            SET badges = NULL
+            WHERE user_id = $1
+            """, user_id
         )
     return Status(True)

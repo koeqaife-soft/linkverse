@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     avatar_url TEXT,
     banner_url TEXT,
     bio TEXT,
-    gender TEXT,
     languages TEXT[],
+    badges SMALLINT[],
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
 );
