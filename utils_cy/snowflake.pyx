@@ -1,33 +1,52 @@
-# snowflake.pyx
+# cython: language_level=3
+
 from libc.stdlib cimport malloc, free
 from libc.time cimport time
-import time as py_time
+cdef extern from "pthread.h":
+    ctypedef struct pthread_mutex_t:
+        pass
+    int pthread_mutex_init(pthread_mutex_t *mutex, void *attr)
+    int pthread_mutex_destroy(pthread_mutex_t *mutex)
+    int pthread_mutex_lock(pthread_mutex_t *mutex)
+    int pthread_mutex_unlock(pthread_mutex_t *mutex)
 from typing import Tuple, Union
-import threading
+    
+cdef long get_current_time_ms() nogil:
+    return <long>(time(NULL) * 1000)
 
 from core import get_proc_identity
 
 
 cdef class AtomicLong:
     cdef long value
-    cdef object lock
+    cdef pthread_mutex_t lock
 
-    def __init__(self, long initial_value=0):
+    def __cinit__(self, long initial_value=0):
         self.value = initial_value
-        self.lock = threading.Lock()
+        pthread_mutex_init(&self.lock, NULL)
+
+    def __dealloc__(self):
+        pthread_mutex_destroy(&self.lock)
 
     cpdef increment(self):
-        with self.lock:
-            self.value += 1
-            return self.value
+        cdef long tmp
+        pthread_mutex_lock(&self.lock)
+        self.value += 1
+        tmp = self.value
+        pthread_mutex_unlock(&self.lock)
+        return tmp
 
     cpdef reset(self):
-        with self.lock:
-            self.value = 0
+        pthread_mutex_lock(&self.lock)
+        self.value = 0
+        pthread_mutex_unlock(&self.lock)
 
     cpdef long get_value(self):
-        with self.lock:
-            return self.value
+        cdef long tmp
+        pthread_mutex_lock(&self.lock)
+        tmp = self.value
+        pthread_mutex_unlock(&self.lock)
+        return tmp
 
 
 cdef class SnowflakeGeneration:
@@ -60,26 +79,30 @@ cdef class SnowflakeGeneration:
         cdef int sid = self.server_id
         cdef int p = self.pid
 
-        cdef long ts = <long>(py_time.time() * 1000) - self.epoch
+        cdef long ts = <long>(get_current_time_ms()) - self.epoch
 
         if ts == self.last_timestamp:
             if self.counter.increment() == (1 << cb):
                 self.counter.reset()
-                while ts <= self.last_timestamp:
-                    ts = <long>(py_time.time() * 1000) - self.epoch
+                with nogil:
+                    while ts <= self.last_timestamp:
+                        ts = <long>(get_current_time_ms()) - self.epoch
         else:
             self.counter.reset()
 
         self.last_timestamp = ts
+        cdef long snowflake_id
+        cdef int _pid
+        cdef long _counter = self.counter.get_value()
 
-        cdef int _pid = p & ((1 << pb) - 1)
-
-        cdef long snowflake_id = (
-            (ts << (cb + sb + pb)) |
-            (_pid << (cb + sb)) |
-            (sid << cb) |
-            self.counter.get_value()
-        )
+        with nogil:
+            _pid = p & ((1 << pb) - 1)
+            snowflake_id = (
+                (ts << (cb + sb + pb)) |
+                (_pid << (cb + sb)) |
+                (sid << cb) |
+                _counter
+            )
 
         return snowflake_id
 
@@ -94,14 +117,19 @@ cdef class SnowflakeGeneration:
         cdef int pb = self.pid_bits
         cdef int sb = self.sid_bits
         cdef long epoch = self.epoch
+        cdef long timestamp
+        cdef int unique
+        cdef int server_id
+        cdef int counter
 
-        cdef long timestamp = (
-            (snow_id >> (cb + sb + pb)) + epoch
-        )
-        cdef int unique = (
-            (snow_id >> (cb + sb)) & ((1 << pb) - 1)
-        )
-        cdef int server_id = (snow_id >> cb) & ((1 << sb) - 1)
-        cdef int counter = snow_id & ((1 << cb) - 1)
+        with nogil:
+            timestamp = (
+                (snow_id >> (cb + sb + pb)) + epoch
+            )
+            unique = (
+                (snow_id >> (cb + sb)) & ((1 << pb) - 1)
+            )
+            server_id = (snow_id >> cb) & ((1 << sb) - 1)
+            counter = snow_id & ((1 << cb) - 1)
 
         return (timestamp / 1000.0, server_id, unique, counter)
