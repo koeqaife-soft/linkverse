@@ -356,7 +356,7 @@ async def get_user_posts(
                likes_count, comments_count, tags, media, status,
                is_deleted, dislikes_count,
                (likes_count - dislikes_count) AS popularity_score
-        FROM posts WHERE user_id = $1
+        FROM posts WHERE user_id = $1 AND is_deleted = FALSE
     """
     params: list[t.Any] = [user_id]
 
