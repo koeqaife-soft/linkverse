@@ -1,6 +1,3 @@
-# cython: language_level=3
-
-from libc.stdlib cimport malloc, free
 from libc.time cimport time
 cdef extern from "pthread.h":
     ctypedef struct pthread_mutex_t:
@@ -10,7 +7,7 @@ cdef extern from "pthread.h":
     int pthread_mutex_lock(pthread_mutex_t *mutex)
     int pthread_mutex_unlock(pthread_mutex_t *mutex)
 from typing import Tuple, Union
-    
+
 cdef long get_current_time_ms() nogil:
     return <long>(time(NULL) * 1000)
 
@@ -19,34 +16,18 @@ from core import get_proc_identity
 
 cdef class AtomicLong:
     cdef long value
-    cdef pthread_mutex_t lock
 
     def __cinit__(self, long initial_value=0):
         self.value = initial_value
-        pthread_mutex_init(&self.lock, NULL)
 
-    def __dealloc__(self):
-        pthread_mutex_destroy(&self.lock)
-
-    cpdef increment(self):
-        cdef long tmp
-        pthread_mutex_lock(&self.lock)
+    cpdef long increment(self):
+        cdef long old_value
+        old_value = self.value
         self.value += 1
-        tmp = self.value
-        pthread_mutex_unlock(&self.lock)
-        return tmp
-
-    cpdef reset(self):
-        pthread_mutex_lock(&self.lock)
-        self.value = 0
-        pthread_mutex_unlock(&self.lock)
+        return old_value
 
     cpdef long get_value(self):
-        cdef long tmp
-        pthread_mutex_lock(&self.lock)
-        tmp = self.value
-        pthread_mutex_unlock(&self.lock)
-        return tmp
+        return self.value
 
 
 cdef class SnowflakeGeneration:
@@ -83,12 +64,12 @@ cdef class SnowflakeGeneration:
 
         if ts == self.last_timestamp:
             if self.counter.increment() == (1 << cb):
-                self.counter.reset()
+                self.counter = AtomicLong()
                 with nogil:
                     while ts <= self.last_timestamp:
                         ts = <long>(get_current_time_ms()) - self.epoch
         else:
-            self.counter.reset()
+            self.counter = AtomicLong()
 
         self.last_timestamp = ts
         cdef long snowflake_id
