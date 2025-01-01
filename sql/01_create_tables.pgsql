@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS posts (
     likes_count BIGINT DEFAULT 0,
     dislikes_count BIGINT DEFAULT 0,
     comments_count BIGINT DEFAULT 0,
+    popularity_score BIGINT GENERATED ALWAYS AS (likes_count - dislikes_count + (comments_count * 0.25)) STORED,
     tags TEXT[],
     media TEXT[],
     status VARCHAR(20) DEFAULT 'active',
@@ -47,6 +48,7 @@ CREATE TABLE IF NOT EXISTS comments (
     content TEXT NOT NULL,
     likes_count BIGINT DEFAULT 0,
     dislikes_count BIGINT DEFAULT 0,
+    popularity_score BIGINT GENERATED ALWAYS AS (likes_count - dislikes_count) STORED,
     FOREIGN KEY (parent_comment_id) REFERENCES comments (comment_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
     FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE

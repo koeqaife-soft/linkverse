@@ -281,7 +281,7 @@ async def get_comments(
         WITH ranked_comments AS (
             SELECT comment_id, parent_comment_id, post_id, user_id, content,
                    likes_count, dislikes_count,
-                   (likes_count - dislikes_count) AS popularity_score,
+                   popularity_score,
                    CASE WHEN user_id = $2 THEN 1 ELSE 0 END AS is_user_comment
             FROM comments
             WHERE post_id = $1
@@ -355,7 +355,7 @@ async def get_user_posts(
         SELECT post_id, user_id, content, created_at, updated_at,
                likes_count, comments_count, tags, media, status,
                is_deleted, dislikes_count,
-               (likes_count - dislikes_count) AS popularity_score
+               popularity_score
         FROM posts WHERE user_id = $1 AND is_deleted = FALSE
     """
     params: list[t.Any] = [user_id]
@@ -370,8 +370,8 @@ async def get_user_posts(
         if sort == "popular":
             query += """
                 AND (
-                    (likes_count - dislikes_count) < $2 OR
-                    ((likes_count - dislikes_count) = $2 AND post_id < $3)
+                    (popularity_score) < $2 OR
+                    ((popularity_score) = $2 AND post_id < $3)
                 )
             """
             params.extend([popularity_score, post_id])

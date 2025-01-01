@@ -6,19 +6,18 @@ async def get_popular_posts(
     user_id: str,
     conn: AutoConnection,
     limit: int = 50,
-    offset: int | None = None,
+    cursor: str | None = None,
     hide_viewed: bool | None = None
 ) -> Status[dict[str, list[tuple[str, str]]]]:
     db = await conn.create_conn()
-    hide_viewed = hide_viewed or True
-    offset = offset or 0
+    hide_viewed = True if hide_viewed is None else hide_viewed
 
-    parameters: list = [user_id, limit, offset]
+    parameters: list = [user_id, limit]
 
     query = """
         SELECT CAST(post_id AS TEXT) AS post_id,
             CAST(user_id AS TEXT) AS user_id,
-            (likes_count - dislikes_count) AS popularity_score
+            popularity_score
         FROM posts
         WHERE is_deleted = FALSE
     """
@@ -32,10 +31,14 @@ async def get_popular_posts(
                 AND user_post_views.post_id = posts.post_id
             )
         """
+    else:
+        if cursor:
+            query += " AND popularity_score < $3"
+            parameters.append(int(cursor))
 
     query += """
-        ORDER BY popularity_score DESC, comments_count DESC
-        LIMIT $2 OFFSET $3
+        ORDER BY popularity_score DESC
+        LIMIT $2
     """
 
     rows = await db.fetch(query, *parameters)
@@ -44,8 +47,10 @@ async def get_popular_posts(
         raise FunctionError("NO_MORE_POSTS", 400, None)
 
     posts = [(row["post_id"], row["user_id"]) for row in rows]
+    next_cursor = str(rows[-1]["popularity_score"]) if rows else None
     return Status(True, data={
-        "posts": posts
+        "posts": posts,
+        "next_cursor": next_cursor
     })
 
 
@@ -53,14 +58,13 @@ async def get_new_posts(
     user_id: str,
     conn: AutoConnection,
     limit: int = 50,
-    offset: int | None = None,
+    cursor: str | None = None,
     hide_viewed: bool | None = None
 ) -> Status[dict[str, list[tuple[str, str]]]]:
     db = await conn.create_conn()
-    hide_viewed = hide_viewed or True
-    offset = offset or 0
+    hide_viewed = True if hide_viewed is None else hide_viewed
 
-    parameters: list = [user_id, limit, offset]
+    parameters: list = [user_id, limit]
 
     query = """
         SELECT CAST(post_id AS TEXT) AS post_id,
@@ -79,10 +83,14 @@ async def get_new_posts(
                 AND user_post_views.post_id = posts.post_id
             )
         """
+    else:
+        if cursor:
+            query += " AND created_at < $3"
+            parameters.append(cursor)
 
     query += """
         ORDER BY created_at DESC
-        LIMIT $2 OFFSET $3
+        LIMIT $2
     """
 
     rows = await db.fetch(query, *parameters)
@@ -91,8 +99,10 @@ async def get_new_posts(
         raise FunctionError("NO_MORE_POSTS", 400, None)
 
     posts = [(row["post_id"], row["user_id"]) for row in rows]
+    next_cursor = rows[-1]["created_at"] if rows else None
     return Status(True, data={
-        "posts": posts
+        "posts": posts,
+        "next_cursor": next_cursor
     })
 
 
