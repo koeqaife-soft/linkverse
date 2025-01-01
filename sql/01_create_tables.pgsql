@@ -67,6 +67,18 @@ CREATE TABLE IF NOT EXISTS reactions (
     FOREIGN KEY (comment_id) REFERENCES comments (comment_id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS favorites (
+    user_id TEXT NOT NULL,
+    post_id TEXT,
+    comment_id TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (post_id, user_id),
+    UNIQUE (comment_id, user_id),
+    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
+    FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE,
+    FOREIGN KEY (comment_id) REFERENCES comments (comment_id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS user_profiles (
     user_id TEXT PRIMARY KEY,
     display_name TEXT,
