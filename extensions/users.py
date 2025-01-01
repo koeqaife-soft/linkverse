@@ -3,6 +3,7 @@ from quart import Blueprint, Quart, Response
 from core import response, Global, route
 from quart import g
 import utils.users as users
+import utils.posts as posts
 from utils.cache import users as cache_users
 from utils.database import AutoConnection
 
@@ -32,6 +33,28 @@ async def update_profile_me() -> tuple[Response, int]:
         await users.update_user(user_id, data, conn)
 
     await cache_users.delete_user_cache(user_id)
+
+    return response(), 204
+
+
+@route(bp, "/users/me/favorites/posts/<id>", methods=["POST"])
+async def add_favorite_post(id: str) -> tuple[Response, int]:
+    user_id = g.user_id
+
+    async with AutoConnection(pool) as conn:
+        await posts.get_post(id, conn)
+        await users.add_to_favorites(user_id, conn, id)
+
+    return response(), 204
+
+
+@route(bp, "/users/me/favorites/posts/<id>", methods=["DELETE"])
+async def rem_favorite_post(id: str) -> tuple[Response, int]:
+    user_id = g.user_id
+
+    async with AutoConnection(pool) as conn:
+        await posts.get_post(id, conn)
+        await users.rem_from_favorites(user_id, conn, id)
 
     return response(), 204
 
