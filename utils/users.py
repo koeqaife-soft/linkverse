@@ -151,3 +151,60 @@ async def clear_badges(
             """, user_id
         )
     return Status(True)
+
+
+async def add_to_favorites(
+    user_id: str,
+    conn: AutoConnection,
+    post_id: str | None = None,
+    comment_id: str | None = None
+) -> Status[None]:
+    key = "post_id" if post_id else "comment_id"
+    db = await conn.create_conn()
+    async with db.transaction():
+        await db.execute(
+            f"""
+                INSERT INTO favorites (user_id, {key})
+                VALUES ($1, $2)
+                ON CONFLICT ({key}, user_id) DO NOTHING
+            """, user_id, post_id or comment_id
+        )
+
+    return Status(True)
+
+
+async def rem_from_favorites(
+    user_id: str,
+    conn: AutoConnection,
+    post_id: str | None = None,
+    comment_id: str | None = None
+) -> Status[None]:
+    key = "post_id" if post_id else "comment_id"
+    db = await conn.create_conn()
+    async with db.transaction():
+        await db.execute(
+            f"""
+                DELETE FROM favorites
+                WHERE user_id = $1 AND {key} = $2
+            """, user_id, post_id or comment_id
+        )
+
+    return Status(True)
+
+
+async def is_favorite(
+    user_id: str, conn: AutoConnection,
+    post_id: str | None = None,
+    comment_id: str | None = None
+) -> Status[bool]:
+    key = "post_id" if post_id else "comment_id"
+    db = await conn.create_conn()
+    row = await db.fetchrow(
+        f"""
+            SELECT 1
+            FROM favorites
+            WHERE user_id = $1 AND {key} = $2
+        """, user_id, post_id or comment_id
+    )
+
+    return Status(True, data=row is not None)
