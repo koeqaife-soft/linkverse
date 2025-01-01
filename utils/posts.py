@@ -413,3 +413,34 @@ async def get_user_posts(
         success=True,
         data={"posts": posts, "next_cursor": next_cursor, "has_more": has_more}
     )
+
+
+async def get_fav_and_reaction(
+    user_id: str,
+    conn: AutoConnection,
+    post_id: str | None = None,
+    comment_id: str | None = None
+) -> Status[tuple[bool | None, bool | None]]:
+    key = "post_id" if post_id else "comment_id"
+    _value = post_id or comment_id
+    db = await conn.create_conn()
+
+    row = await db.fetchrow(
+        f"""
+        SELECT EXISTS (
+            SELECT 1
+            FROM favorites
+            WHERE user_id = $1 AND {key} = $2
+        ) AS is_favorite, (
+            SELECT is_like
+            FROM reactions
+            WHERE user_id = $1 AND {key} = $2
+        ) AS reaction
+        """,
+        user_id, _value
+    )
+
+    result = [row["is_favorite"] if row else None,
+              row["reaction"] if row else None]
+
+    return Status(True, data=result)
