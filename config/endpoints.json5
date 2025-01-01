@@ -66,18 +66,16 @@
             }
         },
         popular_posts: {
-            load_data: true,
-            optional_data: {
-                popular_posts: { type: "bool" },
-                offset: { type: "int", min: 0, max: 4294967296 },
+            optional_params: {
+                show_viewed: { type: "bool" },
+                cursor: { min_len: 1, max_len: 256 },
                 limit: { type: "int", min: 1, max: 1000 }
             }
         },
         new_posts: {
-            load_data: true,
-            optional_data: {
-                popular_posts: { type: "bool" },
-                offset: { type: "int", min: 0, max: 4294967296 },
+            optional_params: {
+                show_viewed: { type: "bool" },
+                cursor: { min_len: 1, max_len: 256 },
                 limit: { type: "int", min: 1, max: 1000 }
             }
         },

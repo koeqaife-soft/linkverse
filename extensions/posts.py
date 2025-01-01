@@ -15,14 +15,13 @@ pool: asyncpg.Pool = _g.pool
 
 @route(bp, "/posts/popular", methods=["GET"])
 async def popular_posts() -> tuple[Response, int]:
-    data = g.data
-    show_viewed = data.get("show_viewed")
-    offset = data.get("offset")
-    limit = data.get("limit") or 50
+    show_viewed = request.args.get("show_viewed")
+    cursor = request.args.get("cursor")
+    limit = int(request.args.get("limit", 50))
 
     async with AutoConnection(pool) as conn:
         result = await posts_list.get_popular_posts(
-            g.user_id, conn, limit, offset, show_viewed
+            g.user_id, conn, limit, cursor, show_viewed
         )
 
     return response(data=result.data), 200
@@ -30,14 +29,13 @@ async def popular_posts() -> tuple[Response, int]:
 
 @route(bp, "/posts/new", methods=["GET"])
 async def new_posts() -> tuple[Response, int]:
-    data = g.data
-    show_viewed = data.get("show_viewed")
-    offset = data.get("offset")
-    limit = data.get("limit") or 50
+    show_viewed = request.args.get("show_viewed")
+    cursor = request.args.get("cursor")
+    limit = int(request.args.get("limit", 50))
 
     async with AutoConnection(pool) as conn:
         result = await posts_list.get_new_posts(
-            g.user_id, conn, limit, offset, show_viewed
+            g.user_id, conn, limit, cursor, show_viewed
         )
 
     return response(data=result.data), 200
