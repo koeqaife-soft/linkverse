@@ -440,7 +440,7 @@ async def get_fav_and_reaction(
         user_id, _value
     )
 
-    result = [row["is_favorite"] if row else None,
-              row["reaction"] if row else None]
+    result = (row["is_favorite"] if row else None,
+              row["reaction"] if row else None)
 
     return Status(True, data=result)
