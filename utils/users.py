@@ -159,7 +159,7 @@ async def add_to_favorites(
     post_id: str | None = None,
     comment_id: str | None = None
 ) -> Status[None]:
-    key = "post_id" if post_id else "comment_id"
+    key = "comment_id" if comment_id else "post_id"
     db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
@@ -167,7 +167,7 @@ async def add_to_favorites(
                 INSERT INTO favorites (user_id, {key})
                 VALUES ($1, $2)
                 ON CONFLICT ({key}, user_id) DO NOTHING
-            """, user_id, post_id or comment_id
+            """, user_id, comment_id or post_id
         )
 
     return Status(True)
@@ -179,14 +179,14 @@ async def rem_from_favorites(
     post_id: str | None = None,
     comment_id: str | None = None
 ) -> Status[None]:
-    key = "post_id" if post_id else "comment_id"
+    key = "comment_id" if comment_id else "post_id"
     db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
             f"""
                 DELETE FROM favorites
                 WHERE user_id = $1 AND {key} = $2
-            """, user_id, post_id or comment_id
+            """, user_id, comment_id or post_id
         )
 
     return Status(True)
@@ -197,14 +197,14 @@ async def is_favorite(
     post_id: str | None = None,
     comment_id: str | None = None
 ) -> Status[bool]:
-    key = "post_id" if post_id else "comment_id"
+    key = "comment_id" if comment_id else "post_id"
     db = await conn.create_conn()
     row = await db.fetchrow(
         f"""
             SELECT 1
             FROM favorites
             WHERE user_id = $1 AND {key} = $2
-        """, user_id, post_id or comment_id
+        """, user_id, comment_id or post_id
     )
 
     return Status(True, data=row is not None)

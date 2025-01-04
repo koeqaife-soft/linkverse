@@ -421,8 +421,8 @@ async def get_fav_and_reaction(
     post_id: str | None = None,
     comment_id: str | None = None
 ) -> Status[tuple[bool | None, bool | None]]:
-    key = "post_id" if post_id else "comment_id"
-    _value = post_id or comment_id
+    key = "comment_id" if comment_id else "post_id"
+    _value = comment_id or post_id
     db = await conn.create_conn()
 
     row = await db.fetchrow(
