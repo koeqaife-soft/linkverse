@@ -272,7 +272,7 @@ async def get_user_posts(user_id: str) -> tuple[Response, int]:
         for post in user_posts.data["posts"]:
             _temp = post.to_dict()
             fav, reaction = (await posts.get_fav_and_reaction(
-                g.user_id, post.post_id, None, conn
+                g.user_id, conn, post.post_id, None
             )).data
             if reaction is not None:
                 _temp["is_like"] = reaction
