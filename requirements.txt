@@ -20,3 +20,4 @@ quart-cors
 bleach
 cython
 setuptools
+ujson

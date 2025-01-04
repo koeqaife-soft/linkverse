@@ -11,7 +11,7 @@ from supabase.client import ClientOptions, AsyncClient
 import aiofiles
 from datetime import datetime, timezone
 import asyncio
-import json
+import ujson
 import werkzeug.exceptions
 import core
 import json5
@@ -188,7 +188,7 @@ async def startup():
     worker_id = get_proc_identity()
 
     with open("config/postgres.json") as f:
-        config = json.load(f)
+        config = ujson.load(f)
     pool = await create_pool(**config)
     _g.pool = pool
     supabase = await acreate_client(

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import re
 from typing import overload
 import typing as t
-import json
+import ujson
 from dotenv import load_dotenv
 from quart import Quart, Blueprint, Response
 import os
@@ -86,7 +86,7 @@ def response(
     if error_msg:
         _response["error"] = error_msg
     return Response(
-        json.dumps(_response, default=_serializer),
+        ujson.dumps(_response, default=_serializer),
         content_type="application/json",
         **kwargs
     )
