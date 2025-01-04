@@ -1,5 +1,5 @@
 import asyncpg
-from quart import Blueprint, Quart, Response
+from quart import Blueprint, Quart, Response, request
 from core import response, Global, route
 from quart import g
 import utils.users as users
@@ -37,24 +37,29 @@ async def update_profile_me() -> tuple[Response, int]:
     return response(), 204
 
 
-@route(bp, "/users/me/favorites/posts/<id>", methods=["POST"])
-async def add_favorite_post(id: str) -> tuple[Response, int]:
+@route(bp, "/users/me/favorites", methods=["POST"])
+async def add_favorite() -> tuple[Response, int]:
+    data = g.data
+    post_id = data.get("post_id")
+    comment_id = data.get("comment_id")
     user_id = g.user_id
 
     async with AutoConnection(pool) as conn:
-        await posts.get_post(id, conn)
-        await users.add_to_favorites(user_id, conn, id)
+        await posts.get_post(post_id, conn)
+        await users.add_to_favorites(user_id, conn, post_id, comment_id)
 
     return response(), 204
 
 
-@route(bp, "/users/me/favorites/posts/<id>", methods=["DELETE"])
-async def rem_favorite_post(id: str) -> tuple[Response, int]:
+@route(bp, "/users/me/favorites", methods=["DELETE"])
+async def rem_favorite() -> tuple[Response, int]:
+    post_id = request.args.get("post_id")
+    comment_id = request.args.get("comment_id")
     user_id = g.user_id
 
     async with AutoConnection(pool) as conn:
-        await posts.get_post(id, conn)
-        await users.rem_from_favorites(user_id, conn, id)
+        await posts.get_post(post_id, conn)
+        await users.rem_from_favorites(user_id, conn, post_id, comment_id)
 
     return response(), 204
 

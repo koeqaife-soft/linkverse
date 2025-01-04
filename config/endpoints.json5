@@ -122,8 +122,24 @@
                 avatar_url: { min_len: 1, max_len: 8192 },
                 banner_url: { min_len: 1, max_len: 8192 },
                 bio: { min_len: 1, max_len: 4096 },
-                gender: { min_len: 1, max_len: 32 },
                 languages: { type: "list", min_len: 1, max_len: 32 }
+            }
+        },
+        add_favorite: {
+            load_data: true,
+            data: {
+                post_id: { min_len: 10, max_len: 32 }
+            },
+            optional_data: {
+                comment_id: { min_len: 10, max_len: 32 }
+            }
+        },
+        rem_favorite: {
+            params: {
+                post_id: { min_len: 10, max_len: 32 }
+            },
+            optional_params: {
+                comment_id: { min_len: 10, max_len: 32 }
             }
         }
     }
