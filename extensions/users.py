@@ -37,6 +37,16 @@ async def update_profile_me() -> tuple[Response, int]:
     return response(), 204
 
 
+async def validate_post_or_comment(
+    post_id: str, comment_id: str | None,
+    conn: AutoConnection
+) -> None:
+    if comment_id:
+        await posts.get_comment(post_id, comment_id, conn)
+    else:
+        await posts.get_post(post_id, conn)
+
+
 @route(bp, "/users/me/favorites", methods=["POST"])
 async def add_favorite() -> tuple[Response, int]:
     data = g.data
@@ -45,7 +55,7 @@ async def add_favorite() -> tuple[Response, int]:
     user_id = g.user_id
 
     async with AutoConnection(pool) as conn:
-        await posts.get_post(post_id, conn)
+        await validate_post_or_comment(post_id, comment_id, conn)
         await users.add_to_favorites(user_id, conn, post_id, comment_id)
 
     return response(), 204
@@ -58,7 +68,7 @@ async def rem_favorite() -> tuple[Response, int]:
     user_id = g.user_id
 
     async with AutoConnection(pool) as conn:
-        await posts.get_post(post_id, conn)
+        await validate_post_or_comment(post_id, comment_id, conn)
         await users.rem_from_favorites(user_id, conn, post_id, comment_id)
 
     return response(), 204
