@@ -85,7 +85,7 @@ async def get_post(id: str) -> tuple[Response, int]:
     if fav:
         data["is_fav"] = fav
 
-    return response(data=data), 200
+    return response(data=data, cache=True), 200
 
 
 @route(bp, "/posts/batch", methods=["GET"])
@@ -124,7 +124,7 @@ async def get_posts_batch() -> tuple[Response, int]:
     if errors:
         return response(error=True, data={"errors": errors}), 400
 
-    return response(data={"posts": _data}), 200
+    return response(data={"posts": _data}, cache=True), 200
 
 
 @route(bp, "/posts/<id>", methods=["DELETE"])
@@ -234,7 +234,7 @@ async def get_comments(id: str) -> tuple[Response, int]:
             comments.append(_temp)
 
     _data = result.data | {"users": users, "comments": comments}
-    return response(data=_data), 200
+    return response(data=_data, cache=True), 200
 
 
 @route(bp, "/posts/<id>/comments/<cid>/reactions", methods=["POST"])
@@ -280,7 +280,7 @@ async def get_user_posts(user_id: str) -> tuple[Response, int]:
                 _temp["is_fav"] = fav
             _posts.append(_temp)
         user_posts.data["posts"] = _posts
-    return response(data=user_posts.data), 200
+    return response(data=user_posts.data, cache=True), 200
 
 
 def load(app: Quart):
