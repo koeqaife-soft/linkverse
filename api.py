@@ -1,4 +1,5 @@
 import asyncpg
+import quart
 from core import app, response, route, setup_logger, Global, FunctionError
 from core import worker_count, get_proc_identity, load_extensions
 import traceback
@@ -154,9 +155,26 @@ async def before():
         g.user_id = result.data["user_id"]
 
 
+@app.after_request
+async def after(response: quart.Response):
+    if request.method != 'GET':
+        return response
+    if request.endpoint is None:
+        return response
+
+    etag = response.get_etag()
+
+    if request.headers.get('If-None-Match', "").strip('"') == etag[0]:
+        response.status_code = 304
+        response.set_data(b'')
+        return response
+
+    return response
+
+
 @route(app, "/ping", methods=['POST', 'GET'])
 async def ping():
-    return response(), 204
+    return response(cache=True), 204
 
 
 @app.route('/v1/generate_upload_url', methods=['POST'])
