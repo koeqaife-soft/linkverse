@@ -17,6 +17,7 @@ import glob
 from quart_cors import cors
 import bleach
 from quart_compress import Compress
+import hashlib
 
 _logger = logging.getLogger("linkverse")
 worker_count = int(os.getenv('_WORKER_COUNT', '1'))
@@ -76,8 +77,12 @@ def response(
 
 
 def response(
-    *, error: bool | None = None, data: dict = {},
-    error_msg: str | None = None, **kwargs
+    *, error: bool | None = None,
+    data: dict = {},
+    error_msg: str | None = None,
+    cache: bool = False,
+    private: bool = True,
+    **kwargs
 ) -> Response:
     _response = {
         "success": not error,
@@ -85,11 +90,33 @@ def response(
     }
     if error_msg:
         _response["error"] = error_msg
-    return Response(
+
+    response = Response(
         ujson.dumps(_response, default=_serializer),
         content_type="application/json",
         **kwargs
     )
+
+    if cache:
+        response.cache_control.private = private
+        response.cache_control.public = not private
+        response.cache_control.must_revalidate = True
+        response.set_etag(generate_etag(data))
+    else:
+        response.cache_control.no_cache = True
+        response.cache_control.no_store = True
+        response.cache_control.must_revalidate = True
+
+    return response
+
+
+def generate_etag(data: dict | str) -> str:
+    if isinstance(data, dict):
+        return hashlib.md5(
+                ujson.dumps(data, default=_serializer, sort_keys=True).encode()
+        ).hexdigest()
+    else:
+        return hashlib.md5(data.encode()).hexdigest()
 
 
 class Status(t.Generic[T]):
