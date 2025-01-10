@@ -1,6 +1,6 @@
 import asyncpg
 from quart import Blueprint, Quart, Response, request
-from core import response, Global, route
+from core import FunctionError, response, Global, route
 from quart import g
 import utils.users as users
 import utils.posts as posts
@@ -72,6 +72,60 @@ async def rem_favorite() -> tuple[Response, int]:
         await users.rem_from_favorites(user_id, conn, post_id, comment_id)
 
     return response(), 204
+
+
+async def _preload_favorites(
+    favorites: list[dict], conn: AutoConnection
+) -> tuple[list[dict], list[dict]]:
+    posts_data: list[dict] = []
+    comments_data: list[dict] = []
+    errors: list[tuple[str, str, str]] = []
+
+    for fav in favorites:
+        try:
+            if fav["comment_id"]:
+                comment = await posts.get_comment(
+                    fav["post_id"], fav["comment_id"], conn
+                )
+                comments_data.append(comment.data.to_dict())
+            else:
+                post = await posts.get_post(fav["post_id"], conn)
+                posts_data.append(post.data.to_dict())
+        except FunctionError as e:
+            if e.message in {"COMMENT_DOES_NOT_EXIST", "POST_DOES_NOT_EXIST"}:
+                await users.rem_from_favorites(
+                    g.user_id, conn, fav["post_id"], fav["comment_id"]
+                )
+                errors.append((fav["post_id"], fav["comment_id"], e.message))
+
+    return posts_data, comments_data, errors
+
+
+@route(bp, "/users/me/favorites", methods=["GET"])
+async def get_favorites() -> tuple[Response, int]:
+    cursor = request.args.get("cursor", None)
+    type = request.args.get("type", None)
+    preload = request.args.get("preload", "false").lower() == "true"
+
+    async with AutoConnection(pool) as conn:
+        result = await users.get_favorites(g.user_id, conn, cursor, type)
+
+        favorites = result.data.get("favorites", [])
+        response_data = {key: val for key, val in result.data.items()
+                         if key != "favorites"}
+
+        if preload:
+            posts_data, comments_data, errors = await _preload_favorites(
+                favorites, conn
+            )
+            if posts_data:
+                response_data.update({"posts": posts_data})
+            if comments_data:
+                response_data.update({"comments": comments_data})
+            if errors:
+                response_data.update({"errors": errors})
+
+    return response(data=response_data, cache=True), 200
 
 
 @route(bp, "/users/<user_id>", methods=["GET"])
