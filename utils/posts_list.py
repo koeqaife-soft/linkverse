@@ -12,7 +12,11 @@ async def get_popular_posts(
     db = await conn.create_conn()
     hide_viewed = True if hide_viewed is None else hide_viewed
 
-    parameters: list = [user_id, limit]
+    if cursor:
+        _popularity_score, post_id = cursor.split(",")
+        popularity_score = int(_popularity_score)
+
+    parameters: list = [limit]
 
     query = """
         SELECT CAST(post_id AS TEXT) AS post_id,
@@ -27,18 +31,23 @@ async def get_popular_posts(
             AND NOT EXISTS (
                 SELECT 1
                 FROM user_post_views
-                WHERE user_post_views.user_id = $1
+                WHERE user_post_views.user_id = $2
                 AND user_post_views.post_id = posts.post_id
             )
         """
-    else:
-        if cursor:
-            query += " AND popularity_score < $3"
-            parameters.append(int(cursor))
+        parameters.append(user_id)
+    elif cursor:
+        query += """
+            AND (
+                (popularity_score) < $2 OR
+                ((popularity_score) = $2 AND post_id < $3)
+            )
+        """
+        parameters.extend([popularity_score, post_id])
 
     query += """
-        ORDER BY popularity_score DESC
-        LIMIT $2
+        ORDER BY popularity_score DESC, post_id DESC
+        LIMIT $1
     """
 
     rows = await db.fetch(query, *parameters)
@@ -46,8 +55,11 @@ async def get_popular_posts(
     if not rows:
         raise FunctionError("NO_MORE_POSTS", 400, None)
 
-    posts = [(row["post_id"], row["user_id"]) for row in rows]
-    next_cursor = str(rows[-1]["popularity_score"]) if rows else None
+    posts = [row["post_id"] for row in rows]
+    last_post = rows[-1]
+
+    next_cursor = (f"{last_post["popularity_score"]},{last_post["post_id"]}"
+                   if rows else None)
     return Status(True, data={
         "posts": posts,
         "next_cursor": next_cursor
@@ -64,12 +76,11 @@ async def get_new_posts(
     db = await conn.create_conn()
     hide_viewed = True if hide_viewed is None else hide_viewed
 
-    parameters: list = [user_id, limit]
+    parameters: list = [limit]
 
     query = """
         SELECT CAST(post_id AS TEXT) AS post_id,
-            CAST(user_id AS TEXT) AS user_id,
-            created_at
+            CAST(user_id AS TEXT) AS user_id
         FROM posts
         WHERE is_deleted = FALSE
     """
@@ -79,18 +90,18 @@ async def get_new_posts(
             AND NOT EXISTS (
                 SELECT 1
                 FROM user_post_views
-                WHERE user_post_views.user_id = $1
+                WHERE user_post_views.user_id = $2
                 AND user_post_views.post_id = posts.post_id
             )
         """
-    else:
-        if cursor:
-            query += " AND created_at < $3"
-            parameters.append(cursor)
+        parameters.append(user_id)
+    elif cursor:
+        query += " AND post_id < $2"
+        parameters.append(cursor)
 
     query += """
-        ORDER BY created_at DESC
-        LIMIT $2
+        ORDER BY post_id DESC
+        LIMIT $1
     """
 
     rows = await db.fetch(query, *parameters)
@@ -98,8 +109,8 @@ async def get_new_posts(
     if not rows:
         raise FunctionError("NO_MORE_POSTS", 400, None)
 
-    posts = [(row["post_id"], row["user_id"]) for row in rows]
-    next_cursor = rows[-1]["created_at"] if rows else None
+    posts = [row["post_id"] for row in rows]
+    next_cursor = rows[-1]["post_id"] if rows else None
     return Status(True, data={
         "posts": posts,
         "next_cursor": next_cursor
