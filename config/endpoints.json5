@@ -67,14 +67,14 @@
         },
         popular_posts: {
             optional_params: {
-                show_viewed: { type: "bool" },
+                hide_viewed: { type: "bool" },
                 cursor: { min_len: 1, max_len: 256 },
                 limit: { type: "int", min: 1, max: 1000 }
             }
         },
         new_posts: {
             optional_params: {
-                show_viewed: { type: "bool" },
+                hide_viewed: { type: "bool" },
                 cursor: { min_len: 1, max_len: 256 },
                 limit: { type: "int", min: 1, max: 1000 }
             }
@@ -141,6 +141,13 @@
             optional_params: {
                 comment_id: { min_len: 10, max_len: 32 }
             }
-        }
+        },
+        get_favorites: {
+            optional_params: {
+                cursor: { min_len: 1, max_len: 256 },
+                type: { values: ["posts", "comments"] },
+                preload: { type: "bool" }
+            }
+        },
     }
 }
