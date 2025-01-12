@@ -440,6 +440,9 @@ class Validator:
     def parameters_str(self, value: str) -> ReturnType:
         return self.validate_str(value)
 
+    def parameters_bool(self, value: str) -> ReturnType:
+        return value.lower() in ["true", "false"], None
+
     def parameters_list(self, value: str) -> ReturnType:
         options = self.options
         if not isinstance(value, str):
