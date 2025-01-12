@@ -149,5 +149,13 @@
                 preload: { type: "bool" }
             }
         },
+        get_reactions: {
+            optional_params: {
+                cursor: { min_len: 1, max_len: 256 },
+                type: { values: ["posts", "comments"] },
+                preload: { type: "bool" },
+                is_like: { type: "bool" }
+            }
+        },
     }
 }
