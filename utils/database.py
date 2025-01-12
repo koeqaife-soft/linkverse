@@ -2,6 +2,7 @@ import os
 import re
 import asyncpg
 from core import worker_count, _logger
+import typing as t
 
 
 def calculate_max_connections(max_shared: int, worker_count: int) -> int:
@@ -51,6 +52,14 @@ async def initialize_database(
             ((_logger.info if debug else _logger.debug)
              (f"Running {file_path}..."))
             await execute_sql_file(db, file_path)
+
+
+def condition(
+    value: t.Any | None, parameter: int
+) -> t.Tuple[str, t.List[t.Any]]:
+    if value is None:
+        return "IS NULL", []
+    return f"= ${parameter}", [value]
 
 
 class AutoConnection:
