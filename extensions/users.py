@@ -5,6 +5,7 @@ from quart import g
 import utils.users as users
 import utils.posts as posts
 from utils.cache import users as cache_users
+from utils.cache import posts as cache_posts
 from utils.database import AutoConnection
 
 bp = Blueprint('users', __name__)
@@ -74,29 +75,56 @@ async def rem_favorite() -> tuple[Response, int]:
     return response(), 204
 
 
-async def _preload_favorites(
-    favorites: list[dict], conn: AutoConnection
+async def _preload_meta(
+    object: posts.Comment | posts.Post | dict,
+    conn: AutoConnection
+) -> dict:
+    if not isinstance(object, dict):
+        object = object.to_dict()
+
+    user = await cache_users.get_user(object["user_id"], conn, True)
+    object["user"] = user.data.dict
+
+    is_fav, is_like = (
+        await posts.get_fav_and_reaction(
+            g.user_id, conn, object["post_id"], object.get("comment_id")
+        )
+    ).data
+
+    if is_like is not None:
+        object["is_like"] = is_like
+    if is_fav:
+        object["is_fav"] = is_fav
+
+    return object
+
+
+async def _preload_lists(
+    items: list[dict], conn: AutoConnection
 ) -> tuple[list[dict], list[dict]]:
     posts_data: list[dict] = []
     comments_data: list[dict] = []
     errors: list[tuple[str, str, str]] = []
 
-    for fav in favorites:
+    for item in items:
         try:
-            if fav["comment_id"]:
-                comment = await posts.get_comment(
-                    fav["post_id"], fav["comment_id"], conn
-                )
-                comments_data.append(comment.data.to_dict())
+            if item["comment_id"]:
+                comment = (await posts.get_comment(
+                    item["post_id"], item["comment_id"], conn
+                )).data
+                comment = await _preload_meta(comment, conn)
+
+                comments_data.append(comment)
             else:
-                post = await posts.get_post(fav["post_id"], conn)
-                posts_data.append(post.data.to_dict())
+                post = (
+                    await cache_posts.get_post(item["post_id"], conn)
+                ).data
+                post = await _preload_meta(post, conn)
+
+                posts_data.append(post)
         except FunctionError as e:
             if e.message in {"COMMENT_DOES_NOT_EXIST", "POST_DOES_NOT_EXIST"}:
-                await users.rem_from_favorites(
-                    g.user_id, conn, fav["post_id"], fav["comment_id"]
-                )
-                errors.append((fav["post_id"], fav["comment_id"], e.message))
+                errors.append((item["post_id"], item["comment_id"], e.message))
 
     return posts_data, comments_data, errors
 
@@ -115,7 +143,7 @@ async def get_favorites() -> tuple[Response, int]:
                          if key != "favorites"}
 
         if preload:
-            posts_data, comments_data, errors = await _preload_favorites(
+            posts_data, comments_data, errors = await _preload_lists(
                 favorites, conn
             )
             if posts_data:
@@ -124,6 +152,41 @@ async def get_favorites() -> tuple[Response, int]:
                 response_data.update({"comments": comments_data})
             if errors:
                 response_data.update({"errors": errors})
+        else:
+            response_data.update({"favorites": favorites})
+
+    return response(data=response_data, cache=True), 200
+
+
+@route(bp, "/users/me/reactions", methods=["GET"])
+async def get_reactions() -> tuple[Response, int]:
+    cursor = request.args.get("cursor", None)
+    type = request.args.get("type", None)
+    _is_like = request.args.get("is_like", None)
+    is_like = _is_like.lower() == "true" if _is_like is not None else None
+    preload = request.args.get("preload", "false").lower() == "true"
+
+    async with AutoConnection(pool) as conn:
+        result = await users.get_reactions(
+            g.user_id, conn, cursor, type, is_like
+        )
+
+        reactions = result.data.get("reactions", [])
+        response_data = {key: val for key, val in result.data.items()
+                         if key != "reactions"}
+
+        if preload:
+            posts_data, comments_data, errors = await _preload_lists(
+                reactions, conn
+            )
+            if posts_data:
+                response_data.update({"posts": posts_data})
+            if comments_data:
+                response_data.update({"comments": comments_data})
+            if errors:
+                response_data.update({"errors": errors})
+        else:
+            response_data.update({"reactions": reactions})
 
     return response(data=response_data, cache=True), 200
 
