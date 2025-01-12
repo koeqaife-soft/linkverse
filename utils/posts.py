@@ -3,7 +3,7 @@ import datetime
 from core import Status, FunctionError
 from utils.generation import generate_id
 import typing as t
-from utils.database import AutoConnection
+from utils.database import AutoConnection, condition
 
 
 @dataclass
@@ -157,26 +157,34 @@ async def add_reaction(
     conn: AutoConnection
 ) -> Status[None]:
     db = await conn.create_conn()
-    key = "post_id" if post_id is not None else "comment_id"
-    _value = post_id or comment_id
+
+    _condition, _params = condition(comment_id, 3)
+
     result = await db.fetchval(
         f"""
         SELECT is_like FROM reactions
-        WHERE user_id = $1 AND {key} = $2
-        """, user_id, _value
+        WHERE user_id = $1 AND post_id = $2 AND comment_id {_condition}
+        """, user_id, post_id, *_params
     )
     if result == is_like:
         return Status(True)
 
     async with db.transaction():
-        await db.execute(
-            f"""
-            INSERT INTO reactions (user_id, {key}, is_like)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (user_id, {key})
-            DO UPDATE SET is_like = excluded.is_like
-            """, user_id, _value, is_like
-        )
+        if result is None:
+            await db.execute(
+                """
+                INSERT INTO reactions (user_id, post_id, comment_id, is_like)
+                VALUES ($1, $2, $3, $4)
+                """, user_id, post_id, comment_id, is_like
+            )
+        else:
+            await db.execute(
+                """
+                UPDATE reactions
+                SET is_like = $1
+                WHERE user_id = $2 AND post_id = $3 AND comment_id = $4
+                """, is_like, user_id, post_id, comment_id
+            )
     return Status(True)
 
 
@@ -187,14 +195,14 @@ async def get_reaction(
     conn: AutoConnection
 ) -> Status[None | bool]:
     db = await conn.create_conn()
-    key = "post_id" if post_id is not None else "comment_id"
-    _value = post_id or comment_id
+
+    _condition, _params = condition(comment_id, 3)
 
     result = await db.fetchval(
         f"""
         SELECT is_like FROM reactions
-        WHERE user_id = $1 AND {key} = $2
-        """, user_id, _value
+        WHERE user_id = $1 AND post_id = $2 AND comment_id {_condition}
+        """, user_id, post_id, _params
     )
     if result is not None:
         return Status(True, data=result)
@@ -209,15 +217,15 @@ async def rem_reaction(
     conn: AutoConnection
 ) -> Status[None]:
     db = await conn.create_conn()
-    key = "post_id" if post_id is not None else "comment_id"
-    _value = post_id or comment_id
+
+    _condition, _params = condition(comment_id, 3)
 
     async with db.transaction():
         await db.execute(
             f"""
             DELETE FROM reactions
-            WHERE user_id = $1 AND {key} = $2
-            """, user_id, _value
+            WHERE user_id = $1 AND post_id = $2 AND comment_id {_condition}
+            """, user_id, post_id, *_params
         )
     return Status(True)
 
@@ -418,26 +426,26 @@ async def get_user_posts(
 async def get_fav_and_reaction(
     user_id: str,
     conn: AutoConnection,
-    post_id: str | None = None,
+    post_id: str,
     comment_id: str | None = None
 ) -> Status[tuple[bool | None, bool | None]]:
-    key = "comment_id" if comment_id else "post_id"
-    _value = comment_id or post_id
     db = await conn.create_conn()
+
+    _condition, _params = condition(comment_id, 3)
 
     row = await db.fetchrow(
         f"""
         SELECT EXISTS (
             SELECT 1
             FROM favorites
-            WHERE user_id = $1 AND {key} = $2
+            WHERE user_id = $1 AND post_id = $2 AND comment_id {_condition}
         ) AS is_favorite, (
             SELECT is_like
             FROM reactions
-            WHERE user_id = $1 AND {key} = $2
+            WHERE user_id = $1 AND post_id = $2 AND comment_id {_condition}
         ) AS reaction
         """,
-        user_id, _value
+        user_id, post_id, *_params
     )
 
     result = (row["is_favorite"] if row else None,
