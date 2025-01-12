@@ -212,7 +212,7 @@ async def get_comments(id: str) -> tuple[Response, int]:
 
         for comment in result.data["comments"]:
             fav, reaction = (await posts.get_fav_and_reaction(
-                    g.user_id, conn, None, comment.comment_id
+                    g.user_id, conn, comment.post_id, comment.comment_id
             )).data
 
             if comment.user_id not in users:
@@ -245,7 +245,7 @@ async def comment_add_reaction(id: str, cid: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         await cache_posts.get_post(id, conn)
         await posts.get_comment(id, cid, conn)
-        await posts.add_reaction(g.user_id, is_like, None, cid, conn)
+        await posts.add_reaction(g.user_id, is_like, id, cid, conn)
 
     return response(), 204
 
@@ -255,7 +255,7 @@ async def comment_rem_reaction(id: str, cid: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         await cache_posts.get_post(id, conn)
         await posts.get_comment(id, cid, conn)
-        await posts.rem_reaction(g.user_id, None, cid, conn)
+        await posts.rem_reaction(g.user_id, id, cid, conn)
 
     return response(), 204
 
