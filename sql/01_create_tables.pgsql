@@ -55,13 +55,12 @@ CREATE TABLE IF NOT EXISTS comments (
 );
 
 CREATE TABLE IF NOT EXISTS reactions (
-    post_id TEXT,
+    post_id TEXT NOT NULL,
     comment_id TEXT,
     user_id TEXT NOT NULL,
     is_like BOOLEAN NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (post_id, user_id),
-    UNIQUE (comment_id, user_id),
+    UNIQUE (post_id, comment_id, user_id),
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
     FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE,
     FOREIGN KEY (comment_id) REFERENCES comments (comment_id) ON DELETE CASCADE
@@ -69,7 +68,7 @@ CREATE TABLE IF NOT EXISTS reactions (
 
 CREATE TABLE IF NOT EXISTS favorites (
     user_id TEXT NOT NULL,
-    post_id TEXT,
+    post_id TEXT NOT NULL,
     comment_id TEXT,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (post_id, comment_id, user_id),
