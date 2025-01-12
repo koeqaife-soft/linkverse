@@ -1,4 +1,5 @@
 from dataclasses import dataclass, asdict
+from datetime import datetime
 from utils.generation import parse_id
 from core import Status, FunctionError
 from utils.database import AutoConnection
@@ -224,10 +225,11 @@ async def get_favorites(
 
     if cursor:
         query += " AND created_at < $2"
-        params.append(cursor)
+        date = datetime.fromisoformat(cursor.replace('Z', '+00:00'))
+        params.append(date)
 
     if type == "posts":
-        query += " AND post_id IS NOT NULL AND comment_id IS NULL"
+        query += " AND comment_id IS NULL"
     elif type == "comments":
         query += " AND comment_id IS NOT NULL"
 
@@ -256,5 +258,62 @@ async def get_favorites(
     return Status(
         True,
         data={"favorites": favorites, "next_cursor": next_cursor,
+              "has_more": has_more}
+    )
+
+
+async def get_reactions(
+    user_id: str, conn: AutoConnection,
+    cursor: str | None = None,
+    type: t.Literal["posts", "comments"] | None = None,
+    is_like: bool | None = None
+) -> Status[list[str]]:
+    db = await conn.create_conn()
+    query = """
+        SELECT post_id, comment_id, created_at, is_like
+        FROM reactions WHERE user_id = $1
+    """
+    params = [user_id]
+
+    if cursor:
+        query += " AND created_at < $2"
+        date = datetime.fromisoformat(cursor.replace('Z', '+00:00'))
+        params.append(date)
+
+    if type == "posts":
+        query += " AND comment_id IS NULL"
+    elif type == "comments":
+        query += " AND comment_id IS NOT NULL"
+
+    if is_like is not None:
+        query += f" AND is_like = ${len(params) + 1}"
+        params.append(is_like)
+
+    query += " ORDER BY created_at DESC LIMIT 21"
+
+    rows = await db.fetch(query, *params)
+    if not rows:
+        raise FunctionError("NO_MORE_REACTIONS", 200, None)
+
+    reactions = [
+        {
+            "post_id": row["post_id"],
+            "comment_id": row["comment_id"],
+            "created_at": row["created_at"].isoformat(),
+            "is_like": row["is_like"]
+        }
+        for row in rows
+    ]
+
+    has_more = len(rows) > 20
+    rows = rows[:20]
+
+    last_row = rows[-1]
+
+    next_cursor = last_row["created_at"].isoformat() if rows else None
+
+    return Status(
+        True,
+        data={"reactions": reactions, "next_cursor": next_cursor,
               "has_more": has_more}
     )
