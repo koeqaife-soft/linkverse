@@ -224,9 +224,10 @@ async def get_favorites(
     params = [user_id]
 
     if cursor:
-        query += " AND created_at < $2"
-        date = datetime.fromisoformat(cursor.replace('Z', '+00:00'))
-        params.append(date)
+        query += " AND (created_at < $2 OR (created_at = $2 AND post_id < $3))"
+        post_id, _date = cursor.split("_")
+        date = datetime.fromisoformat(_date.replace('Z', '+00:00'))
+        params.extend([date, post_id])
 
     if type == "posts":
         query += " AND comment_id IS NULL"
@@ -239,6 +240,9 @@ async def get_favorites(
     if not rows:
         raise FunctionError("NO_MORE_FAVORITES", 200, None)
 
+    has_more = len(rows) > 20
+    rows = rows[:20]
+
     favorites = [
         {
             "post_id": row["post_id"],
@@ -248,12 +252,12 @@ async def get_favorites(
         for row in rows
     ]
 
-    has_more = len(rows) > 20
-    rows = rows[:20]
-
     last_row = rows[-1]
 
-    next_cursor = last_row["created_at"].isoformat() if rows else None
+    next_cursor = (
+        f"{last_row["post_id"]}_{last_row["created_at"].isoformat()}"
+        if rows else None
+    )
 
     return Status(
         True,
@@ -276,9 +280,10 @@ async def get_reactions(
     params = [user_id]
 
     if cursor:
-        query += " AND created_at < $2"
-        date = datetime.fromisoformat(cursor.replace('Z', '+00:00'))
-        params.append(date)
+        query += " AND (created_at < $2 OR (created_at = $2 AND post_id < $3))"
+        post_id, _date = cursor.split("_")
+        date = datetime.fromisoformat(_date.replace('Z', '+00:00'))
+        params.extend([date, post_id])
 
     if type == "posts":
         query += " AND comment_id IS NULL"
@@ -295,6 +300,9 @@ async def get_reactions(
     if not rows:
         raise FunctionError("NO_MORE_REACTIONS", 200, None)
 
+    has_more = len(rows) > 20
+    rows = rows[:20]
+
     reactions = [
         {
             "post_id": row["post_id"],
@@ -305,12 +313,12 @@ async def get_reactions(
         for row in rows
     ]
 
-    has_more = len(rows) > 20
-    rows = rows[:20]
-
     last_row = rows[-1]
 
-    next_cursor = last_row["created_at"].isoformat() if rows else None
+    next_cursor = (
+        f"{last_row["post_id"]}_{last_row["created_at"].isoformat()}"
+        if rows else None
+    )
 
     return Status(
         True,
