@@ -184,14 +184,21 @@ class users:
     ) -> Status[User]:
         cache = _cache_instance or cache_instance
         key = f"user_profile:{user_id}{":min" if minimize_info else ""}"
-        value = await cache.get(key)
+
+        value = conn.temp_cache[key]
+        if value is None:
+            value = await cache.get(key)
+
         if value is None:
             result = await utils.users.get_user(user_id, conn, minimize_info)
+            data = asdict(result.data)
 
-            assert result.data is not None
-            await cache.set(key, asdict(result.data), 600)
+            await cache.set(key, data, 600)
+            conn.temp_cache[key] = data
+
             return Status(True, result.data)
         else:
+            conn.temp_cache[key] = value
             return Status(True, User.from_dict(value))
 
     @staticmethod
@@ -218,14 +225,21 @@ class posts:
     ) -> Status[Post]:
         cache = _cache_instance or cache_instance
         key = f"posts:{post_id}"
-        value = await cache.get(key)
+
+        value = conn.temp_cache[key]
+        if value is None:
+            value = await cache.get(key)
+
         if value is None:
             result = await utils.posts.get_post(post_id, conn)
+            data = asdict(result.data)
 
-            assert result.data is not None
-            await cache.set(key, asdict(result.data), 15)
+            await cache.set(key, data, 15)
+            conn.temp_cache[key] = data
+
             return Status(True, result.data)
         else:
+            conn.temp_cache[key] = value
             return Status(True, Post.from_dict(value))
 
     @staticmethod
