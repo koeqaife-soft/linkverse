@@ -80,7 +80,7 @@ async def _preload_meta(
     conn: AutoConnection
 ) -> dict:
     if not isinstance(object, dict):
-        object = object.to_dict()
+        object = object.dict
 
     user = await cache_users.get_user(object["user_id"], conn, True)
     object["user"] = user.data.dict

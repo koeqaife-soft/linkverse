@@ -77,7 +77,7 @@ async def get_post(id: str) -> tuple[Response, int]:
             await posts.get_fav_and_reaction(g.user_id, conn, id)
         ).data
 
-    data = result.data.to_dict()
+    data = result.data.dict
     if user.data is not None:
         data["user"] = user.data.dict
     if reaction is not None:
@@ -110,7 +110,7 @@ async def get_posts_batch() -> tuple[Response, int]:
                 await posts.get_fav_and_reaction(g.user_id, conn, post)
             ).data
 
-            _temp = result.data.to_dict()
+            _temp = result.data.dict
 
             if user.data is not None:
                 _temp["user"] = user.data.dict
@@ -195,7 +195,7 @@ async def create_comment(id: str) -> tuple[Response, int]:
         await cache_posts.get_post(id, conn)
         result = await posts.create_comment(g.user_id, id, content, conn)
 
-    return response(data=result.data.to_dict()), 201
+    return response(data=result.data.dict), 201
 
 
 @route(bp, "/posts/<id>/comments", methods=["GET"])
@@ -225,7 +225,7 @@ async def get_comments(id: str) -> tuple[Response, int]:
                     if e.code != 404:
                         raise e
 
-            _temp = comment.to_dict()
+            _temp = comment.dict
             if reaction is not None:
                 _temp["is_like"] = reaction
             if fav:
@@ -270,7 +270,7 @@ async def get_user_posts(user_id: str) -> tuple[Response, int]:
         user_posts = await posts.get_user_posts(user_id, cursor, conn, sort)
         _posts = []
         for post in user_posts.data["posts"]:
-            _temp = post.to_dict()
+            _temp = post.dict
             fav, reaction = (await posts.get_fav_and_reaction(
                 g.user_id, conn, post.post_id, None
             )).data

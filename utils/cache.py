@@ -192,7 +192,7 @@ class users:
             await cache.set(key, asdict(result.data), 600)
             return Status(True, result.data)
         else:
-            return Status(True, User(**value))
+            return Status(True, User.from_dict(value))
 
     @staticmethod
     async def delete_user_cache(
@@ -226,7 +226,7 @@ class posts:
             await cache.set(key, asdict(result.data), 15)
             return Status(True, result.data)
         else:
-            return Status(True, Post(**value))
+            return Status(True, Post.from_dict(value))
 
     @staticmethod
     async def remove_post_cache(

@@ -29,10 +29,15 @@ class User:
     def dict(self) -> dict:
         _dict = asdict(self)
         _dict["created_at"] = self.created_at
-        return _dict
+        return {key: value for key, value in _dict.items()
+                if value is not None}
 
     def __dict__(self):
         return self.dict
+
+    @staticmethod
+    def from_dict(object: t.Dict) -> "User":
+        return User(**dict(object))
 
 
 async def get_user(
@@ -53,7 +58,7 @@ async def get_user(
     if row is None:
         raise FunctionError("USER_DOES_NOT_EXIST", 404, None)
 
-    return Status(True, data=User(**dict(row)))
+    return Status(True, data=User.from_dict(row))
 
 
 async def update_user(

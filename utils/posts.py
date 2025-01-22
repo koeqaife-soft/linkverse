@@ -29,11 +29,19 @@ class Post:
     def updated_at_unix(self) -> float:
         return self.updated_at.timestamp()
 
-    def to_dict(self) -> dict:
+    @property
+    def dict(self) -> dict:
         post_dict = asdict(self)
         post_dict['created_at_unix'] = self.created_at_unix
         post_dict['updated_at_unix'] = self.updated_at_unix
         return post_dict
+
+    def __dict__(self):
+        return self.dict
+
+    @staticmethod
+    def from_dict(object: t.Dict) -> "Post":
+        return Post(**dict(object))
 
 
 @dataclass
@@ -46,8 +54,16 @@ class Comment:
     likes_count: int
     dislikes_count: int
 
-    def to_dict(self) -> dict:
+    @property
+    def dict(self) -> dict:
         return asdict(self)
+
+    def __dict__(self):
+        return self.dict
+
+    @staticmethod
+    def from_dict(object: t.Dict) -> "Comment":
+        return Comment(**dict(object))
 
 
 async def get_post(
@@ -66,7 +82,7 @@ async def get_post(
     if row is None:
         raise FunctionError("POST_DOES_NOT_EXIST", 404, None)
 
-    return Status(True, data=Post(**dict(row)))
+    return Status(True, data=Post.from_dict(row))
 
 
 async def create_post(
@@ -96,7 +112,7 @@ async def create_post(
     return Status(
         True,
         data=(
-            Post(**dict(created_post)).to_dict()
+            Post.from_dict(created_post).dict
             if created_post else None
         )
     )
@@ -252,7 +268,7 @@ async def create_comment(
             """, post_id, comment_id
         )
 
-    return Status(True, data=Comment(**dict(comment)))
+    return Status(True, data=Comment.from_dict(comment))
 
 
 async def get_comment(
@@ -271,7 +287,7 @@ async def get_comment(
     if row is None:
         raise FunctionError("COMMENT_DOES_NOT_EXIST", 404, None)
 
-    return Status(True, data=Comment(**dict(row)))
+    return Status(True, data=Comment.from_dict(row))
 
 
 async def get_comments(
