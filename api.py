@@ -1,7 +1,8 @@
 import asyncpg
 import quart
 from core import app, response, route, setup_logger, Global, FunctionError
-from core import worker_count, get_proc_identity, load_extensions
+from core import worker_count, get_proc_identity, load_extensions, compress
+from core import compress_config
 import traceback
 import uuid
 from quart import request, g
@@ -155,6 +156,16 @@ async def before():
         g.user_id = result.data["user_id"]
 
 
+compress_conditions = [
+    lambda r: r.mimetype not in compress_config["mimetypes"],
+    lambda r: "Content-Encoding" in r.headers,
+    lambda r: not (200 <= r.status_code < 300 and
+                   r.status_code != 204),
+    lambda r: not r.content_length,
+    lambda r: r.content_length < compress_config["min_size"]
+]
+
+
 @app.after_request
 async def after(response: quart.Response):
     if request.method != 'GET':
@@ -167,7 +178,40 @@ async def after(response: quart.Response):
     if request.headers.get('If-None-Match', "").strip('"') == etag[0]:
         response.status_code = 304
         response.set_data(b'')
+        response.headers.clear()
         return response
+
+    for check in compress_conditions:
+        if check(response):
+            return response
+
+    accept_encoding = request.headers.get("Accept-Encoding", "").lower()
+    if not accept_encoding:
+        return response
+
+    if "br" in accept_encoding:
+        algorithm = "br"
+    elif "gzip" in accept_encoding:
+        algorithm = "gzip"
+    else:
+        return response
+
+    data = await response.get_data()
+    response.direct_passthrough = False
+
+    compressed_content = await compress(data, algorithm)
+
+    response.set_data(compressed_content)
+
+    response.headers["Content-Encoding"] = algorithm
+    response.headers["Content-Length"] = response.content_length
+
+    vary = response.headers.get("Vary")
+    if vary:
+        if "accept-encoding" not in vary.lower():
+            response.headers["Vary"] = f"{vary}, Accept-Encoding"
+    else:
+        response.headers["Vary"] = "Accept-Encoding"
 
     return response
 

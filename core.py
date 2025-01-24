@@ -16,8 +16,11 @@ import datetime
 import glob
 from quart_cors import cors
 import bleach
-from quart_compress import Compress
 import hashlib
+
+from io import BytesIO
+from gzip import GzipFile
+import brotli
 
 _logger = logging.getLogger("linkverse")
 worker_count = int(os.getenv('_WORKER_COUNT', '1'))
@@ -30,10 +33,18 @@ ALLOWED_TAGS = ["i", "strong", "b", "em", "u", "br", "mark", "blockquote"]
 
 load_dotenv()
 app = Quart(__name__)
-Compress(app)
-app.config['COMPRESS_ALGORITHM'] = 'gzip'
-app.config['COMPRESS_LEVEL'] = 6
-app.config['COMPRESS_MIN_SIZE'] = 500
+
+compress_config = {
+    "mimetypes": [
+        "text/html",
+        "text/css",
+        "text/xml",
+        "application/json",
+        "application/javascript",
+    ],
+    "compress_level": 6,
+    "min_size": 500
+}
 
 allow_origin = ["http://localhost:9000", "http://localhost:9300",
                 "http://192.168.1.35:9000", "http://koeqaife.ddns.net:9000"]
@@ -45,6 +56,30 @@ app = cors(
 )
 secret_key = os.environ["SECRET_KEY"]
 secret_refresh_key = os.environ["SECRET_REFRESH_KEY"]
+
+
+async def compress(data, algorithm: str = "br"):
+    if algorithm == "gzip":
+        return await asyncio.to_thread(compress_gzip, data)
+    elif algorithm == "br":
+        return await asyncio.to_thread(compress_brotli, data)
+
+
+def compress_gzip(data):
+    gzip_buffer = BytesIO()
+
+    with GzipFile(
+        mode="wb",
+        compresslevel=compress_config["compress_level"],
+        fileobj=gzip_buffer,
+    ) as gzip_file:
+        gzip_file.write(data)
+
+    return gzip_buffer.getvalue()
+
+
+def compress_brotli(data):
+    return brotli.compress(data)
 
 
 def _serializer(obj):
@@ -101,7 +136,7 @@ def response(
         response.cache_control.private = private
         response.cache_control.public = not private
         response.cache_control.must_revalidate = True
-        response.set_etag(generate_etag(data))
+        response.set_etag(generate_etag(data | dict(response.headers)))
     else:
         response.cache_control.no_cache = True
         response.cache_control.no_store = True
