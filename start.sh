@@ -66,7 +66,7 @@ retry_check_redis() {
 cleanup() {
     echo 'Shutting down...'
     if [[ -n "$hypercorn_pid" ]]; then
-        kill "$hypercorn_pid"
+        kill -SIGINT "$hypercorn_pid"
         wait "$hypercorn_pid"
     fi
     exit 0
@@ -76,7 +76,7 @@ trap cleanup SIGINT
 while true; do
     if retry_check_redis; then
         if [[ "$WORKER_COUNT" -ne $_WORKER_COUNT ]]; then
-            kill "$hypercorn_pid"
+            kill -SIGINT "$hypercorn_pid"
             wait "$hypercorn_pid"
             WORKER_COUNT=$_WORKER_COUNT
             run_hypercorn "$_WORKER_COUNT"
@@ -84,7 +84,7 @@ while true; do
         fi
     else
         if [[ "$WORKER_COUNT" -ne 1 ]]; then
-            kill "$hypercorn_pid"
+            kill -SIGINT "$hypercorn_pid"
             wait "$hypercorn_pid"
             WORKER_COUNT=1
             run_hypercorn 1
