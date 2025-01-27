@@ -13,7 +13,7 @@ from supabase.client import ClientOptions, AsyncClient
 import aiofiles
 from datetime import datetime, timezone
 import asyncio
-import ujson
+import ujson  # type: ignore
 import werkzeug.exceptions
 import core
 import json5
@@ -157,10 +157,10 @@ async def before():
 
 
 compress_conditions = [
-    lambda r: r.mimetype not in compress_config["mimetypes"],
-    lambda r: "Content-Encoding" in r.headers,
     lambda r: not (200 <= r.status_code < 300 and
                    r.status_code != 204),
+    lambda r: r.mimetype not in compress_config["mimetypes"],
+    lambda r: "Content-Encoding" in r.headers,
     lambda r: not r.content_length,
     lambda r: r.content_length < compress_config["min_size"]
 ]
@@ -168,6 +168,16 @@ compress_conditions = [
 
 @app.after_request
 async def after(response: quart.Response):
+    if response.status_code == 204:
+        response.headers.clear()
+        return response
+
+    response = await check_cache(response)
+    response = await compress_response(response)
+    return response
+
+
+async def check_cache(response: quart.Response):
     if request.method != 'GET':
         return response
     if request.endpoint is None:
@@ -181,6 +191,10 @@ async def after(response: quart.Response):
         response.headers.clear()
         return response
 
+    return response
+
+
+async def compress_response(response: quart.Response):
     for check in compress_conditions:
         if check(response):
             return response
@@ -197,7 +211,6 @@ async def after(response: quart.Response):
         return response
 
     data = await response.get_data()
-    response.direct_passthrough = False
 
     compressed_content = await compress(data, algorithm)
 
@@ -218,7 +231,7 @@ async def after(response: quart.Response):
 
 @route(app, "/ping", methods=['POST', 'GET'])
 async def ping():
-    return response(cache=True), 204
+    return response(is_empty=True), 204
 
 
 @app.route('/v1/generate_upload_url', methods=['POST'])
