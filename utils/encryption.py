@@ -6,11 +6,9 @@ from cryptography.hazmat.backends import default_backend
 import os
 import string
 import asyncio
-from utils_cy.encryption import (  # noqa
+from utils_cy.encryption import (
     encode_base64, decode_base64,
-    prepare_key as _prepare_key,
-    encode_shuffle_base64,
-    decode_shuffle_base64
+    prepare_key as _prepare_key
 )
 
 BASE62_ALPHABET = string.digits + string.ascii_letters
