@@ -2,7 +2,7 @@
 
 from hashlib import sha256
 import hmac
-from base64 import urlsafe_b64decode, urlsafe_b64encode
+from base64 import urlsafe_b64decode, urlsafe_b64encode, b85decode, b85encode
 import hashlib
 from libc.stdlib cimport malloc, free
 
@@ -53,6 +53,18 @@ cpdef str encode_shuffle_base64(bytes data, str seed):
 
 cpdef bytes decode_shuffle_base64(str encoded, str seed):
     cdef bytes original = decode_base64(encoded)
+    cdef bytes unshuffled = unshuffle_bytes(original, seed)
+    return unshuffled
+
+
+cpdef str encode_shuffle_base85(bytes data, str seed):
+    cdef bytes shuffled = shuffle_bytes(data, seed)
+    cdef str base64 = b85encode(shuffled).decode()
+    return base64
+
+
+cpdef bytes decode_shuffle_base85(str encoded, str seed):
+    cdef bytes original = b85decode(encoded)
     cdef bytes unshuffled = unshuffle_bytes(original, seed)
     return unshuffled
 

@@ -24,3 +24,11 @@ def encode_shuffle_base64(data: bytes, seed: str) -> str:
 
 def decode_shuffle_base64(encoded: str, seed: str) -> bytes:
     ...
+
+
+def encode_shuffle_base85(data: bytes, seed: str) -> str:
+    ...
+
+
+def decode_shuffle_base85(encoded: str, seed: str) -> bytes:
+    ...
