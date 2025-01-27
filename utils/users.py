@@ -220,13 +220,13 @@ async def get_favorites(
     user_id: str, conn: AutoConnection,
     cursor: str | None = None,
     type: t.Literal["posts", "comments"] | None = None
-) -> Status[list[str]]:
+) -> Status[dict]:
     db = await conn.create_conn()
     query = """
         SELECT post_id, comment_id, created_at
         FROM favorites WHERE user_id = $1
     """
-    params = [user_id]
+    params: list[t.Any] = [user_id]
 
     if cursor:
         query += " AND (created_at < $2 OR (created_at = $2 AND post_id < $3))"
@@ -276,13 +276,13 @@ async def get_reactions(
     cursor: str | None = None,
     type: t.Literal["posts", "comments"] | None = None,
     is_like: bool | None = None
-) -> Status[list[str]]:
+) -> Status[dict]:
     db = await conn.create_conn()
     query = """
         SELECT post_id, comment_id, created_at, is_like
         FROM reactions WHERE user_id = $1
     """
-    params = [user_id]
+    params: list[t.Any] = [user_id]
 
     if cursor:
         query += " AND (created_at < $2 OR (created_at = $2 AND post_id < $3))"
