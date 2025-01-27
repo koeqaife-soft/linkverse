@@ -1,4 +1,5 @@
 import asyncio
+import base64
 from dataclasses import dataclass, asdict
 import os
 import re
@@ -53,7 +54,7 @@ class AuthUser:
 
 
 def generate_key(length: int = 16) -> str:
-    return os.urandom(length).hex()
+    return base64.b85encode(os.urandom(length), False).decode()
 
 
 async def hash_password(password: str, salt: bytes) -> bytes:
