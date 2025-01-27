@@ -18,8 +18,8 @@ class Post:
     comments_count: int
     tags: list[str]
     media: list[str]
-    status: str
-    is_deleted: bool
+    status: str | None = None
+    is_deleted: bool | None = None
 
     @property
     def created_at_unix(self) -> float:
@@ -32,8 +32,8 @@ class Post:
     @property
     def dict(self) -> dict:
         post_dict = asdict(self)
-        post_dict['created_at_unix'] = self.created_at_unix
-        post_dict['updated_at_unix'] = self.updated_at_unix
+        post_dict['created_at'] = int(self.created_at_unix)
+        post_dict['updated_at'] = int(self.updated_at_unix)
         return post_dict
 
     def __dict__(self):
@@ -67,13 +67,14 @@ class Comment:
 
 
 async def get_post(
-    post_id: str, conn: AutoConnection
+    post_id: str, conn: AutoConnection,
+    more_info: bool = False
 ) -> Status[Post]:
     db = await conn.create_conn()
-    query = """
+    query = f"""
         SELECT post_id, user_id, content, created_at, updated_at,
-               likes_count, comments_count, tags, media, status, is_deleted,
-               dislikes_count
+               likes_count, comments_count, dislikes_count, tags, media
+               {", status, is_deleted" if more_info else ""}
         FROM posts
         WHERE post_id = $1 AND is_deleted = FALSE
     """
