@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 import re
 from typing import overload
 import typing as t
-import ujson
+import orjson
+from collections import OrderedDict
 from dotenv import load_dotenv
 from quart import Quart, Blueprint, Response
 import os
@@ -12,7 +13,6 @@ import multiprocessing
 import logging
 from colorama import Fore, Style, init
 import importlib
-import datetime
 import glob
 from quart_cors import cors
 import bleach
@@ -20,7 +20,7 @@ import hashlib
 
 from io import BytesIO
 from gzip import GzipFile
-import brotli
+import brotli  # type: ignore
 
 _logger = logging.getLogger("linkverse")
 worker_count = int(os.getenv('_WORKER_COUNT', '1'))
@@ -51,7 +51,6 @@ allow_origin = ["http://localhost:9000", "http://localhost:9300",
 app = cors(
     app, allow_origin=allow_origin,
     allow_headers=["Content-Type", "Authorization"],
-    allow_credentials=True,
     max_age=86400
 )
 secret_key = os.environ["SECRET_KEY"]
@@ -82,12 +81,6 @@ def compress_brotli(data):
     return brotli.compress(data)
 
 
-def _serializer(obj):
-    if isinstance(obj, datetime.datetime):
-        return obj.astimezone(datetime.timezone.utc).isoformat()
-    raise TypeError(f"Type {type(obj)} not serializable")
-
-
 @overload
 def response(
     *, data: dict = ...
@@ -97,7 +90,7 @@ def response(
 
 @overload
 def response(
-    *, error: bool, data: dict = {},
+    *, error: t.Literal[True], data: dict = {},
     error_msg: str,
     **kwargs
 ) -> Response:
@@ -111,14 +104,32 @@ def response(
     ...
 
 
+@overload
+def response(
+    *, is_empty: t.Literal[True]
+) -> Response:
+    ...
+
+
 def response(
     *, error: bool | None = None,
     data: dict = {},
     error_msg: str | None = None,
     cache: bool = False,
     private: bool = True,
+    keep_none: bool = False,
+    is_empty: bool = False,
     **kwargs
 ) -> Response:
+    if is_empty:
+        __response = Response()
+        __response.headers.clear()
+        __response.set_data(b"")
+        return __response
+
+    if not keep_none:
+        data = remove_none_values(data)
+
     _response = {
         "success": not error,
         "data": data
@@ -127,13 +138,13 @@ def response(
         _response["error"] = error_msg
 
     response = Response(
-        ujson.dumps(_response, default=_serializer),
+        orjson.dumps(_response),
         content_type="application/json",
         **kwargs
     )
 
     if cache:
-        response.cache_control.private = private
+        response.cache_control.private = True if private else None
         response.cache_control.public = not private
         response.cache_control.must_revalidate = True
         response.set_etag(generate_etag(data | dict(response.headers)))
@@ -145,10 +156,21 @@ def response(
     return response
 
 
+def remove_none_values(d):
+    if isinstance(d, dict):
+        return {k: remove_none_values(v) for k, v in d.items()
+                if v is not None}
+    elif isinstance(d, list):
+        return [remove_none_values(v) for v in d]
+    else:
+        return d
+
+
 def generate_etag(data: dict | str) -> str:
     if isinstance(data, dict):
+        sorted_data = OrderedDict(sorted(data.items()))
         return hashlib.md5(
-                ujson.dumps(data, default=_serializer, sort_keys=True).encode()
+            orjson.dumps(sorted_data)
         ).hexdigest()
     else:
         return hashlib.md5(data.encode()).hexdigest()
