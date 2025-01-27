@@ -21,3 +21,4 @@ bleach
 cython
 setuptools
 ujson
+orjson
