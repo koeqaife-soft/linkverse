@@ -1,7 +1,7 @@
 import datetime
 import os
-from utils.encryption import encode_shuffle_base64 as encode
-from utils.encryption import decode_shuffle_base64 as decode
+from utils_cy.encryption import encode_shuffle_base64 as encode
+from utils_cy.encryption import decode_shuffle_base64 as decode
 from utils.encryption import generate_nonce
 from utils_cy.encryption import verify_signature, generate_signature
 from utils_cy.snowflake import SnowflakeGeneration
@@ -22,7 +22,7 @@ async def generate_token(
          else datetime.timedelta(days=30))
     ).timestamp())
 
-    combined_data = f"{user_id}.{expiration}.{secret}.{session_id}".encode()
+    combined_data = f"{user_id}\0{expiration}\0{secret}\0{session_id}".encode()
     nonce = generate_nonce(8)
     encrypted_data = encode(combined_data, key + nonce)
 
@@ -58,7 +58,7 @@ async def decode_token(token: str, key: str) -> dict:
             }
 
         decrypted_data = decode(token_payload, key + nonce).decode()
-        user_id, expiration, secret, session_id = decrypted_data.split('.')
+        user_id, expiration, secret, session_id = decrypted_data.split('\0')
 
         expiration_timestamp = int(expiration)
         current_timestamp = int(
