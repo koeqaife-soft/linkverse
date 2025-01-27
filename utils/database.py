@@ -66,7 +66,7 @@ def condition(
 class AutoConnection:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self.pool = pool
-        self.temp_cache = defaultdict(lambda: None)
+        self.temp_cache: defaultdict[str, t.Any] = defaultdict(lambda: None)
         self._conn = None
 
     async def __aenter__(self):
