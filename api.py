@@ -103,6 +103,8 @@ async def before():
     if _data.get("skip_checks", False):
         return
 
+    params = dict(request.args)
+
     data_error = (response(error=True, error_msg="INCORRECT_DATA"), 400)
     params_error = (response(error=True, error_msg="INCORRECT_PARAMS"), 400)
 
@@ -127,20 +129,22 @@ async def before():
         g.data = data
 
     if _data.get("params"):
-        params = request.args
         valid, modified = validate_data(
             params, True, _data["params"], False
         )
         if not valid:
             return params_error
+        params = modified
 
     if _data.get("optional_params"):
-        params = request.args
         valid, modified = validate_data(
             params, True, _data["optional_params"], True
         )
         if not valid:
             return params_error
+        params = modified
+
+    g.params = params
 
     if not _data.get("no_auth", False):
         headers = request.headers

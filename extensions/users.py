@@ -1,5 +1,5 @@
 import asyncpg
-from quart import Blueprint, Quart, Response, request
+from quart import Blueprint, Quart, Response
 from core import FunctionError, response, Global, route
 from quart import g
 import utils.users as users
@@ -64,8 +64,9 @@ async def add_favorite() -> tuple[Response, int]:
 
 @route(bp, "/users/me/favorites", methods=["DELETE"])
 async def rem_favorite() -> tuple[Response, int]:
-    post_id = request.args.get("post_id")
-    comment_id = request.args.get("comment_id")
+    params: dict = g.params
+    post_id = params.get("post_id")
+    comment_id = params.get("comment_id")
     user_id = g.user_id
 
     async with AutoConnection(pool) as conn:
@@ -131,9 +132,10 @@ async def _preload_lists(
 
 @route(bp, "/users/me/favorites", methods=["GET"])
 async def get_favorites() -> tuple[Response, int]:
-    cursor = request.args.get("cursor", None)
-    type = request.args.get("type", None)
-    preload = request.args.get("preload", "false").lower() == "true"
+    params: dict = g.params
+    cursor = params.get("cursor", None)
+    type = params.get("type", None)
+    preload = params.get("preload", False)
 
     async with AutoConnection(pool) as conn:
         result = await users.get_favorites(g.user_id, conn, cursor, type)
@@ -160,11 +162,11 @@ async def get_favorites() -> tuple[Response, int]:
 
 @route(bp, "/users/me/reactions", methods=["GET"])
 async def get_reactions() -> tuple[Response, int]:
-    cursor = request.args.get("cursor", None)
-    type = request.args.get("type", None)
-    _is_like = request.args.get("is_like", None)
-    is_like = _is_like.lower() == "true" if _is_like is not None else None
-    preload = request.args.get("preload", "false").lower() == "true"
+    params: dict = g.params
+    cursor = params.get("cursor", None)
+    type = params.get("type", None)
+    is_like = params.get("is_like", None)
+    preload = params.get("preload", False)
 
     async with AutoConnection(pool) as conn:
         result = await users.get_reactions(

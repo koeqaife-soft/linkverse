@@ -1,5 +1,5 @@
 import asyncpg
-from quart import Blueprint, Quart, Response, request
+from quart import Blueprint, Quart, Response
 from core import response, Global, route, FunctionError
 from quart import g
 import utils.posts as posts
@@ -15,9 +15,10 @@ pool: asyncpg.Pool = _g.pool
 
 @route(bp, "/posts/popular", methods=["GET"])
 async def popular_posts() -> tuple[Response, int]:
-    hide_viewed = request.args.get("hide_viewed", "true").strip() == "true"
-    cursor = request.args.get("cursor")
-    limit = int(request.args.get("limit", 50))
+    params: dict = g.params
+    hide_viewed = params.get("hide_viewed", True)
+    cursor = params.get("cursor")
+    limit = params.get("limit", 50)
 
     async with AutoConnection(pool) as conn:
         result = await posts_list.get_popular_posts(
@@ -29,9 +30,10 @@ async def popular_posts() -> tuple[Response, int]:
 
 @route(bp, "/posts/new", methods=["GET"])
 async def new_posts() -> tuple[Response, int]:
-    hide_viewed = request.args.get("hide_viewed", "true").strip() == "true"
-    cursor = request.args.get("cursor")
-    limit = int(request.args.get("limit", 50))
+    params: dict = g.params
+    hide_viewed = params.get("hide_viewed", True)
+    cursor = params.get("cursor")
+    limit = params.get("limit", 50)
 
     async with AutoConnection(pool) as conn:
         result = await posts_list.get_new_posts(
@@ -90,8 +92,8 @@ async def get_post(id: str) -> tuple[Response, int]:
 
 @route(bp, "/posts/batch", methods=["GET"])
 async def get_posts_batch() -> tuple[Response, int]:
-    posts_param = request.args.get('posts', "")
-    _posts = posts_param.split(',')
+    params: dict = g.params
+    _posts = params.get('posts', [])
 
     _data = []
     errors = []
@@ -200,7 +202,8 @@ async def create_comment(id: str) -> tuple[Response, int]:
 
 @route(bp, "/posts/<id>/comments", methods=["GET"])
 async def get_comments(id: str) -> tuple[Response, int]:
-    cursor = request.args.get("cursor", None)
+    params: dict = g.params
+    cursor = params.get("cursor", None)
 
     async with AutoConnection(pool) as conn:
         await cache_posts.get_post(id, conn)
@@ -262,8 +265,9 @@ async def comment_rem_reaction(id: str, cid: str) -> tuple[Response, int]:
 
 @route(bp, "/users/<user_id>/posts", methods=["GET"])
 async def get_user_posts(user_id: str) -> tuple[Response, int]:
-    cursor = request.args.get("cursor", None)
-    sort = request.args.get("sort", None)
+    params = g.params
+    cursor = params.get("cursor", None)
+    sort = params.get("sort", None)
 
     async with AutoConnection(pool) as conn:
         await cache_users.get_user(user_id, conn, True)

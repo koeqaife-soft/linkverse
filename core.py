@@ -412,7 +412,7 @@ def validate(
 
     _result = _validate(value)
 
-    return _result[0], _result[1] or value
+    return _result[0], value if _result[1] is None else _result[1]
 
 
 class Validator:
@@ -497,8 +497,16 @@ class Validator:
     def parameters_str(self, value: str) -> ReturnType:
         return self.validate_str(value)
 
+    def parameters_int(self, value: str) -> ReturnType:
+        if not value.isdigit():
+            return False, None
+
+        _value = int(value)
+        return self.validate_int(_value)[0], _value
+
     def parameters_bool(self, value: str) -> ReturnType:
-        return value.lower() in ["true", "false"], None
+        _value = value.lower()
+        return _value in ["true", "false"], _value == "true"
 
     def parameters_list(self, value: str) -> ReturnType:
         options = self.options
@@ -533,7 +541,7 @@ class Validator:
                     if not check(x, options[option]):
                         return False, None
 
-        return True, None
+        return True, _value
 
 
 def are_all_keys_present(source: dict, target: dict) -> bool:
