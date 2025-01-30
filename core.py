@@ -106,7 +106,7 @@ def response(
 
 @overload
 def response(
-    *, is_empty: t.Literal[True]
+    *, is_empty: t.Literal[True], **kwargs
 ) -> Response:
     ...
 
