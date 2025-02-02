@@ -216,6 +216,55 @@ async def is_favorite(
     return Status(True, data=row is not None)
 
 
+async def follow(
+    user_id: str, target_id: str,
+    conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+    async with db.transaction():
+        await db.execute(
+            """
+            INSERT INTO followed (user_id, followed_to)
+            VALUES ($1, $2)
+            ON CONFLICT (user_id, followed_to) DO NOTHING
+            """, user_id, target_id
+        )
+
+    return Status(True)
+
+
+async def unfollow(
+    user_id: str, target_id: str,
+    conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+    async with db.transaction():
+        await db.execute(
+            """
+            DELETE FROM followed
+            WHERE user_id = $1 AND followed_to = $2
+            """, user_id, target_id
+        )
+
+    return Status(True)
+
+
+async def is_followed(
+    user_id: str, target_id: str,
+    conn: AutoConnection
+) -> Status[bool]:
+    db = await conn.create_conn()
+    row = await db.fetchrow(
+        """
+        SELECT 1
+        FROM followed
+        WHERE user_id = $1 AND followed_to = $2
+        """, user_id, target_id
+    )
+
+    return Status(True, data=row is not None)
+
+
 async def get_favorites(
     user_id: str, conn: AutoConnection,
     cursor: str | None = None,

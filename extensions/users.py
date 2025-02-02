@@ -197,8 +197,30 @@ async def get_reactions() -> tuple[Response, int]:
 async def get_profile(user_id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         user = await cache_users.get_user(user_id, conn)
+        followed = await users.is_followed(g.user_id, user_id, conn)
+        data = user.data.dict
+        if followed.data:
+            data["followed"] = True
 
-    return response(data=user.data.dict, cache=True), 200
+    return response(data=data, cache=True), 200
+
+
+@route(bp, "/users/me/following/<target_id>", methods=["POST"])
+async def follow_user(target_id: str) -> tuple[Response, int]:
+    async with AutoConnection(pool) as conn:
+        await cache_users.get_user(target_id, conn, True)
+        await users.follow(g.user_id, target_id, conn)
+
+    return response(is_empty=True), 204
+
+
+@route(bp, "/users/me/following/<target_id>", methods=["DELETE"])
+async def unfollow_user(target_id: str) -> tuple[Response, int]:
+    async with AutoConnection(pool) as conn:
+        await cache_users.get_user(target_id, conn, True)
+        await users.unfollow(g.user_id, target_id, conn)
+
+    return response(is_empty=True), 204
 
 
 def load(app: Quart):
