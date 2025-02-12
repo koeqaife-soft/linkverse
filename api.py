@@ -163,7 +163,7 @@ async def before():
 compress_conditions = [
     lambda r: not (200 <= r.status_code < 300 and
                    r.status_code != 204),
-    lambda r: r.mimetype not in compress_config["mimetypes"],
+    lambda r: r.mimetype not in compress_config["mimetypes"],  # type: ignore
     lambda r: "Content-Encoding" in r.headers,
     lambda r: not r.content_length,
     lambda r: r.content_length < compress_config["min_size"]
