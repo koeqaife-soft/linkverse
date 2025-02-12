@@ -7,6 +7,7 @@ from utils.cache import users as cache_users
 from utils.cache import posts as cache_posts
 from utils.database import AutoConnection
 import utils.posts_list as posts_list
+import typing as t
 
 bp = Blueprint('posts', __name__)
 _g = Global()
@@ -271,9 +272,11 @@ async def get_user_posts(user_id: str) -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         await cache_users.get_user(user_id, conn, True)
-        user_posts = await posts.get_user_posts(user_id, cursor, conn, sort)
+        user_posts = (
+            await posts.get_user_posts(user_id, cursor, conn, sort)
+        ).data
         _posts = []
-        for post in user_posts.data["posts"]:
+        for post in user_posts["posts"]:
             _temp = post.dict
             fav, reaction = (await posts.get_fav_and_reaction(
                 g.user_id, conn, post.post_id, None
@@ -283,8 +286,10 @@ async def get_user_posts(user_id: str) -> tuple[Response, int]:
             if fav:
                 _temp["is_fav"] = fav
             _posts.append(_temp)
-        user_posts.data["posts"] = _posts
-    return response(data=user_posts.data, cache=True), 200
+
+        result = t.cast(dict, user_posts)
+        result["posts"] = _posts
+    return response(data=result, cache=True), 200
 
 
 def load(app: Quart):

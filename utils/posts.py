@@ -4,6 +4,7 @@ from core import Status, FunctionError
 from utils.generation import generate_id
 import typing as t
 from utils.database import AutoConnection, condition
+from schemas import ListsDefault
 
 
 @dataclass
@@ -64,6 +65,14 @@ class Comment:
     @staticmethod
     def from_dict(object: t.Dict) -> "Comment":
         return Comment(**dict(object))
+
+
+class PostList(t.TypedDict, ListsDefault):
+    posts: list[Post]
+
+
+class CommentList(t.TypedDict, ListsDefault):
+    comments: list[Comment]
 
 
 async def get_post(
@@ -296,9 +305,7 @@ async def get_comments(
     cursor: str | None,
     user_id: str,
     conn: AutoConnection
-) -> Status[dict[
-            t.Literal["comments", "next_cursor", "has_more"],
-            list[Comment] | str | bool]]:
+) -> Status[CommentList]:
     db = await conn.create_conn()
     params: list[t.Any] = [post_id, user_id]
 
@@ -371,9 +378,7 @@ async def get_user_posts(
     cursor: str | None,
     conn: AutoConnection,
     sort: t.Literal["popular", "new", "old"] | None = None
-) -> Status[dict[
-            t.Literal["posts", "next_cursor", "has_more"],
-            list[Post] | str | bool]]:
+) -> Status[PostList]:
     sort = sort or "new"
     db = await conn.create_conn()
     query = """

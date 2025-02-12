@@ -65,8 +65,8 @@ async def add_favorite() -> tuple[Response, int]:
 @route(bp, "/users/me/favorites", methods=["DELETE"])
 async def rem_favorite() -> tuple[Response, int]:
     params: dict = g.params
-    post_id = params.get("post_id")
-    comment_id = params.get("comment_id")
+    post_id = params.get("post_id", "")
+    comment_id = params.get("comment_id", "")
     user_id = g.user_id
 
     async with AutoConnection(pool) as conn:
@@ -102,7 +102,7 @@ async def _preload_meta(
 
 async def _preload_lists(
     items: list[dict], conn: AutoConnection
-) -> tuple[list[dict], list[dict]]:
+) -> tuple[list[dict], list[dict], list[tuple]]:
     posts_data: list[dict] = []
     comments_data: list[dict] = []
     errors: list[tuple[str, str, str]] = []
@@ -110,17 +110,17 @@ async def _preload_lists(
     for item in items:
         try:
             if item["comment_id"]:
-                comment = (await posts.get_comment(
+                _comment = (await posts.get_comment(
                     item["post_id"], item["comment_id"], conn
                 )).data
-                comment = await _preload_meta(comment, conn)
+                comment = await _preload_meta(_comment, conn)
 
                 comments_data.append(comment)
             else:
-                post = (
+                _post = (
                     await cache_posts.get_post(item["post_id"], conn)
                 ).data
-                post = await _preload_meta(post, conn)
+                post = await _preload_meta(_post, conn)
 
                 posts_data.append(post)
         except FunctionError as e:
