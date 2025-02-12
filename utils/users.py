@@ -4,6 +4,8 @@ from utils.generation import parse_id
 from core import Status, FunctionError
 from utils.database import AutoConnection
 import typing as t
+from schemas import FollowedList, FavoriteList, ReactionList
+from schemas import FollowedItem, FavoriteItem, ReactionItem
 
 
 @dataclass
@@ -265,11 +267,64 @@ async def is_followed(
     return Status(True, data=row is not None)
 
 
+async def get_followed(
+    user_id: str, conn: AutoConnection,
+    cursor: str | None = None
+) -> Status[FollowedList]:
+    db = await conn.create_conn()
+    query = """
+        SELECT followed_to, created_at
+        FROM followed WHERE user_id = $1
+    """
+    params: list[t.Any] = [user_id]
+
+    if cursor:
+        query += (
+            " AND (created_at < $2 OR (created_at = $2 and followed_to < $3))"
+        )
+        post_id, _date = cursor.split("_")
+        date = datetime.fromisoformat(_date.replace('Z', '+00:00'))
+        params.extend([date, post_id])
+
+    query += " ORDER BY created_at DESC LIMIT 21"
+
+    rows = await db.fetch(query, *params)
+    if not rows:
+        raise FunctionError("NO_MORE_FOLLOWED", 200, None)
+
+    has_more = len(rows) > 20
+    rows = rows[:20]
+
+    followed = [
+        FollowedItem({
+            "followed_to": row["followed_to"],
+            "created_at": row["created_at"]
+        })
+        for row in rows
+    ]
+
+    last_row = rows[-1]
+
+    next_cursor = (
+        f"{last_row["post_id"]}_{last_row["created_at"].isoformat()}"
+        if rows else None
+    )
+
+    return Status(
+        True,
+        data={
+            "followed": followed,
+            "next_cursor": next_cursor,
+            "has_more": has_more
+        }
+    )
+
+
 async def get_favorites(
     user_id: str, conn: AutoConnection,
     cursor: str | None = None,
     type: t.Literal["posts", "comments"] | None = None
-) -> Status[dict]:
+) -> Status[FavoriteList]:
     db = await conn.create_conn()
     query = """
         SELECT post_id, comment_id, created_at
@@ -298,11 +353,11 @@ async def get_favorites(
     rows = rows[:20]
 
     favorites = [
-        {
+        FavoriteItem({
             "post_id": row["post_id"],
             "comment_id": row["comment_id"],
             "created_at": row["created_at"].isoformat(),
-        }
+        })
         for row in rows
     ]
 
@@ -315,8 +370,11 @@ async def get_favorites(
 
     return Status(
         True,
-        data={"favorites": favorites, "next_cursor": next_cursor,
-              "has_more": has_more}
+        data={
+            "favorites": favorites,
+            "next_cursor": next_cursor,
+            "has_more": has_more
+        }
     )
 
 
@@ -325,7 +383,7 @@ async def get_reactions(
     cursor: str | None = None,
     type: t.Literal["posts", "comments"] | None = None,
     is_like: bool | None = None
-) -> Status[dict]:
+) -> Status[ReactionList]:
     db = await conn.create_conn()
     query = """
         SELECT post_id, comment_id, created_at, is_like
@@ -358,12 +416,12 @@ async def get_reactions(
     rows = rows[:20]
 
     reactions = [
-        {
+        ReactionItem({
             "post_id": row["post_id"],
             "comment_id": row["comment_id"],
             "created_at": row["created_at"].isoformat(),
             "is_like": row["is_like"]
-        }
+        })
         for row in rows
     ]
 
@@ -376,6 +434,9 @@ async def get_reactions(
 
     return Status(
         True,
-        data={"reactions": reactions, "next_cursor": next_cursor,
-              "has_more": has_more}
+        data={
+            "reactions": reactions,
+            "next_cursor": next_cursor,
+            "has_more": has_more
+        }
     )
