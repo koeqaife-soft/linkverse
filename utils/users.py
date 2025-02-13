@@ -306,7 +306,7 @@ async def get_followed(
     last_row = rows[-1]
 
     next_cursor = (
-        f"{last_row["post_id"]}_{last_row["created_at"].isoformat()}"
+        f"{last_row["followed_to"]}_{last_row["created_at"].isoformat()}"
         if rows else None
     )
 
