@@ -157,5 +157,11 @@
                 is_like: { type: "bool" }
             }
         },
+        get_following: {
+            optional_params: {
+                cursor: { min_len: 1, max_len: 256 },
+                preload: { type: "bool" }
+            }
+        },
     }
 }

@@ -7,6 +7,7 @@ import utils.posts as posts
 from utils.cache import users as cache_users
 from utils.cache import posts as cache_posts
 from utils.database import AutoConnection
+import typing as t
 
 bp = Blueprint('users', __name__)
 _g = Global()
@@ -146,7 +147,7 @@ async def get_favorites() -> tuple[Response, int]:
 
         if preload:
             posts_data, comments_data, errors = await _preload_lists(
-                favorites, conn
+                t.cast(list[dict], favorites), conn
             )
             if posts_data:
                 response_data.update({"posts": posts_data})
@@ -179,7 +180,7 @@ async def get_reactions() -> tuple[Response, int]:
 
         if preload:
             posts_data, comments_data, errors = await _preload_lists(
-                reactions, conn
+                t.cast(list[dict], reactions), conn
             )
             if posts_data:
                 response_data.update({"posts": posts_data})
@@ -189,6 +190,40 @@ async def get_reactions() -> tuple[Response, int]:
                 response_data.update({"errors": errors})
         else:
             response_data.update({"reactions": reactions})
+
+    return response(data=response_data, cache=True), 200
+
+
+@route(bp, "/users/me/following", methods=["GET"])
+async def get_following() -> tuple[Response, int]:
+    params: dict = g.params
+    cursor = params.get("cursor", None)
+    preload = params.get("preload", False)
+
+    async with AutoConnection(pool) as conn:
+        result = await users.get_followed(g.user_id, conn, cursor)
+
+        followed = result.data.get("followed", [])
+        response_data = {key: val for key, val in result.data.items()
+                         if key != "followed"}
+
+        if preload:
+            followed_list: list[dict] = []
+            errors: list[tuple] = []
+            for item in followed:
+                try:
+                    user = (
+                        await cache_users.get_user(item["followed_to"], conn)
+                    ).data
+                    followed_list.append(user.dict)
+                except FunctionError as e:
+                    errors.append((item["followed_to"], e.message))
+            if followed_list:
+                response_data.update({"following": followed_list})
+            if errors:
+                response_data.update({"errors": errors})
+        else:
+            response_data.update({"following": followed})
 
     return response(data=response_data, cache=True), 200
 
