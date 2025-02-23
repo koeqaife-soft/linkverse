@@ -34,3 +34,8 @@ class ReactionItem(TypedDict):
 
 class ReactionList(TypedDict, ListsDefault):
     reactions: list[ReactionItem]
+
+
+class PostsList(TypedDict):
+    next_cursor: str | None
+    posts: list[str]

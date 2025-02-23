@@ -1,5 +1,6 @@
 from core import Status, FunctionError
 from utils.database import AutoConnection
+from schemas import PostsList
 
 
 async def get_popular_posts(
@@ -8,7 +9,7 @@ async def get_popular_posts(
     limit: int = 50,
     cursor: str | None = None,
     hide_viewed: bool | None = None
-) -> Status[dict[str, list[tuple[str, str]]]]:
+) -> Status[PostsList]:
     db = await conn.create_conn()
     hide_viewed = True if hide_viewed is None else hide_viewed
 
@@ -72,7 +73,7 @@ async def get_new_posts(
     limit: int = 50,
     cursor: str | None = None,
     hide_viewed: bool | None = None
-) -> Status[dict[str, list[tuple[str, str]]]]:
+) -> Status[PostsList]:
     db = await conn.create_conn()
     hide_viewed = True if hide_viewed is None else hide_viewed
 
