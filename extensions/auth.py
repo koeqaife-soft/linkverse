@@ -1,6 +1,6 @@
 import asyncpg
 from quart import Blueprint, Quart, Response
-from core import response, Global, route
+from core import response, Global, route, FunctionError
 from quart import g, request
 import utils.auth as auth
 from utils.cache import auth as auth_cache
@@ -46,7 +46,7 @@ async def refresh() -> tuple[Response, int]:
     data = g.data
     token = data.get("refresh_token")
     if token is None:
-        return response(error=True, error_msg="UNAUTHORIZED"), 401
+        raise FunctionError("UNAUTHORIZED", 401, None)
 
     async with AutoConnection(pool) as conn:
         result = await auth.refresh(token, conn)
@@ -59,7 +59,7 @@ async def logout() -> tuple[Response, int]:
     token = request.headers.get("Authorization")
 
     if token is None:
-        return response(error=True, error_msg="UNAUTHORIZED"), 401
+        raise FunctionError("UNAUTHORIZED", 401, None)
 
     async with AutoConnection(pool) as conn:
         result = await auth.check_token(token, conn)

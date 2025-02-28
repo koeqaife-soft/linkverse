@@ -29,7 +29,7 @@ async def update_profile_me() -> tuple[Response, int]:
     data = g.data
     user_id = g.user_id
     if not data:
-        return response(error=True, error_msg="INCORRECT_DATA"), 400
+        raise FunctionError("INCORRECT_DATA", 400, None)
 
     async with AutoConnection(pool) as conn:
         await users.update_user(user_id, data, conn)
