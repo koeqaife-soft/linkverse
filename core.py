@@ -83,14 +83,14 @@ def compress_brotli(data):
 
 @overload
 def response(
-    *, data: dict = ...
+    *, data: t.Mapping = ...
 ) -> Response:
     ...
 
 
 @overload
 def response(
-    *, error: t.Literal[True], data: dict = {},
+    *, error: t.Literal[True], data: t.Mapping = {},
     error_msg: str,
     **kwargs
 ) -> Response:
@@ -99,7 +99,7 @@ def response(
 
 @overload
 def response(
-    *, data: dict = ..., **kwargs
+    *, data: t.Mapping = ..., **kwargs
 ) -> Response:
     ...
 
@@ -113,7 +113,7 @@ def response(
 
 def response(
     *, error: bool | None = None,
-    data: dict = {},
+    data: t.Mapping = {},
     error_msg: str | None = None,
     cache: bool = False,
     private: bool = True,
@@ -147,7 +147,7 @@ def response(
         response.cache_control.private = True if private else None
         response.cache_control.public = not private
         response.cache_control.must_revalidate = True
-        response.set_etag(generate_etag(data | dict(response.headers)))
+        response.set_etag(generate_etag(dict(data) | dict(response.headers)))
     else:
         response.cache_control.no_cache = True
         response.cache_control.no_store = True
