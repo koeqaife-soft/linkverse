@@ -1,3 +1,4 @@
+import time
 import asyncpg
 from quart import Blueprint, Quart, Response
 from core import response, Global, route, FunctionError
@@ -136,7 +137,7 @@ async def delete_post(id: str) -> tuple[Response, int]:
         post = await cache_posts.get_post(id, conn)
 
         if post.data.user_id != g.user_id:
-            return response(error=True, error_msg="FORBIDDEN"), 403
+            raise FunctionError("FORBIDDEN", 403, None)
 
         await posts.delete_post(id, conn)
 
@@ -153,13 +154,18 @@ async def update_post(id: str) -> tuple[Response, int]:
     media: list[str] | None = data.get("media")
 
     if content is None and tags is None and media is None:
-        return response(error=True, error_msg="INCORRECT_DATA"), 400
+        raise FunctionError("INCORRECT_DATA", 400, None)
+
+    now = time.time()
 
     async with AutoConnection(pool) as conn:
         post = await posts.get_post(id, conn)
 
-        if post.data.user_id != g.user_id:
-            return response(error=True, error_msg="FORBIDDEN"), 403
+        if (
+            post.data.user_id != g.user_id or
+            now - post.data.created_at_unix > 86400
+        ):
+            raise FunctionError("FORBIDDEN", 403, None)
 
         await posts.update_post(id, content, tags, media, conn)
 
