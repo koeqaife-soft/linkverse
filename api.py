@@ -2,7 +2,7 @@ import asyncpg
 import quart
 from core import app, response, route, setup_logger, Global, FunctionError
 from core import worker_count, get_proc_identity, load_extensions, compress
-from core import compress_config
+from core import compress_config, flatten_dict
 import traceback
 import uuid
 from quart import request, g
@@ -30,6 +30,7 @@ pool: asyncpg.Pool = _g.pool
 logger = setup_logger()
 with open("config/endpoints.json5", 'r') as f:
     endpoints_data: dict = json5.load(f)
+    endpoints_data = flatten_dict(endpoints_data)
 
 
 async def log_error_to_file(message: str, file: str):
@@ -99,7 +100,7 @@ async def before():
     if request.endpoint is None:
         return
 
-    _data = core.get_value_from_dict(endpoints_data, request.endpoint)
+    _data = endpoints_data.get(request.endpoint, {})
     if _data.get("skip_checks", False):
         return
 

@@ -368,14 +368,6 @@ def route(_app: Quart | Blueprint, url_rule: str, **kwargs):
     return _app.route(url_rule, **kwargs)
 
 
-def get_value_from_dict(d: dict, key: str) -> dict:
-    for k in key.split('.'):
-        if not isinstance(d, dict):
-            return {}
-        d = d.get(k, {})
-    return d
-
-
 def get_options(options: str | dict) -> dict:
     if isinstance(options, dict):
         return options
@@ -546,3 +538,34 @@ class Validator:
 
 def are_all_keys_present(source: dict, target: dict) -> bool:
     return all(key in target for key in source)
+
+
+def flatten_dict(
+    d: dict,
+    parent_key: str = '',
+    level: int = 0,
+    max_levels: int = 2
+) -> dict:
+    if level >= max_levels:
+        return {parent_key: d} if parent_key else d
+
+    if parent_key and all(isinstance(v, dict) for v in d.values()):
+        new_dict = {}
+        for k, v in d.items():
+            new_key = f"{parent_key}.{k}"
+            new_dict.update(flatten_dict(v, new_key, level + 1, max_levels))
+        return new_dict
+    else:
+        result = {}
+        for k, v in d.items():
+            if isinstance(v, dict):
+                if all(isinstance(val, dict) for val in v.values()):
+                    new_key = f"{parent_key}.{k}" if parent_key else k
+                    result.update(
+                        flatten_dict(v, new_key, level + 1, max_levels)
+                    )
+                else:
+                    result[k] = v
+            else:
+                result[k] = v
+        return {parent_key: result} if parent_key else result
