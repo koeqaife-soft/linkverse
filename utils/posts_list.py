@@ -17,14 +17,13 @@ async def get_popular_posts(
         _popularity_score, post_id = cursor.split(",")
         popularity_score = int(_popularity_score)
 
-    parameters: list = [limit]
+    parameters: list = [limit, user_id]
 
     query = """
-        SELECT CAST(post_id AS TEXT) AS post_id,
-            CAST(user_id AS TEXT) AS user_id,
-            popularity_score
+        SELECT post_id, user_id,
+               popularity_score
         FROM posts
-        WHERE is_deleted = FALSE
+        WHERE is_deleted = FALSE AND user_id != $2
     """
 
     if hide_viewed:
@@ -36,7 +35,6 @@ async def get_popular_posts(
                 AND user_post_views.post_id = posts.post_id
             )
         """
-        parameters.append(user_id)
     elif cursor:
         query += """
             AND (
@@ -77,13 +75,12 @@ async def get_new_posts(
     db = await conn.create_conn()
     hide_viewed = True if hide_viewed is None else hide_viewed
 
-    parameters: list = [limit]
+    parameters: list = [limit, user_id]
 
     query = """
-        SELECT CAST(post_id AS TEXT) AS post_id,
-            CAST(user_id AS TEXT) AS user_id
+        SELECT post_id, user_id
         FROM posts
-        WHERE is_deleted = FALSE
+        WHERE is_deleted = FALSE AND user_id != $2
     """
 
     if hide_viewed:
@@ -95,7 +92,6 @@ async def get_new_posts(
                 AND user_post_views.post_id = posts.post_id
             )
         """
-        parameters.append(user_id)
     elif cursor:
         query += " AND post_id < $2"
         parameters.append(cursor)
