@@ -118,6 +118,61 @@ async def get_new_posts(
     })
 
 
+async def get_posts_by_following(
+    user_id: str,
+    conn: AutoConnection,
+    limit: int = 50,
+    cursor: str | None = None,
+    hide_viewed: bool | None = None
+) -> Status[PostsList]:
+    db = await conn.create_conn()
+    hide_viewed = True if hide_viewed is None else hide_viewed
+
+    parameters: list = [limit, user_id]
+
+    query = """
+        SELECT CAST(post_id AS TEXT) AS post_id,
+            CAST(user_id AS TEXT) AS user_id
+        FROM posts
+        WHERE is_deleted = FALSE AND EXISTS (
+            SELECT 1
+            FROM followed
+            WHERE followed.user_id = $2
+            AND followed.followed_to = posts.user_id
+        )
+    """
+
+    if hide_viewed:
+        query += """
+            AND NOT EXISTS (
+                SELECT 1
+                FROM user_post_views
+                WHERE user_post_views.user_id = $2
+                AND user_post_views.post_id = posts.post_id
+            )
+        """
+    elif cursor:
+        query += " AND post_id < $3"
+        parameters.append(cursor)
+
+    query += """
+        ORDER BY post_id DESC
+        LIMIT $1
+    """
+
+    rows = await db.fetch(query, *parameters)
+
+    if not rows:
+        raise FunctionError("NO_MORE_POSTS", 400, None)
+
+    posts = [row["post_id"] for row in rows]
+    next_cursor = rows[-1]["post_id"] if rows else None
+    return Status(True, data={
+        "posts": posts,
+        "next_cursor": next_cursor
+    })
+
+
 async def mark_post_as_viewed(
     user_id: str, post_id: str,
     conn: AutoConnection

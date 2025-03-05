@@ -15,6 +15,21 @@ _g = Global()
 pool: asyncpg.Pool = _g.pool
 
 
+@route(bp, "/posts/following", methods=["GET"])
+async def posts_by_following() -> tuple[Response, int]:
+    params: dict = g.params
+    hide_viewed = params.get("hide_viewed", True)
+    cursor = params.get("cursor")
+    limit = params.get("limit", 50)
+
+    async with AutoConnection(pool) as conn:
+        result = await posts_list.get_posts_by_following(
+            g.user_id, conn, limit, cursor, hide_viewed
+        )
+
+    return response(data=result.data), 200
+
+
 @route(bp, "/posts/popular", methods=["GET"])
 async def popular_posts() -> tuple[Response, int]:
     params: dict = g.params
