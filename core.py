@@ -28,7 +28,11 @@ init(autoreset=True)
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 T = t.TypeVar("T")
-ALLOWED_TAGS = ["i", "strong", "b", "em", "u", "br", "mark", "blockquote"]
+ALLOWED_TAGS = [
+    "p", "br", "b", "i", "strong", "em", "u", "ul", "ol", "li",
+    "blockquote", "code", "pre", "a", "img", "div", "span",
+    "table", "tr", "td", "th", "thead", "tbody"
+]
 
 
 load_dotenv()
