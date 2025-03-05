@@ -204,12 +204,15 @@ async def add_reaction(
                 """, user_id, post_id, comment_id, is_like
             )
         else:
+            _condition, _params = condition(comment_id, 4)
+
             await db.execute(
-                """
+                f"""
                 UPDATE reactions
                 SET is_like = $1
-                WHERE user_id = $2 AND post_id = $3 AND comment_id = $4
-                """, is_like, user_id, post_id, comment_id
+                WHERE user_id = $2 AND post_id = $3
+                AND comment_id {_condition}
+                """, is_like, user_id, post_id, *_params
             )
     return Status(True)
 
@@ -227,8 +230,9 @@ async def get_reaction(
     result = await db.fetchval(
         f"""
         SELECT is_like FROM reactions
-        WHERE user_id = $1 AND post_id = $2 AND comment_id {_condition}
-        """, user_id, post_id, _params
+        WHERE user_id = $1 AND post_id = $2
+        AND comment_id {_condition}
+        """, user_id, post_id, *_params
     )
     if result is not None:
         return Status(True, data=result)
