@@ -16,7 +16,7 @@ import importlib
 import glob
 from quart_cors import cors
 import bleach
-import hashlib
+import xxhash
 
 from io import BytesIO
 from gzip import GzipFile
@@ -173,11 +173,9 @@ def remove_none_values(d):
 def generate_etag(data: dict | str) -> str:
     if isinstance(data, dict):
         sorted_data = OrderedDict(sorted(data.items()))
-        return hashlib.md5(
-            orjson.dumps(sorted_data)
-        ).hexdigest()
+        return xxhash.xxh64(orjson.dumps(sorted_data)).hexdigest()
     else:
-        return hashlib.md5(data.encode()).hexdigest()
+        return xxhash.xxh64(data.encode()).hexdigest()
 
 
 class Status(t.Generic[T]):
