@@ -222,6 +222,18 @@ async def create_comment(id: str) -> tuple[Response, int]:
     return response(data=result.data.dict), 201
 
 
+@route(bp, "/posts/<id>/comments/<cid>", methods=["DELETE"])
+async def delete_comment(id: str, cid: str) -> tuple[Response, int]:
+    async with AutoConnection(pool) as conn:
+        comment = await posts.get_comment(id, cid, conn)
+        if comment.data.user_id != g.user_id:
+            raise FunctionError("FORBIDDEN", 403, None)
+
+        await posts.delete_comment(id, cid, conn)
+
+    return response(), 204
+
+
 @route(bp, "/posts/<id>/comments", methods=["GET"])
 async def get_comments(id: str) -> tuple[Response, int]:
     params: dict = g.params
