@@ -1,7 +1,7 @@
 from dataclasses import dataclass, asdict
 import datetime
 from core import Status, FunctionError
-from utils.generation import generate_id
+from utils.generation import generate_id, parse_id
 import typing as t
 from utils.database import AutoConnection, condition
 from schemas import ListsDefault
@@ -56,8 +56,14 @@ class Comment:
     dislikes_count: int
 
     @property
+    def created_at(self) -> float:
+        return parse_id(self.comment_id)[0]
+
+    @property
     def dict(self) -> dict:
-        return asdict(self)
+        dict = asdict(self)
+        dict['created_at'] = int(self.created_at)
+        return dict
 
     def __dict__(self):
         return self.dict
@@ -302,6 +308,21 @@ async def get_comment(
         raise FunctionError("COMMENT_DOES_NOT_EXIST", 404, None)
 
     return Status(True, data=Comment.from_dict(row))
+
+
+async def delete_comment(
+    post_id: str, comment_id: str,
+    conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+    async with db.transaction():
+        await db.execute(
+            """
+            DELETE FROM comments
+            WHERE post_id = $1 AND comment_id = $2
+            """, post_id, comment_id
+        )
+    return Status(True)
 
 
 async def get_comments(
