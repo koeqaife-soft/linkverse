@@ -258,5 +258,33 @@ async def unfollow_user(target_id: str) -> tuple[Response, int]:
     return response(is_empty=True), 204
 
 
+@route(bp, "/users/<user_id>/posts", methods=["GET"])
+async def get_user_posts(user_id: str) -> tuple[Response, int]:
+    params = g.params
+    cursor = params.get("cursor", None)
+    sort = params.get("sort", None)
+
+    async with AutoConnection(pool) as conn:
+        await cache_users.get_user(user_id, conn, True)
+        user_posts = (
+            await posts.get_user_posts(user_id, cursor, conn, sort)
+        ).data
+        _posts = []
+        for post in user_posts["posts"]:
+            _temp = post.dict
+            fav, reaction = (await posts.get_fav_and_reaction(
+                g.user_id, conn, post.post_id, None
+            )).data
+            if reaction is not None:
+                _temp["is_like"] = reaction
+            if fav:
+                _temp["is_fav"] = fav
+            _posts.append(_temp)
+
+        result = t.cast(dict, user_posts)
+        result["posts"] = _posts
+    return response(data=result, cache=True), 200
+
+
 def load(app: Quart):
     app.register_blueprint(bp)
