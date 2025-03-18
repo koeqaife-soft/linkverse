@@ -426,7 +426,13 @@ class Validator:
         checks = {
             "min_len": lambda s, v: len(s) >= int(v),
             "max_len": lambda s, v: len(s) <= int(v),
-            "len": lambda s, v: len(s) == int(v)
+            "len": lambda s, v: len(s) == int(v),
+            "value_max_len": lambda s, v: all(
+                len(str(item)) <= int(v) for item in s
+            ),
+            "value_min_len": lambda s, v: all(
+                len(str(item)) >= int(v) for item in s
+            ),
         }
 
         for option, check in checks.items():

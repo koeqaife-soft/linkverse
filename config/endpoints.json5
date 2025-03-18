@@ -41,7 +41,10 @@
                 content: { min_len: 1, max_len: 16384, filter: "xss" }
             },
             optional_data: {
-                tags: { type: "list", max_len: 8 },
+                tags: {
+                    type: "list", max_len: 8,
+                    value_max_len: 22, value_min_len: 1
+                },
                 media: { type: "list" }
             }
         },
@@ -115,8 +118,12 @@
                 display_name: { min_len: 1, max_len: 16 },
                 avatar_url: { min_len: 1, max_len: 8192 },
                 banner_url: { min_len: 1, max_len: 8192 },
-                bio: { min_len: 1, max_len: 4096 },
-                languages: { type: "list", min_len: 1, max_len: 32 }
+                bio: { min_len: 1, max_len: 512 },
+                languages: {
+                    type: "list",
+                    min_len: 1, max_len: 8,
+                    value_max_len: 16, value_min_len: 1
+                }
             }
         },
         add_favorite: {
