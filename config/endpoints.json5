@@ -115,13 +115,13 @@
         update_profile_me: {
             load_data: true,
             optional_data: {
-                display_name: { min_len: 1, max_len: 16 },
-                avatar_url: { min_len: 1, max_len: 8192 },
-                banner_url: { min_len: 1, max_len: 8192 },
-                bio: { min_len: 1, max_len: 512 },
+                display_name: { min_len: 0, max_len: 16 },
+                avatar_url: { min_len: 0, max_len: 8192 },
+                banner_url: { min_len: 0, max_len: 8192 },
+                bio: { min_len: 0, max_len: 512 },
                 languages: {
                     type: "list",
-                    min_len: 1, max_len: 8,
+                    min_len: 0, max_len: 8,
                     value_max_len: 16, value_min_len: 1
                 }
             }
