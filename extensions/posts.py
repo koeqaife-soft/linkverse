@@ -8,10 +8,13 @@ from utils.cache import users as cache_users
 from utils.cache import posts as cache_posts
 from utils.database import AutoConnection
 import utils.posts_list as posts_list
+from utils.realtime import RealtimeManager
+from utils.notifs import NotificationType
 
 bp = Blueprint('posts', __name__)
-_g = Global()
-pool: asyncpg.Pool = _g.pool
+gb = Global()
+pool: asyncpg.Pool = gb.pool
+rt_manager: RealtimeManager = gb.rt_manager
 
 
 @route(bp, "/posts/following", methods=["GET"])
@@ -215,8 +218,14 @@ async def create_comment(id: str) -> tuple[Response, int]:
     content = data.get("content")
 
     async with AutoConnection(pool) as conn:
-        await cache_posts.get_post(id, conn)
+        post = await cache_posts.get_post(id, conn)
         result = await posts.create_comment(g.user_id, id, content, conn)
+        await rt_manager.publish_notification(
+            g.user_id, post.data.user_id, NotificationType.NEW_COMMENT,
+            conn, content, "comment",
+            result.data.comment_id,
+            result.data.post_id
+        )
 
     return response(data=result.data.dict), 201
 
