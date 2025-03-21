@@ -41,7 +41,7 @@ async def receiving():
 
 async def ws_auth(token: str | None, wait_on_fail: bool = False):
     if token is None:
-        websocket.close(1008, "INVALID_TOKEN")
+        await websocket.close(1008, "INVALID_TOKEN")
         return
     try:
         async with AutoConnection(pool) as conn:
@@ -50,7 +50,7 @@ async def ws_auth(token: str | None, wait_on_fail: bool = False):
             g.token_result = result.data
     except FunctionError as e:
         if not wait_on_fail:
-            websocket.close(1008, e.message)
+            await websocket.close(1008, e.message)
         else:
             await wait_auth()
         return
@@ -79,7 +79,7 @@ async def wait_auth():
         })
         await websocket.send(event_message)
     except asyncio.TimeoutError:
-        websocket.close(1008, "AUTH_REQUIRED")
+        await websocket.close(1008, "AUTH_REQUIRED")
 
 
 async def expire_timeout():
@@ -87,12 +87,15 @@ async def expire_timeout():
     wait_time = max(0, expiration - time.time() - 120)
 
     if wait_time > 0:
-        await asyncio.sleep(wait_time)
-        event_message = ujson.dumps({
-            "event": "refresh_recommended"
-        })
-        await websocket.send(event_message)
-        await asyncio.sleep(120)
+        try:
+            await asyncio.sleep(wait_time)
+            event_message = ujson.dumps({
+                "event": "refresh_recommended"
+            })
+            await websocket.send(event_message)
+            await asyncio.sleep(120)
+        except asyncio.CancelledError:
+            return
 
     await ws_auth(g.token)
 
@@ -112,7 +115,7 @@ async def session_actions(queue: asyncio.Queue[SessionMessage]):
                     await ws_auth(g.token, True)
             elif data["action"] == SessionActions.SESSION_LOGOUT:
                 if checks["session"]():
-                    websocket.close(1008, "SESSION_CLOSED")
+                    await websocket.close(1008, "SESSION_CLOSED")
         finally:
             queue.task_done()
 
