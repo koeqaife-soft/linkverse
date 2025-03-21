@@ -1,67 +1,69 @@
-DO
-$$BEGIN
-    CREATE TRIGGER update_posts_modified
-    BEFORE UPDATE ON posts
-    FOR EACH ROW
-    WHEN (
-        (OLD.user_id IS DISTINCT FROM NEW.user_id OR
-         OLD.content IS DISTINCT FROM NEW.content OR
-         OLD.created_at IS DISTINCT FROM NEW.created_at OR
-         OLD.updated_at IS DISTINCT FROM NEW.updated_at OR
-         OLD.likes_count IS DISTINCT FROM NEW.likes_count OR
-         OLD.dislikes_count IS DISTINCT FROM NEW.dislikes_count OR
-         OLD.comments_count IS DISTINCT FROM NEW.comments_count OR
-         OLD.tags IS DISTINCT FROM NEW.tags OR
-         OLD.media IS DISTINCT FROM NEW.media OR
-         OLD.status IS DISTINCT FROM NEW.status OR
-         OLD.is_deleted IS DISTINCT FROM NEW.is_deleted)
-        AND (OLD.likes_count IS NOT DISTINCT FROM NEW.likes_count)
-        AND (OLD.dislikes_count IS NOT DISTINCT FROM NEW.dislikes_count)
-        AND (OLD.comments_count IS NOT DISTINCT FROM NEW.comments_count)
-    )
-    EXECUTE FUNCTION update_modified_column();
-EXCEPTION
-    WHEN duplicate_object THEN
-        NULL;
-END;$$;
+CREATE OR REPLACE TRIGGER update_posts_modified
+BEFORE UPDATE ON posts
+FOR EACH ROW
+WHEN (
+    (OLD.user_id IS DISTINCT FROM NEW.user_id OR
+        OLD.content IS DISTINCT FROM NEW.content OR
+        OLD.created_at IS DISTINCT FROM NEW.created_at OR
+        OLD.updated_at IS DISTINCT FROM NEW.updated_at OR
+        OLD.likes_count IS DISTINCT FROM NEW.likes_count OR
+        OLD.dislikes_count IS DISTINCT FROM NEW.dislikes_count OR
+        OLD.comments_count IS DISTINCT FROM NEW.comments_count OR
+        OLD.tags IS DISTINCT FROM NEW.tags OR
+        OLD.media IS DISTINCT FROM NEW.media OR
+        OLD.status IS DISTINCT FROM NEW.status OR
+        OLD.is_deleted IS DISTINCT FROM NEW.is_deleted)
+    AND (OLD.likes_count IS NOT DISTINCT FROM NEW.likes_count)
+    AND (OLD.dislikes_count IS NOT DISTINCT FROM NEW.dislikes_count)
+    AND (OLD.comments_count IS NOT DISTINCT FROM NEW.comments_count)
+)
+EXECUTE FUNCTION update_modified_column();
 
--- likes
-DO
-$$BEGIN
-    CREATE TRIGGER trigger_likes_insert
+-- (0) likes
+-- (0) on insert
+    CREATE OR REPLACE TRIGGER trigger_likes_insert
     AFTER INSERT ON reactions
     FOR EACH ROW
     EXECUTE FUNCTION update_likes_count_on_insert();
 
-    CREATE TRIGGER trigger_likes_delete
+-- (0) on delete
+    CREATE OR REPLACE TRIGGER trigger_likes_delete
     AFTER DELETE ON reactions
     FOR EACH ROW
     EXECUTE FUNCTION update_likes_count_on_delete();
 
-    CREATE TRIGGER trigger_likes_update
+-- (0) on update
+    CREATE OR REPLACE TRIGGER trigger_likes_update
     AFTER UPDATE ON reactions
     FOR EACH ROW
     WHEN (OLD.is_like IS DISTINCT FROM NEW.is_like)
     EXECUTE FUNCTION update_likes_count_on_update();
 
-EXCEPTION
-    WHEN duplicate_object THEN
-        NULL;
-END;$$;
-
--- comments
-DO
-$$BEGIN
-    CREATE TRIGGER trigger_comments_insert
+-- (1) comments
+-- (1) on insert
+    CREATE OR REPLACE TRIGGER trigger_comments_insert
     AFTER INSERT ON comments
     FOR EACH ROW
     EXECUTE FUNCTION increment_comments_count();
 
-    CREATE TRIGGER trigger_comments_delete
+-- (1) on delete
+    CREATE OR REPLACE TRIGGER trigger_comments_delete
     AFTER DELETE ON comments
     FOR EACH ROW
     EXECUTE FUNCTION decrement_comments_count();
-EXCEPTION
-    WHEN duplicate_object THEN
-        NULL;
-END;$$;
+
+-- (2) notification linked_type check
+    CREATE OR REPLACE TRIGGER trigger_check_linked_id
+    BEFORE INSERT OR UPDATE ON user_notifications
+    FOR EACH ROW EXECUTE FUNCTION check_linked_id();
+
+-- (3) auto delete notification
+-- (3) post
+    CREATE OR REPLACE TRIGGER trigger_delete_notifications_on_comment_delete
+    AFTER DELETE ON comments
+    FOR EACH ROW EXECUTE FUNCTION delete_notifications_on_comment_delete();
+
+-- (3) comment
+    CREATE OR REPLACE TRIGGER trigger_delete_notifications_on_post_delete
+    AFTER DELETE ON posts
+    FOR EACH ROW EXECUTE FUNCTION delete_notifications_on_post_delete();

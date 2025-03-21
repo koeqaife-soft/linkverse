@@ -5,6 +5,19 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS user_notifications (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    message TEXT,
+    from_id TEXT NOT NULL,
+    linked_type TEXT,
+    linked_id TEXT,
+    second_linked_id TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (from_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS auth_keys (
     session_id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,

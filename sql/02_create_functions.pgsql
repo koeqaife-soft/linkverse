@@ -14,80 +14,124 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- likes
-CREATE OR REPLACE FUNCTION update_likes_count_on_insert() RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.comment_id IS NULL THEN
-        UPDATE posts
-        SET likes_count = likes_count + CASE WHEN NEW.is_like THEN 1 ELSE 0 END,
-            dislikes_count = dislikes_count + CASE WHEN NOT NEW.is_like THEN 1 ELSE 0 END
-        WHERE post_id = NEW.post_id;
-    ELSE
-        UPDATE comments
-        SET likes_count = likes_count + CASE WHEN NEW.is_like THEN 1 ELSE 0 END,
-            dislikes_count = dislikes_count + CASE WHEN NOT NEW.is_like THEN 1 ELSE 0 END
-        WHERE comment_id = NEW.comment_id;
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION update_likes_count_on_delete() RETURNS TRIGGER AS $$
-BEGIN
-    IF OLD.comment_id IS NULL THEN
-        UPDATE posts
-        SET likes_count = likes_count - CASE WHEN OLD.is_like THEN 1 ELSE 0 END,
-            dislikes_count = dislikes_count - CASE WHEN NOT OLD.is_like THEN 1 ELSE 0 END
-        WHERE post_id = OLD.post_id;
-    ELSE
-        UPDATE comments
-        SET likes_count = likes_count - CASE WHEN OLD.is_like THEN 1 ELSE 0 END,
-            dislikes_count = dislikes_count - CASE WHEN NOT OLD.is_like THEN 1 ELSE 0 END
-        WHERE comment_id = OLD.comment_id;
-    END IF;
-
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION update_likes_count_on_update() RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.comment_id IS NULL THEN
-        IF NEW.is_like <> OLD.is_like THEN
+-- (0) likes
+-- (0) on insert
+    CREATE OR REPLACE FUNCTION update_likes_count_on_insert() RETURNS TRIGGER AS $$
+    BEGIN
+        IF NEW.comment_id IS NULL THEN
             UPDATE posts
-            SET likes_count = likes_count + CASE WHEN NEW.is_like THEN 1 ELSE -1 END,
-                dislikes_count = dislikes_count + CASE WHEN NOT NEW.is_like THEN 1 ELSE -1 END
+            SET likes_count = likes_count + CASE WHEN NEW.is_like THEN 1 ELSE 0 END,
+                dislikes_count = dislikes_count + CASE WHEN NOT NEW.is_like THEN 1 ELSE 0 END
             WHERE post_id = NEW.post_id;
-        END IF;
-    ELSE
-        IF NEW.is_like <> OLD.is_like THEN
+        ELSE
             UPDATE comments
-            SET likes_count = likes_count + CASE WHEN NEW.is_like THEN 1 ELSE -1 END,
-                dislikes_count = dislikes_count + CASE WHEN NOT NEW.is_like THEN 1 ELSE -1 END
+            SET likes_count = likes_count + CASE WHEN NEW.is_like THEN 1 ELSE 0 END,
+                dislikes_count = dislikes_count + CASE WHEN NOT NEW.is_like THEN 1 ELSE 0 END
             WHERE comment_id = NEW.comment_id;
         END IF;
-    END IF;
 
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
 
--- comments
-CREATE OR REPLACE FUNCTION increment_comments_count() RETURNS TRIGGER AS $$
-BEGIN
-    UPDATE posts
-    SET comments_count = comments_count + 1
-    WHERE post_id = NEW.post_id;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- (0) on delete
+    CREATE OR REPLACE FUNCTION update_likes_count_on_delete() RETURNS TRIGGER AS $$
+    BEGIN
+        IF OLD.comment_id IS NULL THEN
+            UPDATE posts
+            SET likes_count = likes_count - CASE WHEN OLD.is_like THEN 1 ELSE 0 END,
+                dislikes_count = dislikes_count - CASE WHEN NOT OLD.is_like THEN 1 ELSE 0 END
+            WHERE post_id = OLD.post_id;
+        ELSE
+            UPDATE comments
+            SET likes_count = likes_count - CASE WHEN OLD.is_like THEN 1 ELSE 0 END,
+                dislikes_count = dislikes_count - CASE WHEN NOT OLD.is_like THEN 1 ELSE 0 END
+            WHERE comment_id = OLD.comment_id;
+        END IF;
 
-CREATE OR REPLACE FUNCTION decrement_comments_count() RETURNS TRIGGER AS $$
-BEGIN
-    UPDATE posts
-    SET comments_count = comments_count - 1
-    WHERE post_id = OLD.post_id;
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;
+        RETURN OLD;
+    END;
+    $$ LANGUAGE plpgsql;
+
+-- (0) on update
+    CREATE OR REPLACE FUNCTION update_likes_count_on_update() RETURNS TRIGGER AS $$
+    BEGIN
+        IF NEW.comment_id IS NULL THEN
+            IF NEW.is_like <> OLD.is_like THEN
+                UPDATE posts
+                SET likes_count = likes_count + CASE WHEN NEW.is_like THEN 1 ELSE -1 END,
+                    dislikes_count = dislikes_count + CASE WHEN NOT NEW.is_like THEN 1 ELSE -1 END
+                WHERE post_id = NEW.post_id;
+            END IF;
+        ELSE
+            IF NEW.is_like <> OLD.is_like THEN
+                UPDATE comments
+                SET likes_count = likes_count + CASE WHEN NEW.is_like THEN 1 ELSE -1 END,
+                    dislikes_count = dislikes_count + CASE WHEN NOT NEW.is_like THEN 1 ELSE -1 END
+                WHERE comment_id = NEW.comment_id;
+            END IF;
+        END IF;
+
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+-- (1) comments
+-- (1) increment
+    CREATE OR REPLACE FUNCTION increment_comments_count() RETURNS TRIGGER AS $$
+    BEGIN
+        UPDATE posts
+        SET comments_count = comments_count + 1
+        WHERE post_id = NEW.post_id;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+-- (1) decrement
+    CREATE OR REPLACE FUNCTION decrement_comments_count() RETURNS TRIGGER AS $$
+    BEGIN
+        UPDATE posts
+        SET comments_count = comments_count - 1
+        WHERE post_id = OLD.post_id;
+        RETURN OLD;
+    END;
+    $$ LANGUAGE plpgsql;
+
+
+-- (2) notification linked_type check
+    CREATE OR REPLACE FUNCTION check_linked_id() RETURNS TRIGGER AS $$
+    BEGIN
+        IF NEW.linked_type = 'comment' THEN
+            IF NOT EXISTS (SELECT 1 FROM posts WHERE post_id = NEW.second_linked_id) THEN
+                RAISE EXCEPTION 'Post with ID % does not exist', NEW.second_linked_id;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM comments WHERE comment_id = NEW.linked_id) THEN
+                RAISE EXCEPTION 'Comment with ID % does not exist', NEW.linked_id;
+            END IF;
+        ELSIF NEW.linked_type = 'post' THEN
+            IF NOT EXISTS (SELECT 1 FROM posts WHERE post_id = NEW.linked_id) THEN
+                RAISE EXCEPTION 'Post with ID % does not exist', NEW.linked_id;
+            END IF;
+        END IF;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+-- (3) auto delete notification
+-- (3) comment
+    CREATE OR REPLACE FUNCTION delete_notifications_on_comment_delete() RETURNS TRIGGER AS $$
+    BEGIN
+        DELETE FROM user_notifications
+        WHERE linked_type = 'comment' AND linked_id = OLD.comment_id;
+        RETURN OLD;
+    END;
+    $$ LANGUAGE plpgsql;
+
+-- (3) post
+    CREATE OR REPLACE FUNCTION delete_notifications_on_post_delete() RETURNS TRIGGER AS $$
+    BEGIN
+        DELETE FROM user_notifications
+        WHERE linked_type = 'post' AND linked_id = OLD.post_id;
+        RETURN OLD;
+    END;
+    $$ LANGUAGE plpgsql;
