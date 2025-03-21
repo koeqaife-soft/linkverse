@@ -235,7 +235,7 @@ async def create_token(
 
 async def refresh(
     refresh_token: str, conn: AutoConnection
-) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
+) -> Status[dict[t.Literal["tokens"] | t.Literal["decoded"], str]]:
     db = await conn.create_conn()
     decoded = await decode_token(refresh_token, secret_refresh_key)
     if not decoded["success"]:
@@ -279,8 +279,11 @@ async def refresh(
         )
 
     return Status(True, {
-        "access": access,
-        "refresh": refresh
+        "tokens": {
+            "access": access,
+            "refresh": refresh
+        },
+        "decoded": decoded
     })
 
 

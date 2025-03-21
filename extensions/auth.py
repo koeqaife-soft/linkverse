@@ -5,12 +5,14 @@ from quart import g, request
 import utils.auth as auth
 from utils.cache import auth as auth_cache
 from utils.database import AutoConnection
+from utils.realtime import RealtimeManager, SessionActions
 import os
 
 debug = os.getenv('DEBUG') == 'True'
 bp = Blueprint('auth', __name__)
-_g = Global()
-pool: asyncpg.Pool = _g.pool
+gb = Global()
+pool: asyncpg.Pool = gb.pool
+rt_manager: RealtimeManager = gb.rt_manager
 
 
 @route(bp, '/auth/register', methods=['POST'])
@@ -51,7 +53,13 @@ async def refresh() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await auth.refresh(token, conn)
 
-    return response(data=result.data), 200
+    decoded = result.data["decoded"]
+    await rt_manager.session_event(
+        decoded["user_id"], SessionActions.CHECK_TOKEN,
+        decoded["session_id"]
+    )
+
+    return response(data=result.data["tokens"]), 200
 
 
 @route(bp, '/auth/logout', methods=['POST'])
@@ -69,6 +77,10 @@ async def logout() -> tuple[Response, int]:
             data["secret"], data["user_id"], conn
         )
         await auth_cache.clear_token_cache(token)
+        await rt_manager.session_event(
+            result.data["user_id"], SessionActions.SESSION_LOGOUT,
+            result.data["session_id"]
+        )
 
     return response(), 204
 
