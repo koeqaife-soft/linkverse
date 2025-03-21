@@ -2,22 +2,30 @@ import asyncio
 import websockets
 import ujson
 
-TOKEN = input("TOKEN: ")
+
+async def async_input(prompt: str) -> str:
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, input, prompt)
 
 
 async def receive_task(ws: websockets.WebSocketClientProtocol):
     while True:
         response = await ws.recv()
+        message = ujson.loads(response)
         print(f"Received: {response}")
+        if message["event"] == "please_token":
+            token = await async_input("Token: ")
+            auth_data = {
+                "token": token
+            }
+            await ws.send(ujson.dumps(auth_data))
+            print("Sent auth data!")
 
 
 async def test_websocket(uri: str):
     try:
         async with websockets.connect(uri) as ws:
-            auth_data = {
-                "token": TOKEN
-            }
-            await ws.send(ujson.dumps(auth_data))
+
             receiver = asyncio.create_task(receive_task(ws))
             await asyncio.gather(receiver)
     except websockets.InvalidStatusCode as e:
