@@ -278,11 +278,10 @@ class auth:
 
     @staticmethod
     async def clear_token_cache(
-        token: str,
+        decoded: dict,
         _cache_instance: Cache | None = None
     ) -> Status[None]:
         cache = _cache_instance or cache_instance
-        decoded = await decode_token(token, secret_key)
         key = f"auth:{decoded["user_id"]}:{decoded["secret"]}"
         value = await cache.get(key)
         if value is not None:

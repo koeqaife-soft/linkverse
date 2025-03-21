@@ -54,6 +54,7 @@ async def refresh() -> tuple[Response, int]:
         result = await auth.refresh(token, conn)
 
     decoded = result.data["decoded"]
+
     await rt_manager.session_event(
         decoded["user_id"], SessionActions.CHECK_TOKEN,
         decoded["session_id"]
@@ -76,7 +77,7 @@ async def logout() -> tuple[Response, int]:
         await auth.remove_secret(
             data["secret"], data["user_id"], conn
         )
-        await auth_cache.clear_token_cache(token)
+        await auth_cache.clear_token_cache(data)
         await rt_manager.session_event(
             result.data["user_id"], SessionActions.SESSION_LOGOUT,
             result.data["session_id"]
