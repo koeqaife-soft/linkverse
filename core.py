@@ -50,11 +50,15 @@ compress_config = {
     "min_size": 500
 }
 
-allow_origin = ["http://localhost:9000", "http://localhost:9300",
-                "http://192.168.1.35:9000", "http://koeqaife.ddns.net:9000"]
+allow_headers = [
+    "Upgrade", "Connection",
+    "Sec-WebSocket-Key", "Sec-WebSocket-Version",
+    "Origin", "Sec-WebSocket-Protocol",
+    "Content-Type", "Authorization"
+]
 app = cors(
-    app, allow_origin=allow_origin,
-    allow_headers=["Content-Type", "Authorization"],
+    app, allow_origin="*",
+    allow_headers=allow_headers,
     max_age=86400
 )
 secret_key = os.environ["SECRET_KEY"]
