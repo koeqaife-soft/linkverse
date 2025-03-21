@@ -4,7 +4,7 @@ from core import Global, FunctionError
 import asyncpg
 import asyncio
 from quart_cors import cors_exempt
-from utils.cache import auth as cache_auth
+import utils.auth as auth
 from utils.database import AutoConnection
 import utils.realtime as realtime
 from utils.realtime import SessionActions, SessionMessage
@@ -33,19 +33,23 @@ async def receiving():
         except ujson.JSONDecodeError:
             continue
 
+        await g.incoming_queue.put(decoded)
         if decoded.get("action") == "update_token":
             if not decoded.get("token"):
                 continue
             await ws_auth(decoded["token"])
 
 
-async def ws_auth(token: str | None, wait_on_fail: bool = False):
+async def ws_auth(
+    token: str | None,
+    wait_on_fail: bool = False
+):
     if token is None:
         await websocket.close(1008, "INVALID_TOKEN")
         return
     try:
         async with AutoConnection(pool) as conn:
-            result = await cache_auth.check_token(token, conn)
+            result = await auth.check_token(token, conn)
             g.token = token
             g.token_result = result.data
     except FunctionError as e:
@@ -61,6 +65,7 @@ async def ws_auth(token: str | None, wait_on_fail: bool = False):
     g.expire_task = asyncio.create_task(expire_timeout())
 
     g.user_id = result.data["user_id"]
+    return True
 
 
 async def wait_auth():
@@ -69,15 +74,19 @@ async def wait_auth():
     })
     await websocket.send(event_message)
     try:
-        data: dict = await asyncio.wait_for(
-            websocket.receive_json(), timeout=60
+        data = await asyncio.wait_for(
+            g.incoming_queue.get(), timeout=60
         )
         token = data.get("token")
-        await ws_auth(token)
-        event_message = ujson.dumps({
-            "event": "success_auth"
-        })
-        await websocket.send(event_message)
+        success = await ws_auth(token)
+        if success:
+            event_message = ujson.dumps({
+                "event": "success_auth"
+            })
+            await websocket.send(event_message)
+            return True
+    except ujson.JSONDecodeError:
+        await websocket.close(1008, "AUTH_DATA_INCORRECT")
     except asyncio.TimeoutError:
         await websocket.close(1008, "AUTH_REQUIRED")
 
@@ -106,7 +115,7 @@ async def session_actions(queue: asyncio.Queue[SessionMessage]):
         try:
             checks = {
                 "session": lambda: (
-                    not data.get("data")
+                    data.get("data") is None
                     or data["data"] == g.token_result["session_id"]
                 )
             }
@@ -124,15 +133,21 @@ async def session_actions(queue: asyncio.Queue[SessionMessage]):
 @cors_exempt
 async def ws():
     await websocket.accept()
-    await wait_auth()
-
+    g.incoming_queue = asyncio.Queue()
     queue = asyncio.Queue()
     session_queue = asyncio.Queue()
+
+    producer = asyncio.create_task(sending(queue))
+    consumer = asyncio.create_task(receiving())
+
+    auth_success = await wait_auth()
+    if not auth_success:
+        return
+
     rt_manager.add_connection(g.user_id, queue, session_queue)
 
     try:
-        producer = asyncio.create_task(sending(queue))
-        consumer = asyncio.create_task(receiving())
+
         actions = asyncio.create_task(session_actions(session_queue))
         await asyncio.gather(producer, consumer, actions)
     finally:
