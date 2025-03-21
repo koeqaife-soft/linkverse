@@ -10,8 +10,8 @@ from utils.database import AutoConnection
 import typing as t
 
 bp = Blueprint('users', __name__)
-_g = Global()
-pool: asyncpg.Pool = _g.pool
+gb = Global()
+pool: asyncpg.Pool = gb.pool
 
 
 @route(bp, "/users/me", methods=["GET"])
