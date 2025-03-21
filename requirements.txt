@@ -23,3 +23,4 @@ setuptools
 ujson
 orjson
 xxhash
+redis
