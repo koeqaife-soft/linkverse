@@ -20,8 +20,7 @@ async def get_popular_posts(
     parameters: list = [limit, user_id]
 
     query = """
-        SELECT post_id, user_id,
-               popularity_score
+        SELECT post_id, popularity_score
         FROM posts
         WHERE is_deleted = FALSE AND user_id != $2
     """
@@ -78,7 +77,7 @@ async def get_new_posts(
     parameters: list = [limit, user_id]
 
     query = """
-        SELECT post_id, user_id
+        SELECT post_id
         FROM posts
         WHERE is_deleted = FALSE AND user_id != $2
     """
@@ -127,8 +126,7 @@ async def get_posts_by_following(
     parameters: list = [limit, user_id]
 
     query = """
-        SELECT CAST(post_id AS TEXT) AS post_id,
-            CAST(user_id AS TEXT) AS user_id
+        SELECT post_id
         FROM posts
         WHERE is_deleted = FALSE AND EXISTS (
             SELECT 1
