@@ -5,7 +5,7 @@ from core import worker_count, get_proc_identity, load_extensions, compress
 from core import compress_config, flatten_dict
 import traceback
 import uuid
-from quart import request, g
+from quart import request, g, websocket
 import os
 from utils.database import create_pool
 from supabase import acreate_client
@@ -20,13 +20,19 @@ import json5
 import utils.cache as cache
 from utils.database import AutoConnection
 from utils.cache import auth as cache_auth
+from utils.realtime import RealtimeManager
+from redis.asyncio import Redis
 
 debug = os.getenv('DEBUG') == 'True'
 supabase_url: str = os.environ.get("SUPABASE_URL")  # type: ignore
 supabase_key: str = os.environ.get("SUPABASE_KEY")  # type: ignore
 supabase: AsyncClient
-_g = Global()
-pool: asyncpg.Pool = _g.pool
+gb = Global()
+
+pool: asyncpg.Pool = gb.pool
+redis: Redis = gb.redis
+rt_manager: RealtimeManager = gb.rt_manager
+
 logger = setup_logger()
 with open("config/endpoints.json5", 'r') as f:
     endpoints_data: dict = json5.load(f)
@@ -55,15 +61,35 @@ async def handle_500(error: werkzeug.exceptions.InternalServerError):
 
     tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
 
-    error_message = (
-        "---\n" +
-        f"Internal Server Error ({current_time})\n" +
-        f"Endpoint: {request.endpoint}, URL Rule: {request.url_rule}\n" +
-        f"IP: {request.remote_addr}\n"
-        f"{tb_str}" +
-        "---\n\n"
-    )
-    file_name = f"error_{request.endpoint}.log"
+    if quart.has_request_context():
+        error_message = (
+            "---\n" +
+            f"Internal Server Error ({current_time})\n" +
+            f"Endpoint: {request.endpoint}, URL Rule: {request.url_rule}\n" +
+            f"IP: {request.remote_addr}\n"
+            f"{tb_str}" +
+            "---\n\n"
+        )
+        file_name = f"error_{request.endpoint}.log"
+    elif quart.has_websocket_context():
+        error_message = (
+            "---\n" +
+            f"Internal Server Error ({current_time})\n" +
+            f"Endpoint: {websocket.endpoint} (WebSocket!)\n" +
+            f"IP: {websocket.remote_addr}\n"
+            f"{tb_str}" +
+            "---\n\n"
+        )
+        file_name = "error_websocket.log"
+    else:
+        error_message = (
+            "---\n" +
+            f"Internal Server Error ({current_time})\n" +
+            f"{tb_str}" +
+            "---\n\n"
+        )
+        file_name = "error_app.log"
+
     asyncio.create_task(log_error_to_file(error_message, file_name))
     return response(error=True, error_msg="INTERNAL_SERVER_ERROR"), 500
 
@@ -270,7 +296,8 @@ async def startup():
     with open("config/postgres.json") as f:
         config = ujson.load(f)
     pool = await create_pool(**config)
-    _g.pool = pool
+    gb.pool = pool
+
     supabase = await acreate_client(
         supabase_url, supabase_key,
         options=ClientOptions(
@@ -282,6 +309,12 @@ async def startup():
     redis_port = os.environ["REDIS_PORT"]
     url = f"redis://{redis_host}:{redis_port}"
     await cache.Cache(url).init()
+    redis = Redis(host=redis_host, port=redis_port)
+    gb.redis = redis
+
+    rt_manager = RealtimeManager(redis)
+    asyncio.create_task(rt_manager.start())
+    gb.rt_manager = rt_manager
 
     logger.info(
         "Worker started!" +
@@ -305,4 +338,6 @@ async def shutdown():
 load_extensions(debug=debug)
 
 if __name__ == '__main__':
-    app.run(port=6169, debug=debug, host="0.0.0.0")
+    app.run(port=6169, debug=debug, host="0.0.0.0",
+            keyfile=os.getenv("KEY_FILE"),
+            certfile=os.getenv("CERT_FILE"))
