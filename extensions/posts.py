@@ -9,7 +9,7 @@ from utils.cache import posts as cache_posts
 from utils.database import AutoConnection
 import utils.posts_list as posts_list
 from utils.realtime import RealtimeManager
-from utils.notifs import NotificationType
+from utils.users import NotificationType
 
 bp = Blueprint('posts', __name__)
 gb = Global()

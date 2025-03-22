@@ -1,11 +1,12 @@
 from dataclasses import dataclass, asdict
 from datetime import datetime
-from utils.generation import parse_id
+from utils.generation import parse_id, snowflake
 from core import Status, FunctionError
 from utils.database import AutoConnection
 import typing as t
 from schemas import FollowedList, FavoriteList, ReactionList
 from schemas import FollowedItem, FavoriteItem, ReactionItem
+from enum import Enum
 
 
 @dataclass
@@ -440,3 +441,51 @@ async def get_reactions(
             "has_more": has_more
         }
     )
+
+
+class NotificationType(str, Enum):
+    NEW_COMMENT = "new_comment"
+    FOLLOWED = "followed"
+
+
+class Notification(t.TypedDict):
+    type: str
+    from_id: str
+    message: str | None
+    linked_type: str | None
+    linked_id: str | None
+    second_linked_id: str | None
+
+
+async def create_notification(
+    user_id: str,
+    from_id: str,
+    type: NotificationType | str,
+    conn: AutoConnection,
+    message: str | None = None,
+    linked_type: str | None = None,
+    linked_id: str | None = None,
+    second_linked_id: str | None = None
+) -> Status[None]:
+    if user_id == from_id:
+        return Status(True)
+
+    db = await conn.create_conn()
+
+    notification_id = str(snowflake.generate())
+
+    async with db.transaction():
+        await db.execute(
+            """
+            INSERT INTO user_notifications (
+                id, user_id, type, message, from_id,
+                linked_type, linked_id, second_linked_id
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8
+            )
+            """,
+            notification_id, user_id, type, message, from_id,
+            linked_type, linked_id, second_linked_id
+        )
+
+    return Status(True)

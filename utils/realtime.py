@@ -3,7 +3,7 @@ from core import Global
 import asyncio
 import asyncpg
 import ujson
-import utils.notifs as notifs
+import utils.users as users
 from utils.database import AutoConnection
 from collections import defaultdict
 import typing as t
@@ -133,7 +133,7 @@ class RealtimeManager:
         self,
         user_id: str,
         to: str,
-        type: notifs.NotificationType | str,
+        type: users.NotificationType | str,
         conn: AutoConnection,
         message: str | None = None,
         linked_type: str | None = None,
@@ -143,7 +143,7 @@ class RealtimeManager:
         if user_id == to:
             return
 
-        notification: notifs.Notification = {  # type: ignore
+        notification: users.Notification = {  # type: ignore
             "from_id": user_id,
             "message": message,
             "type": type
@@ -154,7 +154,7 @@ class RealtimeManager:
             if second_linked_id:
                 notification["second_linked_id"] = second_linked_id
 
-        await notifs.create_notification(
+        await users.create_notification(
             to, user_id, type, conn, message,
             linked_type, linked_id, second_linked_id
         )
