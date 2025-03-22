@@ -147,7 +147,6 @@ async def ws():
     rt_manager.add_connection(g.user_id, queue, session_queue)
 
     try:
-
         actions = asyncio.create_task(session_actions(session_queue))
         await asyncio.gather(producer, consumer, actions)
     finally:
