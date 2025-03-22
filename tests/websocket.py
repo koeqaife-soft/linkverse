@@ -16,7 +16,8 @@ async def receive_task(ws: websockets.WebSocketClientProtocol):
         if message["event"] == "please_token":
             token = await async_input("Token: ")
             auth_data = {
-                "token": token
+                "token": token,
+                "type": "auth"
             }
             await ws.send(ujson.dumps(auth_data))
             print("Sent auth data!")
