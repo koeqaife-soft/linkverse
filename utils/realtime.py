@@ -77,8 +77,8 @@ class RealtimeManager:
                 del self.session_queues[user_id]
 
     async def _publish_to_redis(
-        self, user_id: str, message: bytes,
-        is_session_event: bool
+        self, user_id: str, message: str | bytes,
+        is_session_event: bool = False
     ):
         channel = "events" if not is_session_event else "session_events"
         await self.redis_client.publish(f"{channel}:{user_id}", message)
@@ -143,7 +143,7 @@ class RealtimeManager:
         if user_id == to:
             return
 
-        notification: notifs.Notification = {
+        notification: notifs.Notification = {  # type: ignore
             "from_id": user_id,
             "message": message,
             "type": type
@@ -159,4 +159,6 @@ class RealtimeManager:
             linked_type, linked_id, second_linked_id
         )
 
-        await self.publish_event(to, "notification", notification)
+        await self.publish_event(
+            to, "notification", t.cast(dict, notification)
+        )

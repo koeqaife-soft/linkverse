@@ -30,7 +30,7 @@ async def create_notification(
     second_linked_id: str | None = None
 ) -> Status[None]:
     if user_id == from_id:
-        return
+        return Status(True)
 
     db = await conn.create_conn()
 
@@ -49,3 +49,5 @@ async def create_notification(
             notification_id, user_id, type, message, from_id,
             linked_type, linked_id, second_linked_id
         )
+
+    return Status(True)
