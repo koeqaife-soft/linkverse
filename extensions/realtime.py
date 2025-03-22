@@ -1,5 +1,6 @@
 import time
-from quart import Blueprint, websocket, g, Quart
+from quart import Blueprint, websocket, Quart
+from quart import g as untyped_g
 from core import Global, FunctionError
 import asyncpg
 import asyncio
@@ -9,6 +10,7 @@ from utils.database import AutoConnection
 import utils.realtime as realtime
 from utils.realtime import SessionActions, SessionMessage
 import ujson
+import typing as t
 
 bp = Blueprint('realtime', __name__)
 gb = Global()
@@ -16,7 +18,26 @@ pool: asyncpg.Pool = gb.pool
 rt_manager: realtime.RealtimeManager = gb.rt_manager
 
 
-async def sending(queue: asyncio.Queue):
+class Queues(t.TypedDict):
+    incoming: asyncio.Queue[dict]
+    auth: asyncio.Queue[dict]
+    sending: asyncio.Queue[t.Any]
+    session: asyncio.Queue[SessionMessage]
+
+
+class GlobalContext:
+    queues: Queues
+    token: str
+    token_result: dict
+    expire_task: asyncio.Task
+    user_id: str
+
+
+g: GlobalContext = untyped_g
+
+
+async def sending():
+    queue = g.queues["sending"]
     while True:
         data = await queue.get()
         try:
@@ -33,7 +54,11 @@ async def receiving():
         except ujson.JSONDecodeError:
             continue
 
-        await g.incoming_queue.put(decoded)
+        if decoded.get("type") == "auth":
+            await g.queues["auth"].put(decoded)
+            continue
+
+        await g.queues["incoming"].put(decoded)
         if decoded.get("action") == "update_token":
             if not decoded.get("token"):
                 continue
@@ -69,13 +94,14 @@ async def ws_auth(
 
 
 async def wait_auth():
+    queue = g.queues["auth"]
     event_message = ujson.dumps({
         "event": "please_token"
     })
     await websocket.send(event_message)
     try:
         data = await asyncio.wait_for(
-            g.incoming_queue.get(), timeout=60
+            queue.get(), timeout=60
         )
         token = data.get("token")
         success = await ws_auth(token)
@@ -85,6 +111,8 @@ async def wait_auth():
             })
             await websocket.send(event_message)
             return True
+        else:
+            await websocket.close(1008, "AUTH_DATA_INCORRECT")
     except ujson.JSONDecodeError:
         await websocket.close(1008, "AUTH_DATA_INCORRECT")
     except asyncio.TimeoutError:
@@ -109,7 +137,8 @@ async def expire_timeout():
     await ws_auth(g.token)
 
 
-async def session_actions(queue: asyncio.Queue[SessionMessage]):
+async def session_actions():
+    queue = g.queues["session"]
     while True:
         data = await queue.get()
         try:
@@ -125,6 +154,8 @@ async def session_actions(queue: asyncio.Queue[SessionMessage]):
             elif data["action"] == SessionActions.SESSION_LOGOUT:
                 if checks["session"]():
                     await websocket.close(1008, "SESSION_CLOSED")
+        except asyncio.CancelledError:
+            break
         finally:
             queue.task_done()
 
@@ -133,24 +164,31 @@ async def session_actions(queue: asyncio.Queue[SessionMessage]):
 @cors_exempt
 async def ws():
     await websocket.accept()
-    g.incoming_queue = asyncio.Queue()
-    queue = asyncio.Queue()
-    session_queue = asyncio.Queue()
+    g.queues = {
+        "incoming": asyncio.Queue(),
+        "auth": asyncio.Queue(),
+        "sending": asyncio.Queue(),
+        "session": asyncio.Queue()
+    }
 
-    producer = asyncio.create_task(sending(queue))
+    producer = asyncio.create_task(sending())
     consumer = asyncio.create_task(receiving())
 
     auth_success = await wait_auth()
     if not auth_success:
         return
 
-    rt_manager.add_connection(g.user_id, queue, session_queue)
+    rt_manager.add_connection(
+        g.user_id, g.queues["sending"], g.queues["session"]
+    )
 
     try:
-        actions = asyncio.create_task(session_actions(session_queue))
+        actions = asyncio.create_task(session_actions())
         await asyncio.gather(producer, consumer, actions)
     finally:
-        rt_manager.remove_connection(g.user_id, queue, session_queue)
+        rt_manager.remove_connection(
+            g.user_id, g.queues["sending"], g.queues["session"]
+        )
 
 
 def load(app: Quart):
