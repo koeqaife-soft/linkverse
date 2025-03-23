@@ -4,16 +4,12 @@ from core import app, response, route, setup_logger, Global, FunctionError
 from core import worker_count, get_proc_identity, load_extensions, compress
 from core import compress_config, flatten_dict
 import traceback
-import uuid
 from quart import request, g, websocket
 import os
 from utils.database import create_pool
-from supabase import acreate_client
-from supabase.client import ClientOptions, AsyncClient
 import aiofiles
 from datetime import datetime, timezone
 import asyncio
-import ujson  # type: ignore
 import werkzeug.exceptions
 import core
 import json5
@@ -24,9 +20,6 @@ from utils.realtime import RealtimeManager
 from redis.asyncio import Redis
 
 debug = os.getenv('DEBUG') == 'True'
-supabase_url: str = os.environ.get("SUPABASE_URL")  # type: ignore
-supabase_key: str = os.environ.get("SUPABASE_KEY")  # type: ignore
-supabase: AsyncClient
 gb = Global()
 
 pool: asyncpg.Pool = gb.pool
@@ -109,7 +102,7 @@ def validate_data(
         if key not in data:
             continue
         valid, modified = core.validate(
-            data[key], core.get_options(value),
+            data[key], value,
             params
         )
         if not valid:
@@ -265,45 +258,14 @@ async def ping():
     return response(is_empty=True), 204
 
 
-@app.route('/v1/generate_upload_url', methods=['POST'])
-async def generate_upload_url():
-    data = await request.get_json()
-
-    file_name = data.get('file_name', '')
-    random_file_name = f"user/{uuid.uuid4()}.{file_name}"
-
-    upload_url = await (
-        supabase.storage.from_('default')
-        .create_signed_upload_url(random_file_name)
-    )
-
-    return response(data={
-        "upload_url": upload_url['signed_url'],
-        "file_url": (
-            f"{supabase_url}/storage/v1/object/public/default/" +
-            f"{random_file_name}"
-        ),
-        "file_name": random_file_name
-    }), 200
-
-
 @app.before_serving
 async def startup():
-    global supabase
-
     worker_id = get_proc_identity()
 
     with open("config/postgres.json") as f:
-        config = ujson.load(f)
+        config = json5.load(f)
     pool = await create_pool(**config)
     gb.pool = pool
-
-    supabase = await acreate_client(
-        supabase_url, supabase_key,
-        options=ClientOptions(
-            storage_client_timeout=10
-        )
-    )
 
     redis_host = os.environ["REDIS_HOST"]
     redis_port = os.environ["REDIS_PORT"]

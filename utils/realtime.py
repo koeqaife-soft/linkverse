@@ -2,7 +2,7 @@ from redis.asyncio import Redis
 from core import Global
 import asyncio
 import asyncpg
-import ujson
+import orjson
 import utils.users as users
 from utils.database import AutoConnection
 from collections import defaultdict
@@ -44,8 +44,8 @@ class RealtimeManager:
                 channel = message['channel'].decode()
                 channel, user_id = channel.split(':')
                 handlers = {
-                    "session_events": (ujson.loads, self.session_queues),
-                    "events": (lambda x: x.decode(), self.connection_queues)
+                    "session_events": (orjson.loads, self.session_queues),
+                    "events": (lambda x: x, self.connection_queues)
                 }
                 decoder, queues_dict = handlers[channel]
                 data = decoder(message['data'])
@@ -103,7 +103,7 @@ class RealtimeManager:
             "action": action,
             "data": data
         }
-        json_message = ujson.dumps(message)
+        json_message = orjson.dumps(message)
         task = asyncio.create_task(
             self._publish_to_redis(user_id, json_message, True)
         )
@@ -121,7 +121,7 @@ class RealtimeManager:
             "event": event,
             "data": data
         }
-        json_message = ujson.dumps(message)
+        json_message = orjson.dumps(message)
         task = asyncio.create_task(
             self._publish_to_redis(user_id, json_message)
         )

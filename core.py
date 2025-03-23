@@ -130,23 +130,23 @@ def response(
     **kwargs
 ) -> Response:
     if is_empty:
-        __response = Response()
-        __response.headers.clear()
-        __response.set_data(b"")
-        return __response
+        response = Response()
+        response.headers.clear()
+        response.set_data(b"")
+        return response
 
     if not keep_none:
         data = remove_none_values(data)
 
-    _response = {
+    response_data = {
         "success": not error,
         "data": data
     }
     if error_msg:
-        _response["error"] = error_msg
+        response_data["error"] = error_msg
 
     response = Response(
-        orjson.dumps(_response),
+        orjson.dumps(response_data),
         content_type="application/json",
         **kwargs
     )
@@ -183,13 +183,27 @@ def generate_etag(data: dict | str) -> str:
 
 
 class Status(t.Generic[T]):
-    def __init__(
-        self, success: bool, data: T = None,  # type: ignore
+    _pool: dict[tuple, 'Status'] = {}
+    success: bool
+    message: str | None
+    data: T
+
+    def __new__(
+        cls, success: bool,
+        data: T | None = None,
         message: str | None = None
-    ) -> None:
-        self.success = success
-        self.message = message
-        self.data = data
+    ):
+        if data is None and (key := (success, message)) in cls._pool:
+            return cls._pool[key]
+
+        instance = super().__new__(cls)
+        instance.success = success
+        instance.message = message
+        instance.data = t.cast(T, data)
+
+        if data is None:
+            cls._pool[key] = instance
+        return instance
 
     def __eq__(self, other):
         if isinstance(other, str):
@@ -198,7 +212,7 @@ class Status(t.Generic[T]):
             if self.message is not None:
                 return self.message == other.message
             else:
-                return self.data == other.data
+                return self.success == other.success
         elif isinstance(other, bool):
             return self.success == other
         else:
@@ -234,18 +248,6 @@ class FunctionError(Exception):
             data=self.data or {},
             error_msg=self.message
         ), self.code
-
-
-def except_value(
-    e: FunctionError,
-    code: int | None = None,
-    message: str | None = None
-) -> None:
-    if e.code != code:
-        raise e
-    if e.message != message:
-        raise e
-    return None
 
 
 def get_proc_identity() -> int:
@@ -372,20 +374,6 @@ def load_extensions(dir: str = "./extensions", debug: bool = False):
 def route(_app: Quart | Blueprint, url_rule: str, **kwargs):
     url_rule = f"/v1/{url_rule.lstrip("/")}"
     return _app.route(url_rule, **kwargs)
-
-
-def get_options(options: str | dict) -> dict:
-    if isinstance(options, dict):
-        return options
-    _options = options.split(";")
-    options = {}
-    for option in _options:
-        if len(option) <= 1:
-            continue
-        _splitted = option.split(":", 1)
-        options[_splitted[0]] = _splitted[1]
-
-    return options
 
 
 ReturnType = tuple[bool, t.Any | None]

@@ -1,8 +1,5 @@
-types-requests
 requests
-supabase
 asyncpg
-asyncpg-stubs
 python-dotenv
 quart
 brotli
@@ -12,7 +9,6 @@ uvloop
 hypercorn
 hypercorn[uvloop]
 colorama
-types-colorama
 json5
 aiocache
 aiocache[redis]
@@ -20,7 +16,6 @@ quart-cors
 bleach
 cython
 setuptools
-ujson
 orjson
 xxhash
 redis

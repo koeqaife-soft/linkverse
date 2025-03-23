@@ -9,7 +9,7 @@ import utils.auth as auth
 from utils.database import AutoConnection
 import utils.realtime as realtime
 from utils.realtime import SessionActions, SessionMessage
-import ujson
+import orjson
 import typing as t
 
 bp = Blueprint('realtime', __name__)
@@ -36,6 +36,11 @@ class GlobalContext:
 g: GlobalContext = untyped_g
 
 
+async def websocket_send(message: dict):
+    event_message = orjson.dumps(message)
+    await websocket.send(event_message.decode())
+
+
 async def sending():
     queue = g.queues["sending"]
     while True:
@@ -50,8 +55,8 @@ async def receiving():
     while True:
         data = await websocket.receive()
         try:
-            decoded: dict = ujson.loads(data)
-        except ujson.JSONDecodeError:
+            decoded: dict = orjson.loads(data)
+        except orjson.JSONDecodeError:
             continue
 
         if decoded.get("type") == "auth":
@@ -95,10 +100,9 @@ async def ws_auth(
 
 async def wait_auth():
     queue = g.queues["auth"]
-    event_message = ujson.dumps({
+    await websocket_send({
         "event": "please_token"
     })
-    await websocket.send(event_message)
     try:
         data = await asyncio.wait_for(
             queue.get(), timeout=60
@@ -106,14 +110,13 @@ async def wait_auth():
         token = data.get("token")
         success = await ws_auth(token)
         if success:
-            event_message = ujson.dumps({
+            await websocket_send({
                 "event": "success_auth"
             })
-            await websocket.send(event_message)
             return True
         else:
             await websocket.close(1008, "AUTH_DATA_INCORRECT")
-    except ujson.JSONDecodeError:
+    except orjson.JSONDecodeError:
         await websocket.close(1008, "AUTH_DATA_INCORRECT")
     except asyncio.TimeoutError:
         await websocket.close(1008, "AUTH_REQUIRED")
@@ -126,10 +129,9 @@ async def expire_timeout():
     if wait_time > 0:
         try:
             await asyncio.sleep(wait_time)
-            event_message = ujson.dumps({
+            await websocket_send({
                 "event": "refresh_recommended"
             })
-            await websocket.send(event_message)
             await asyncio.sleep(120)
         except asyncio.CancelledError:
             return
