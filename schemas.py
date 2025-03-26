@@ -1,4 +1,5 @@
 from typing import TypedDict
+from enum import Enum
 
 
 class ListsDefault(TypedDict):
@@ -39,3 +40,24 @@ class ReactionList(TypedDict, ListsDefault):
 class PostsList(TypedDict):
     next_cursor: str | None
     posts: list[str]
+
+
+class NotificationType(str, Enum):
+    NEW_COMMENT = "new_comment"
+    FOLLOWED = "followed"
+
+
+class Notification(TypedDict):
+    id: str
+    from_id: str
+    message: str
+    type: NotificationType | str
+    linked_type: str
+    linked_id: str
+    second_linked_id: str
+
+
+class NotificationList(TypedDict):
+    notifications: list[Notification]
+    has_more: bool
+    next_cursor: str | None

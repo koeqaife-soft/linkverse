@@ -1,5 +1,5 @@
 from redis.asyncio import Redis
-from core import Global
+from core import Global, remove_none_values
 import asyncio
 import asyncpg
 import orjson
@@ -143,21 +143,11 @@ class RealtimeManager:
         if user_id == to:
             return
 
-        notification: users.Notification = {  # type: ignore
-            "from_id": user_id,
-            "message": message,
-            "type": type
-        }
-        if linked_type:
-            notification["linked_type"] = linked_type
-            notification["linked_id"] = linked_id
-            if second_linked_id:
-                notification["second_linked_id"] = second_linked_id
-
-        await users.create_notification(
+        notification = await users.create_notification(
             to, user_id, type, conn, message,
             linked_type, linked_id, second_linked_id
         )
+        notification = remove_none_values(notification)
 
         await self.publish_event(
             to, "notification", t.cast(dict, notification)

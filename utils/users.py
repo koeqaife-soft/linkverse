@@ -6,7 +6,7 @@ from utils.database import AutoConnection
 import typing as t
 from schemas import FollowedList, FavoriteList, ReactionList
 from schemas import FollowedItem, FavoriteItem, ReactionItem
-from enum import Enum
+from schemas import NotificationType, NotificationList, Notification
 
 
 @dataclass
@@ -443,20 +443,6 @@ async def get_reactions(
     )
 
 
-class NotificationType(str, Enum):
-    NEW_COMMENT = "new_comment"
-    FOLLOWED = "followed"
-
-
-class Notification(t.TypedDict):
-    type: str
-    from_id: str
-    message: str | None
-    linked_type: str | None
-    linked_id: str | None
-    second_linked_id: str | None
-
-
 async def create_notification(
     user_id: str,
     from_id: str,
@@ -466,7 +452,7 @@ async def create_notification(
     linked_type: str | None = None,
     linked_id: str | None = None,
     second_linked_id: str | None = None
-) -> Status[None]:
+) -> Status[Notification]:
     if user_id == from_id:
         return Status(True)
 
@@ -488,4 +474,67 @@ async def create_notification(
             linked_type, linked_id, second_linked_id
         )
 
-    return Status(True)
+    notification = Notification({
+        "id": notification_id,
+        "from_id": from_id,
+        "message": message,
+        "type": type,
+        "linked_type": linked_type,
+        "linked_id": linked_id,
+        "second_linked_id": second_linked_id
+    })
+
+    return Status(True, data=notification)
+
+
+async def get_notifications(
+    user_id: str,
+    conn: AutoConnection,
+    cursor: str | None = None
+) -> Status[NotificationList]:
+    db = await conn.create_conn()
+    query = """
+        SELECT type, message, from_id,
+               linked_type, linked_id, second_linked_id
+        FROM reactions WHERE user_id = $1
+    """
+    params: list[t.Any] = [user_id]
+
+    if cursor:
+        query += " AND id < $2"
+        params.append(cursor)
+
+    query += " ORDER BY id DESC LIMIT 21"
+
+    rows = await db.fetch(query, *params)
+    if not rows:
+        raise FunctionError("NO_MORE_NOTIFS", 200, None)
+
+    has_more = len(rows) > 20
+    rows = rows[:20]
+
+    notifications = [
+        Notification({
+            "id": row["id"],
+            "type": row["type"],
+            "message": row["message"],
+            "from_id": row["from_id"],
+            "linked_type": row["linked_type"],
+            "linked_id": row["linked_id"],
+            "second_linked_id": row["second_linked_id"]
+        })
+        for row in rows
+    ]
+
+    last_row = rows[-1]
+
+    next_cursor = last_row["id"]
+
+    return Status(
+        True,
+        data={
+            "notifications": notifications,
+            "next_cursor": next_cursor,
+            "has_more": has_more
+        }
+    )
