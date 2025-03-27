@@ -4,12 +4,12 @@ from quart import Blueprint, Quart, Response
 from core import response, Global, route, FunctionError
 from quart import g
 import utils.posts as posts
-from utils.cache import users as cache_users
 from utils.cache import posts as cache_posts
 from utils.database import AutoConnection
 import utils.posts_list as posts_list
 from utils.realtime import RealtimeManager
 from utils.users import NotificationType
+import utils.combined as combined
 
 bp = Blueprint('posts', __name__)
 gb = Global()
@@ -90,23 +90,9 @@ async def create_post() -> tuple[Response, int]:
 @route(bp, "/posts/<id>", methods=["GET"])
 async def get_post(id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
-        result = await cache_posts.get_post(id, conn)
+        result = await combined.get_full_post(g.user_id, id, conn)
 
-        user = await cache_users.get_user(result.data.user_id, conn, True)
-
-        fav, reaction = (
-            await posts.get_fav_and_reaction(g.user_id, conn, id)
-        ).data
-
-    data = result.data.dict
-    if user.data is not None:
-        data["user"] = user.data.dict
-    if reaction is not None:
-        data["is_like"] = reaction
-    if fav:
-        data["is_fav"] = fav
-
-    return response(data=data, cache=True), 200
+    return response(data=result.data, cache=True), 200
 
 
 @route(bp, "/posts/batch", methods=["GET"])
@@ -120,27 +106,12 @@ async def get_posts_batch() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         for post in _posts:
             try:
-                result = await cache_posts.get_post(str(post), conn)
+                result = await combined.get_full_post(g.user_id, post, conn)
             except FunctionError as e:
                 errors.append({"post": post, "error_msg": e.message})
                 continue
 
-            user = await cache_users.get_user(result.data.user_id, conn, True)
-
-            fav, reaction = (
-                await posts.get_fav_and_reaction(g.user_id, conn, post)
-            ).data
-
-            _temp = result.data.dict
-
-            if user.data is not None:
-                _temp["user"] = user.data.dict
-            if reaction is not None:
-                _temp["is_like"] = reaction
-            if fav:
-                _temp["is_fav"] = fav
-
-            _data.append(_temp)
+            _data.append(result.data)
 
     if errors:
         return response(error=True, data={"errors": errors}), 400
@@ -256,27 +227,12 @@ async def get_comments(id: str) -> tuple[Response, int]:
         comments = []
 
         for comment in result.data["comments"]:
-            fav, reaction = (await posts.get_fav_and_reaction(
-                    g.user_id, conn, comment.post_id, comment.comment_id
-            )).data
+            _temp = await combined.get_full_comment(
+                g.user_id, id, comment.comment_id,
+                conn, users, comment.dict
+            )
 
-            if comment.user_id not in users:
-                try:
-                    user_data = await cache_users.get_user(
-                        comment.user_id, conn, True
-                    )
-                    users[comment.user_id] = user_data.data.dict
-                except FunctionError as e:
-                    if e.code != 404:
-                        raise e
-
-            _temp = comment.dict
-            if reaction is not None:
-                _temp["is_like"] = reaction
-            if fav:
-                _temp["is_fav"] = fav
-
-            comments.append(_temp)
+            comments.append(_temp.data)
 
     _data = result.data | {"users": users, "comments": comments}
     return response(data=_data, cache=True), 200

@@ -5,8 +5,8 @@ from quart import g
 import utils.users as users
 import utils.posts as posts
 from utils.cache import users as cache_users
-from utils.cache import posts as cache_posts
 from utils.database import AutoConnection
+import utils.combined as combined
 import typing as t
 
 bp = Blueprint('users', __name__)
@@ -77,60 +77,6 @@ async def rem_favorite() -> tuple[Response, int]:
     return response(), 204
 
 
-async def _preload_meta(
-    object: posts.Comment | posts.Post | dict,
-    conn: AutoConnection
-) -> dict:
-    if not isinstance(object, dict):
-        object = object.dict
-
-    user = await cache_users.get_user(object["user_id"], conn, True)
-    object["user"] = user.data.dict
-
-    is_fav, is_like = (
-        await posts.get_fav_and_reaction(
-            g.user_id, conn, object["post_id"], object.get("comment_id")
-        )
-    ).data
-
-    if is_like is not None:
-        object["is_like"] = is_like
-    if is_fav:
-        object["is_fav"] = is_fav
-
-    return object
-
-
-async def _preload_lists(
-    items: list[dict], conn: AutoConnection
-) -> tuple[list[dict], list[dict], list[tuple]]:
-    posts_data: list[dict] = []
-    comments_data: list[dict] = []
-    errors: list[tuple[str, str, str]] = []
-
-    for item in items:
-        try:
-            if item["comment_id"]:
-                _comment = (await posts.get_comment(
-                    item["post_id"], item["comment_id"], conn
-                )).data
-                comment = await _preload_meta(_comment, conn)
-
-                comments_data.append(comment)
-            else:
-                _post = (
-                    await cache_posts.get_post(item["post_id"], conn)
-                ).data
-                post = await _preload_meta(_post, conn)
-
-                posts_data.append(post)
-        except FunctionError as e:
-            if e.message in {"COMMENT_DOES_NOT_EXIST", "POST_DOES_NOT_EXIST"}:
-                errors.append((item["post_id"], item["comment_id"], e.message))
-
-    return posts_data, comments_data, errors
-
-
 @route(bp, "/users/me/favorites", methods=["GET"])
 async def get_favorites() -> tuple[Response, int]:
     params: dict = g.params
@@ -146,15 +92,16 @@ async def get_favorites() -> tuple[Response, int]:
                          if key != "favorites"}
 
         if preload:
-            posts_data, comments_data, errors = await _preload_lists(
-                t.cast(list[dict], favorites), conn
+            posts, comments, errors = await combined.preload_items(
+                g.user_id, t.cast(list[dict], favorites), conn
             )
-            if posts_data:
-                response_data.update({"posts": posts_data})
-            if comments_data:
-                response_data.update({"comments": comments_data})
-            if errors:
-                response_data.update({"errors": errors})
+            response_data.update({
+                k: v for k, v in {
+                    "posts": posts,
+                    "comments": comments,
+                    "errors": errors
+                }.items() if v
+            })
         else:
             response_data.update({"favorites": favorites})
 
@@ -179,15 +126,16 @@ async def get_reactions() -> tuple[Response, int]:
                          if key != "reactions"}
 
         if preload:
-            posts_data, comments_data, errors = await _preload_lists(
-                t.cast(list[dict], reactions), conn
+            posts, comments, errors = await combined.preload_items(
+                g.user_id, t.cast(list[dict], reactions), conn
             )
-            if posts_data:
-                response_data.update({"posts": posts_data})
-            if comments_data:
-                response_data.update({"comments": comments_data})
-            if errors:
-                response_data.update({"errors": errors})
+            response_data.update({
+                k: v for k, v in {
+                    "posts": posts,
+                    "comments": comments,
+                    "errors": errors
+                }.items() if v
+            })
         else:
             response_data.update({"reactions": reactions})
 
@@ -271,15 +219,11 @@ async def get_user_posts(user_id: str) -> tuple[Response, int]:
         ).data
         _posts = []
         for post in user_posts["posts"]:
-            _temp = post.dict
-            fav, reaction = (await posts.get_fav_and_reaction(
-                g.user_id, conn, post.post_id, None
-            )).data
-            if reaction is not None:
-                _temp["is_like"] = reaction
-            if fav:
-                _temp["is_fav"] = fav
-            _posts.append(_temp)
+            _temp = await combined.get_full_post(
+                g.user_id, post.post_id, conn,
+                loaded=post.dict
+            )
+            _posts.append(_temp.data)
 
         result = t.cast(dict, user_posts)
         result["posts"] = _posts
