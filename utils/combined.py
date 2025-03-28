@@ -3,6 +3,8 @@ from utils.cache import posts as cache_posts
 from utils.cache import users as cache_users
 import utils.posts as posts
 from core import Status, FunctionError
+from schemas import Notification
+import typing as t
 
 
 async def get_entity(
@@ -98,3 +100,27 @@ async def preload_items(
             errors.append((item["post_id"], item["comment_id"], e.message))
 
     return posts_data, comments_data, errors
+
+
+async def preload_notification(
+    user_id: str, conn: AutoConnection,
+    notification: Notification | dict
+) -> Status[dict]:
+    notification = t.cast(dict, notification)
+    types_actions = {
+        "post": lambda post, _: get_full_post(user_id, post, conn),
+        "comment": lambda post, comment: (
+            get_full_comment(user_id, post, comment, conn)
+        )
+    }
+
+    data = None
+    try:
+        data = await types_actions[notification["type"]](
+            notification["linked_id"], notification["second_linked_id"]
+        ).data
+        notification["loaded"] = data
+    except FunctionError:
+        pass
+
+    return Status(True, notification)
