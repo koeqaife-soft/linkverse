@@ -2,8 +2,7 @@ import asyncio
 from core import Status
 from dataclasses import asdict
 import time
-from typing import Any, Awaitable, Callable, TypeVar, overload
-from core import _logger, worker_count, get_proc_identity
+from typing import Any, TypeVar
 from aiocache import Cache as AioCache  # type: ignore
 from aiocache import RedisCache
 from redis import ConnectionError
@@ -16,48 +15,69 @@ from core import Global, FunctionError
 from utils.database import AutoConnection
 from utils.generation import decode_token
 from utils.auth import secret_key, check_token
+from collections import OrderedDict
+import heapq
 
 R = TypeVar('R')
 
-worker_id = get_proc_identity()
-_g = Global()
+gb = Global()
 
 
 class TTLCache:
-    def __init__(self) -> None:
-        self.cache: dict[str, tuple[Any, float]] = {}
-        self.lock = asyncio.Lock()
+    def __init__(self, max_size: int = 5000) -> None:
+        self.cache: OrderedDict[str, tuple[Any, float]] = OrderedDict()
+        self.read_lock = asyncio.Lock()
+        self.write_lock = asyncio.Lock()
+        self.max_size = max_size
 
     async def set(self, key: str, value: Any, timeout: float) -> None:
-        async with self.lock:
+        async with self.write_lock:
             expire_time = time.time() + timeout
+            if key in self.cache:
+                self.cache.pop(key)
             self.cache[key] = (value, expire_time)
-            await self._cleanup()
+            self.cache.move_to_end(key)
 
     async def get(self, key: str) -> Any | None:
-        async with self.lock:
-            value, expire_time = self.cache.get(key, (None, 0.0))
-            if value is not None and time.time() < expire_time:
-                return value
-            else:
-                self.cache.pop(key, None)
-                return None
+        item = self.cache.get(key)
+        if item is None:
+            return None
+        value, expire_time = item
+        if time.time() < expire_time:
+            return value
+        else:
+            return None
 
     async def delete(self, key: str) -> None:
-        async with self.lock:
+        async with self.write_lock:
             self.cache.pop(key, None)
 
-    async def _cleanup(self) -> None:
-        current_time = time.time()
-        keys_to_delete = [
-            key for key, (_, expire_time) in self.cache.items()
-            if current_time >= expire_time
-        ]
-        for key in keys_to_delete:
-            self.cache.pop(key)
+    async def cleanup(self) -> None:
+        async with self.write_lock:
+            current_time = time.time()
+
+            expired_keys = [
+                key for key, (_, expire_time) in self.cache.items()
+                if current_time >= expire_time
+            ]
+            for key in expired_keys:
+                self.cache.pop(key, None)
+
+            if len(self.cache) > self.max_size:
+                expiring_keys = [
+                    (expire_time - current_time, key)
+                    for key, (_, expire_time) in self.cache.items()
+                ]
+                keys_to_delete = [
+                    key for _, key in heapq.nsmallest(
+                        len(self.cache) - self.max_size, expiring_keys
+                    )
+                ]
+                for key in keys_to_delete:
+                    self.cache.pop(key, None)
 
     async def clear(self) -> None:
-        async with self.lock:
+        async with self.write_lock:
             self.cache.clear()
 
 
@@ -70,109 +90,72 @@ class Cache:
             raise ValueError("Only Redis cache is supported!")
 
         self.cache.serializer = PickleSerializer()
-        self.redis_working: bool = True
         self.ttl_cache = TTLCache()
-        _g._cache = self
-
-    async def ping(self) -> None:
-        try:
-            await self.cache.get("test_conn")
-            await self.redis_status(True)
-        except ConnectionError:
-            await self.redis_status(False)
+        gb._cache = self
 
     async def init(self) -> None:
-        await self.ping()
         asyncio.create_task(self.clear_ttl_timer())
-        asyncio.create_task(self.ping_timer())
-
-    async def redis_status(self, status: bool) -> None:
-        if self.redis_working != status:
-            self.redis_working = status
-            await self.ttl_cache.clear()
-
-            worker_info = (
-                f" ({worker_id}/{worker_count})"
-                if worker_id != 0 else ""
-            )
-            log_message = (
-                "Redis connected!" if status
-                else "Failed to connect to Redis!"
-            )
-            if _logger:
-                log_func = _logger.info if status else _logger.warning
-                log_func(log_message + worker_info)
-
-    async def ping_timer(self):
-        await asyncio.sleep(get_proc_identity()/4)
-        while True:
-            interval = 15 if self.redis_working else 1
-            await asyncio.sleep(interval)
-            await self.ping()
 
     async def clear_ttl_timer(self):
         while True:
-            await asyncio.sleep(60)
-            if not self.redis_working:
-                await self.ttl_cache._cleanup()
+            await asyncio.sleep(15)
+            await self.ttl_cache.cleanup()
 
-    @overload
-    async def _cache(
-        self, func: Callable[..., Awaitable[R]]
-    ) -> R | None:
-        ...
+    async def get(self, key: str, conn: AutoConnection | None = None) -> Any:
+        # Check L1 (connection cache)
+        if conn and (cached_l1 := conn.temp_cache.get(key)) is not None:
+            return cached_l1
 
-    @overload
-    async def _cache(
-        self, func: Callable[..., Awaitable[R]],
-        no_conn: Callable[..., Awaitable[R]]
-    ) -> R:
-        ...
+        # Check L2 (local worker cache)
+        if (cached_l2 := await self.ttl_cache.get(key)) is not None:
+            if conn:
+                conn.temp_cache[key] = cached_l2
+            return cached_l2
 
-    async def _cache(
-        self, func: Callable[..., Awaitable[R]],
-        no_conn: Callable[..., Awaitable[R]] | None = None
-    ) -> R | None:
-        async def run_with_fallback(func, no_conn=None):
-            if func is None:
-                return None
-            try:
-                return await func()
-            except ConnectionError:
-                await self.redis_status(False)
-                if no_conn:
-                    return await no_conn()
-                else:
-                    return None
+        # Check L3 (Redis cache)
+        try:
+            if (cached_l3 := await self.cache.get(key)) is not None:
+                # Store in L1 for future requests
+                if conn:
+                    conn.temp_cache[key] = cached_l3
 
-        if self.redis_working:
-            return await run_with_fallback(func, no_conn)
-        else:
-            return await run_with_fallback(
-                no_conn if no_conn
-                else None
-            )
+                # Store in L2 with TTL = 5 seconds
+                await self.ttl_cache.set(key, cached_l3, 5)
+                return cached_l3
+        except ConnectionError:
+            pass  # Redis connection error, return None
 
-    async def get(self, key: str):
-        return await self._cache(
-            lambda: self.cache.get(key),
-            lambda: self.ttl_cache.get(key)
-        )
+        return None
 
-    async def set(self, key: str, value: Any, ttl: int | None = None):
-        await self._cache(
-            lambda: self.cache.set(key, value, ttl=ttl),
-            lambda: self.ttl_cache.set(key, value, 15)
-        )
+    async def set(
+        self, key: str, value: Any, ttl: int | None = None,
+        conn: AutoConnection | None = None
+    ) -> None:
+        if conn:
+            conn.temp_cache[key] = value
 
-    async def delete(self, key: str):
-        await self._cache(
-            lambda: self.cache.delete(key),
-            lambda: self.ttl_cache.delete(key)
-        )
+        await self.ttl_cache.set(key, value, 10)
+
+        try:
+            await self.cache.set(key, value, ttl or 10)
+        except ConnectionError:
+            pass
+
+    async def delete(
+        self, key: str,
+        conn: AutoConnection | None = None
+    ) -> None:
+        if conn:
+            conn.temp_cache.pop(key, None)
+
+        await self.ttl_cache.delete(key)
+        try:
+            await self.cache.delete(key)
+        except ConnectionError:
+            pass
 
 
-cache_instance: Cache = _g._cache
+cache_instance: Cache = gb._cache
 
 
 class users:
@@ -185,20 +168,16 @@ class users:
         cache = _cache_instance or cache_instance
         key = f"user_profile:{user_id}{":min" if minimize_info else ""}"
 
-        value = conn.temp_cache[key]
-        if value is None:
-            value = await cache.get(key)
+        value = await cache.get(key, conn)
 
         if value is None:
             result = await utils.users.get_user(user_id, conn, minimize_info)
             data = asdict(result.data)
 
-            await cache.set(key, data, 600)
-            conn.temp_cache[key] = data
+            await cache.set(key, data, 600, conn)
 
             return Status(True, result.data)
         else:
-            conn.temp_cache[key] = value
             return Status(True, User.from_dict(value))
 
     @staticmethod
@@ -226,20 +205,16 @@ class posts:
         cache = _cache_instance or cache_instance
         key = f"posts:{post_id}"
 
-        value = conn.temp_cache[key]
-        if value is None:
-            value = await cache.get(key)
+        value = await cache.get(key, conn)
 
         if value is None:
             result = await utils.posts.get_post(post_id, conn)
             data = asdict(result.data)
 
-            await cache.set(key, data, 15)
-            conn.temp_cache[key] = data
+            await cache.set(key, data, 15, conn)
 
             return Status(True, result.data)
         else:
-            conn.temp_cache[key] = value
             return Status(True, Post.from_dict(value))
 
     @staticmethod
@@ -269,11 +244,11 @@ class auth:
             raise FunctionError("EXPIRED_TOKEN", 401, None)
 
         key = f"auth:{decoded["user_id"]}:{decoded["secret"]}"
-        value = await cache.get(key)
+        value = await cache.get(key, conn)
         if value is None:
             await check_token(token, conn, decoded)
             ttl = decoded["expiration_timestamp"] - int(time.time())
-            await cache.set(key, "1", min(max(0, ttl), 60))
+            await cache.set(key, "1", min(max(0, ttl), 60), conn)
         return Status(True, decoded)
 
     @staticmethod
