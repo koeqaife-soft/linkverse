@@ -176,18 +176,6 @@ async def get_following() -> tuple[Response, int]:
     return response(data=response_data, cache=True), 200
 
 
-@route(bp, "/users/<user_id>", methods=["GET"])
-async def get_profile(user_id: str) -> tuple[Response, int]:
-    async with AutoConnection(pool) as conn:
-        user = await cache_users.get_user(user_id, conn)
-        followed = await users.is_followed(g.user_id, user_id, conn)
-        data = user.data.dict
-        if followed.data:
-            data["followed"] = True
-
-    return response(data=data, cache=True), 200
-
-
 @route(bp, "/users/me/following/<target_id>", methods=["POST"])
 async def follow_user(target_id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
@@ -204,6 +192,42 @@ async def unfollow_user(target_id: str) -> tuple[Response, int]:
         await users.unfollow(g.user_id, target_id, conn)
 
     return response(is_empty=True), 204
+
+
+@route(bp, "/users/me/notifications", methods=["GET"])
+async def get_notifications() -> tuple[Response, int]:
+    params: dict = g.params
+    cursor = params.get("cursor", None)
+    preload = params.get("preload", False)
+
+    async with AutoConnection(pool) as conn:
+        result = await users.get_notifications(g.user_id, conn, cursor)
+        notifications = result.data.get("notifications", [])
+        response_data = {key: val for key, val in result.data.items()
+                         if key != "notifications"}
+        if preload:
+            preloaded = []
+            for object in notifications:
+                _result = await combined.preload_notification(
+                    g.user_id, conn, object
+                )
+                preloaded.append(_result.data)
+            response_data.update({"notifications": preloaded})
+        else:
+            response_data.update({"notifications": notifications})
+    return response(data=response_data, cache=True), 200
+
+
+@route(bp, "/users/<user_id>", methods=["GET"])
+async def get_profile(user_id: str) -> tuple[Response, int]:
+    async with AutoConnection(pool) as conn:
+        user = await cache_users.get_user(user_id, conn)
+        followed = await users.is_followed(g.user_id, user_id, conn)
+        data = user.data.dict
+        if followed.data:
+            data["followed"] = True
+
+    return response(data=data, cache=True), 200
 
 
 @route(bp, "/users/<user_id>/posts", methods=["GET"])
