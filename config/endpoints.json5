@@ -27,9 +27,6 @@
                 refresh_token: {}
             }
         },
-        remove_cookies: {
-            no_auth: true
-        },
         logout: {
             no_auth: true
         }
@@ -65,7 +62,7 @@
         view_posts: {
             load_data: true,
             data: {
-                posts: { type: "list", max_len: 10, min_len: 1 }
+                posts: { type: "list", max_len: 50, min_len: 1 }
             }
         },
         popular_posts: {
@@ -86,7 +83,7 @@
             params: {
                 posts: {
                     type: "list",
-                    min_len: 1, max_len: 10,
+                    min_len: 1, max_len: 15,
                     v_max_len: 32, v_min_len: 10,
                     is_digit: true, 
                     f_max_len: 400
