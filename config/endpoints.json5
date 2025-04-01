@@ -49,7 +49,10 @@
             load_data: true,
             optional_data: {
                 content: { min_len: 1, max_len: 16384 },
-                tags: { type: "list", max_len: 8 },
+                tags: {
+                    type: "list", max_len: 8,
+                    value_max_len: 22, value_min_len: 1
+                },
                 media: { type: "list" }
             }
         },
