@@ -193,9 +193,10 @@ async def create_comment(id: str) -> tuple[Response, int]:
         result = await posts.create_comment(g.user_id, id, content, conn)
         await rt_manager.publish_notification(
             g.user_id, post.data.user_id, NotificationType.NEW_COMMENT,
-            conn, content, "comment",
+            conn, None, "comment",
             result.data.comment_id,
-            result.data.post_id
+            result.data.post_id,
+            result.data.dict
         )
 
     return response(data=result.data.dict), 201
@@ -211,6 +212,18 @@ async def delete_comment(id: str, cid: str) -> tuple[Response, int]:
         await posts.delete_comment(id, cid, conn)
 
     return response(), 204
+
+
+@route(bp, "/posts/<id>/comments/<cid>", methods=["GET"])
+async def get_comment(id: str, cid: str) -> tuple[Response, int]:
+    async with AutoConnection(pool) as conn:
+        await cache_posts.get_post(id, conn)
+
+        comment = await combined.get_full_comment(
+            g.user_id, id, cid, conn
+        )
+
+    return response(data=comment.data), 200
 
 
 @route(bp, "/posts/<id>/comments", methods=["GET"])
