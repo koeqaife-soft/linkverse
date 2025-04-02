@@ -138,15 +138,19 @@ class RealtimeManager:
         message: str | None = None,
         linked_type: str | None = None,
         linked_id: str | None = None,
-        second_linked_id: str | None = None
+        second_linked_id: str | None = None,
+        loaded: dict | None = None
     ) -> None:
         if user_id == to:
             return
+        if loaded:
+            message = None
 
-        notification = await users.create_notification(
+        notification = (await users.create_notification(
             to, user_id, type, conn, message,
             linked_type, linked_id, second_linked_id
-        )
+        )).data
+        notification["loaded"] = loaded
         notification = remove_none_values(notification)
 
         await self.publish_event(
