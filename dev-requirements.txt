@@ -1,3 +1,4 @@
 types-requests
 types-colorama
 asyncpg-stubs
+websockets
