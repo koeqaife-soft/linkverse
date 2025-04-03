@@ -1,6 +1,6 @@
 import asyncio
 import websockets
-import ujson
+import json
 
 
 async def async_input(prompt: str) -> str:
@@ -11,7 +11,7 @@ async def async_input(prompt: str) -> str:
 async def receive_task(ws: websockets.WebSocketClientProtocol):
     while True:
         response = await ws.recv()
-        message = ujson.loads(response)
+        message = json.loads(response)
         print(f"Received: {response}")
         if message["event"] == "please_token":
             token = await async_input("Token: ")
@@ -19,7 +19,7 @@ async def receive_task(ws: websockets.WebSocketClientProtocol):
                 "token": token,
                 "type": "auth"
             }
-            await ws.send(ujson.dumps(auth_data))
+            await ws.send(json.dumps(auth_data))
             print("Sent auth data!")
 
 
