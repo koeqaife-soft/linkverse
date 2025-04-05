@@ -490,13 +490,14 @@ async def create_notification(
 async def get_notifications(
     user_id: str,
     conn: AutoConnection,
-    cursor: str | None = None
+    cursor: str | None = None,
+    limit: int = 20
 ) -> Status[NotificationList]:
     db = await conn.create_conn()
     query = """
-        SELECT type, message, from_id,
+        SELECT id, type, message, from_id,
                linked_type, linked_id, second_linked_id
-        FROM reactions WHERE user_id = $1
+        FROM user_notifications WHERE user_id = $1
     """
     params: list[t.Any] = [user_id]
 
@@ -504,14 +505,14 @@ async def get_notifications(
         query += " AND id < $2"
         params.append(cursor)
 
-    query += " ORDER BY id DESC LIMIT 21"
+    query += f" ORDER BY id DESC LIMIT {limit + 1}"
 
     rows = await db.fetch(query, *params)
     if not rows:
         raise FunctionError("NO_MORE_NOTIFS", 200, None)
 
-    has_more = len(rows) > 20
-    rows = rows[:20]
+    has_more = len(rows) > limit
+    rows = rows[:limit]
 
     notifications = [
         Notification({
