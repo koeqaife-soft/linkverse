@@ -170,5 +170,12 @@
                 sort: { values: ["old", "new", "popular"] }
             }
         },
+        get_notifications: {
+            optional_params: {
+                cursor: { min_len: 1, max_len: 256 },
+                preload: { type: "bool" },
+                limit: { type: "int", min: 1, max: 50 }
+            }
+        },
     }
 }
