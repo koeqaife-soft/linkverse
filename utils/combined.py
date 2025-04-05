@@ -22,6 +22,13 @@ async def get_entity(
             await fetch_func(post_id, conn) if entity_type == "post"
             else await fetch_func(post_id, comment_id, conn)
         )
+    else:
+        if (
+            loaded_entity.get("user") is not None
+            or loaded_entity.get("is_fav") is not None
+            or loaded_entity.get("is_like") is not None
+        ):
+            return Status(True, loaded_entity)
 
     fav, reaction = (
         await posts.get_fav_and_reaction(user_id, conn, post_id, comment_id)
@@ -108,17 +115,21 @@ async def preload_notification(
 ) -> Status[dict]:
     notification = t.cast(dict, notification)
     types_actions = {
-        "post": lambda post, _: get_full_post(user_id, post, conn),
-        "comment": lambda post, comment: (
-            get_full_comment(user_id, post, comment, conn)
+        "post": lambda post, _: get_full_post(
+            user_id, post, conn,
+            loaded=notification.get("loaded")
+        ),
+        "comment": lambda comment, post: get_full_comment(
+            user_id, post, comment, conn,
+            loaded=notification.get("loaded")
         )
     }
 
     data = None
     try:
-        data = await types_actions[notification["type"]](
+        data = (await types_actions[notification["linked_type"]](
             notification["linked_id"], notification["second_linked_id"]
-        ).data
+        )).data
         notification["loaded"] = data
     except FunctionError:
         pass
