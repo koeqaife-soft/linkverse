@@ -5,6 +5,7 @@ import asyncpg
 import orjson
 import utils.users as users
 from utils.database import AutoConnection
+import utils.combined as combined
 from collections import defaultdict
 import typing as t
 from enum import Enum
@@ -45,7 +46,7 @@ class RealtimeManager:
                 channel, user_id = channel.split(':')
                 handlers = {
                     "session_events": (orjson.loads, self.session_queues),
-                    "events": (lambda x: x, self.connection_queues)
+                    "events": (lambda x: x.decode(), self.connection_queues)
                 }
                 decoder, queues_dict = handlers[channel]
                 data = decoder(message['data'])
@@ -151,6 +152,9 @@ class RealtimeManager:
             linked_type, linked_id, second_linked_id
         )).data
         notification["loaded"] = loaded
+        notification = (await combined.preload_notification(
+            user_id, conn, notification
+        )).data
         notification = remove_none_values(notification)
 
         await self.publish_event(
