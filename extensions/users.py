@@ -199,9 +199,10 @@ async def get_notifications() -> tuple[Response, int]:
     params: dict = g.params
     cursor = params.get("cursor", None)
     preload = params.get("preload", False)
+    limit = params.get("limit", 20)
 
     async with AutoConnection(pool) as conn:
-        result = await users.get_notifications(g.user_id, conn, cursor)
+        result = await users.get_notifications(g.user_id, conn, cursor, limit)
         notifications = result.data.get("notifications", [])
         response_data = {key: val for key, val in result.data.items()
                          if key != "notifications"}
