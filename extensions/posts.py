@@ -223,7 +223,7 @@ async def get_comment(id: str, cid: str) -> tuple[Response, int]:
             g.user_id, id, cid, conn
         )
 
-    return response(data=comment.data), 200
+    return response(data=comment.data, cache=True), 200
 
 
 @route(bp, "/posts/<id>/comments", methods=["GET"])
