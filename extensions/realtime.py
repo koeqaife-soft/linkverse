@@ -129,10 +129,12 @@ async def expire_timeout():
     if wait_time > 0:
         try:
             await asyncio.sleep(wait_time)
-            await websocket_send({
-                "event": "refresh_recommended"
-            })
-            await asyncio.sleep(120)
+            for _ in range(3):
+                await websocket_send({
+                    "event": "refresh_recommended"
+                })
+                await asyncio.sleep(40)
+            await asyncio.sleep(1)
         except asyncio.CancelledError:
             return
 
