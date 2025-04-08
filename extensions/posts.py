@@ -22,7 +22,7 @@ async def posts_by_following() -> tuple[Response, int]:
     params: dict = g.params
     hide_viewed = params.get("hide_viewed", True)
     cursor = params.get("cursor")
-    limit = params.get("limit", 50)
+    limit = params.get("limit", 300)
 
     async with AutoConnection(pool) as conn:
         result = await posts_list.get_posts_by_following(
@@ -37,7 +37,7 @@ async def popular_posts() -> tuple[Response, int]:
     params: dict = g.params
     hide_viewed = params.get("hide_viewed", True)
     cursor = params.get("cursor")
-    limit = params.get("limit", 50)
+    limit = params.get("limit", 300)
 
     async with AutoConnection(pool) as conn:
         result = await posts_list.get_popular_posts(
@@ -52,7 +52,7 @@ async def new_posts() -> tuple[Response, int]:
     params: dict = g.params
     hide_viewed = params.get("hide_viewed", True)
     cursor = params.get("cursor")
-    limit = params.get("limit", 50)
+    limit = params.get("limit", 300)
 
     async with AutoConnection(pool) as conn:
         result = await posts_list.get_new_posts(
