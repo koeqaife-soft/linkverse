@@ -178,8 +178,12 @@ async def incoming_handler():
                     continue
                 async with AutoConnection(pool) as conn:
                     await users.mark_notification_read(g.user_id, id, conn)
+                    unread_count = await users.unread_notifications_count(
+                        g.user_id, conn
+                    )
                 await rt_manager.publish_event(
-                    g.user_id, "notification_read", {"id": id}
+                    g.user_id, "notification_read",
+                    {"id": id, "unread": unread_count.data}
                 )
         except asyncio.CancelledError:
             break
