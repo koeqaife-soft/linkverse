@@ -55,6 +55,7 @@ class Notification(TypedDict):
     linked_type: str
     linked_id: str
     second_linked_id: str
+    unread: bool
 
 
 class NotificationList(TypedDict):

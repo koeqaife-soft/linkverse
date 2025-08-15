@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS user_notifications (
     linked_type TEXT,
     linked_id TEXT,
     second_linked_id TEXT,
+    unread BOOLEAN DEFAULT TRUE,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (from_id) REFERENCES users(user_id) ON DELETE CASCADE
 );

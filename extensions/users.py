@@ -219,6 +219,14 @@ async def get_notifications() -> tuple[Response, int]:
     return response(data=response_data, cache=True), 200
 
 
+@route(bp, "/users/me/notifications/unread", methods=["GET"])
+async def get_unread_notifications_count() -> tuple[Response, int]:
+    async with AutoConnection(pool) as conn:
+        result = await users.unread_notifications_count(g.user_id, conn)
+        count = result.data
+    return response(data={"count": count}, cache=True), 200
+
+
 @route(bp, "/users/<user_id>", methods=["GET"])
 async def get_profile(user_id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:

@@ -140,7 +140,8 @@ class RealtimeManager:
         linked_type: str | None = None,
         linked_id: str | None = None,
         second_linked_id: str | None = None,
-        loaded: dict | None = None
+        loaded: dict | None = None,
+        unread: bool = True
     ) -> None:
         if user_id == to:
             return
@@ -149,7 +150,8 @@ class RealtimeManager:
 
         notification = (await users.create_notification(
             to, user_id, type, conn, message,
-            linked_type, linked_id, second_linked_id
+            linked_type, linked_id, second_linked_id,
+            unread
         )).data
         notification["loaded"] = loaded
         notification = (await combined.preload_notification(

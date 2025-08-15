@@ -451,7 +451,8 @@ async def create_notification(
     message: str | None = None,
     linked_type: str | None = None,
     linked_id: str | None = None,
-    second_linked_id: str | None = None
+    second_linked_id: str | None = None,
+    unread: bool = True
 ) -> Status[Notification]:
     if user_id == from_id:
         return Status(True)
@@ -465,13 +466,14 @@ async def create_notification(
             """
             INSERT INTO user_notifications (
                 id, user_id, type, message, from_id,
-                linked_type, linked_id, second_linked_id
+                linked_type, linked_id, second_linked_id,
+                unread
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8
+                $1, $2, $3, $4, $5, $6, $7, $8, $9
             )
             """,
             notification_id, user_id, type, message, from_id,
-            linked_type, linked_id, second_linked_id
+            linked_type, linked_id, second_linked_id, unread
         )
 
     notification = Notification({
@@ -481,7 +483,8 @@ async def create_notification(
         "type": type,
         "linked_type": linked_type,
         "linked_id": linked_id,
-        "second_linked_id": second_linked_id
+        "second_linked_id": second_linked_id,
+        "unread": unread
     })
 
     return Status(True, data=notification)
@@ -496,7 +499,8 @@ async def get_notifications(
     db = await conn.create_conn()
     query = """
         SELECT id, type, message, from_id,
-               linked_type, linked_id, second_linked_id
+               linked_type, linked_id, second_linked_id,
+               unread
         FROM user_notifications WHERE user_id = $1
     """
     params: list[t.Any] = [user_id]
@@ -505,7 +509,7 @@ async def get_notifications(
         query += " AND id < $2"
         params.append(cursor)
 
-    query += f" ORDER BY id DESC LIMIT {limit + 1}"
+    query += f" ORDER BY id::bigint DESC LIMIT {limit + 1}"
 
     rows = await db.fetch(query, *params)
     if not rows:
@@ -522,7 +526,8 @@ async def get_notifications(
             "from_id": row["from_id"],
             "linked_type": row["linked_type"],
             "linked_id": row["linked_id"],
-            "second_linked_id": row["second_linked_id"]
+            "second_linked_id": row["second_linked_id"],
+            "unread": row["unread"]
         })
         for row in rows
     ]
@@ -539,3 +544,34 @@ async def get_notifications(
             "has_more": has_more
         }
     )
+
+
+async def mark_notification_read(
+    user_id: str, notification_id: str,
+    conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+    async with db.transaction():
+        await db.execute(
+            """
+            UPDATE user_notifications
+            SET unread = FALSE
+            WHERE user_id = $1 AND id = $2
+            """, user_id, notification_id
+        )
+    return Status(True)
+
+
+async def unread_notifications_count(
+    user_id: str, conn: AutoConnection
+) -> Status[int]:
+    db = await conn.create_conn()
+    value = await db.fetchval(
+        """
+            SELECT COUNT(*)
+            FROM user_notifications
+            WHERE user_id = $1 AND unread = TRUE;
+        """,
+        user_id
+    )
+    return Status(True, value)

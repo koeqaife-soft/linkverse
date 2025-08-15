@@ -8,6 +8,7 @@ from quart_cors import cors_exempt
 import utils.auth as auth
 from utils.database import AutoConnection
 import utils.realtime as realtime
+import utils.users as users
 from utils.realtime import SessionActions, SessionMessage
 import orjson
 import typing as t
@@ -63,11 +64,13 @@ async def receiving():
             await g.queues["auth"].put(decoded)
             continue
 
-        await g.queues["incoming"].put(decoded)
         if decoded.get("action") == "update_token":
             if not decoded.get("token"):
                 continue
             await ws_auth(decoded["token"])
+            continue
+
+        await g.queues["incoming"].put(decoded)
 
 
 async def ws_auth(
@@ -164,6 +167,26 @@ async def session_actions():
             queue.task_done()
 
 
+async def incoming_handler():
+    queue = g.queues["incoming"]
+    while True:
+        data = await queue.get()
+        try:
+            if data.get("type") == "read_notification":
+                id = data.get("id")
+                if not id:
+                    continue
+                async with AutoConnection(pool) as conn:
+                    await users.mark_notification_read(g.user_id, id, conn)
+                await rt_manager.publish_event(
+                    g.user_id, "notification_read", {"id": id}
+                )
+        except asyncio.CancelledError:
+            break
+        finally:
+            queue.task_done()
+
+
 @bp.websocket('/ws')
 @cors_exempt
 async def ws():
@@ -188,7 +211,8 @@ async def ws():
 
     try:
         actions = asyncio.create_task(session_actions())
-        await asyncio.gather(producer, consumer, actions)
+        incoming = asyncio.create_task(incoming_handler())
+        await asyncio.gather(producer, consumer, actions, incoming)
     finally:
         rt_manager.remove_connection(
             g.user_id, g.queues["sending"], g.queues["session"]

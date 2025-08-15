@@ -366,7 +366,8 @@ async def get_comments(
         params.extend([is_user_comment, popularity_score, comment_id])
 
     main_query += """
-        ORDER BY is_user_comment DESC, popularity_score DESC, comment_id DESC
+        ORDER BY is_user_comment DESC, popularity_score DESC,
+                 comment_id::bigint DESC
         LIMIT 21
     """
 
@@ -438,11 +439,11 @@ async def get_user_posts(
             params.append(post_id)
 
     if sort == "popular":
-        query += " ORDER BY popularity_score DESC, post_id DESC"
+        query += " ORDER BY popularity_score DESC, post_id::bigint DESC"
     elif sort == "new":
-        query += " ORDER BY post_id DESC"
+        query += " ORDER BY post_id::bigint DESC"
     elif sort == "old":
-        query += " ORDER BY post_id ASC"
+        query += " ORDER BY post_id::bigint ASC"
 
     query += " LIMIT 21"
 

@@ -44,7 +44,7 @@ async def get_popular_posts(
         parameters.extend([popularity_score, post_id])
 
     query += """
-        ORDER BY popularity_score DESC, post_id DESC
+        ORDER BY popularity_score DESC, post_id::bigint DESC
         LIMIT $1
     """
 
@@ -96,7 +96,7 @@ async def get_new_posts(
         parameters.append(cursor)
 
     query += """
-        ORDER BY post_id DESC
+        ORDER BY post_id::bigint DESC
         LIMIT $1
     """
 
@@ -150,7 +150,7 @@ async def get_posts_by_following(
         parameters.append(cursor)
 
     query += """
-        ORDER BY post_id DESC
+        ORDER BY post_id::bigint DESC
         LIMIT $1
     """
 
