@@ -8,7 +8,6 @@ from quart_cors import cors_exempt
 import utils.auth as auth
 from utils.database import AutoConnection
 import utils.realtime as realtime
-import utils.users as users
 from utils.realtime import SessionActions, SessionMessage
 import orjson
 import typing as t
@@ -172,19 +171,8 @@ async def incoming_handler():
     while True:
         data = await queue.get()
         try:
-            if data.get("type") == "read_notification":
-                id = data.get("id")
-                if not id:
-                    continue
-                async with AutoConnection(pool) as conn:
-                    await users.mark_notification_read(g.user_id, id, conn)
-                    unread_count = await users.unread_notifications_count(
-                        g.user_id, conn
-                    )
-                await rt_manager.publish_event(
-                    g.user_id, "notification_read",
-                    {"id": id, "unread": unread_count.data}
-                )
+            data
+            pass
         except asyncio.CancelledError:
             break
         finally:

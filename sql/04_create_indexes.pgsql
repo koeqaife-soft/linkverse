@@ -18,3 +18,5 @@ CREATE INDEX IF NOT EXISTS profiles_my_id_num_idx ON user_profiles ((user_id::bi
 CREATE INDEX IF NOT EXISTS notifications_my_id_num_idx ON user_notifications ((id::bigint));
 CREATE INDEX IF NOT EXISTS posts_my_id_num_idx ON posts ((post_id::bigint));
 CREATE INDEX IF NOT EXISTS comments_my_id_num_idx ON comments ((comment_id::bigint));
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON user_notifications (user_id, unread);

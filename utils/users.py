@@ -562,7 +562,23 @@ async def mark_notification_read(
     return Status(True)
 
 
-async def unread_notifications_count(
+async def mark_all_notifications_read(
+    user_id: str,
+    conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+    async with db.transaction():
+        await db.execute(
+            """
+            UPDATE user_notifications
+            SET unread = FALSE
+            WHERE user_id = $1 AND unread = TRUE
+            """, user_id
+        )
+    return Status(True)
+
+
+async def get_unread_notifications_count(
     user_id: str, conn: AutoConnection
 ) -> Status[int]:
     db = await conn.create_conn()
@@ -570,7 +586,7 @@ async def unread_notifications_count(
         """
             SELECT COUNT(*)
             FROM user_notifications
-            WHERE user_id = $1 AND unread = TRUE;
+            WHERE user_id = $1 AND unread = TRUE
         """,
         user_id
     )
