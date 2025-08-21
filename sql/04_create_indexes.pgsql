@@ -12,6 +12,7 @@ CREATE INDEX IF NOT EXISTS idx_reactions_user_id ON reactions (user_id);
 CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments (user_id);
 CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments (post_id);
 CREATE INDEX IF NOT EXISTS idx_comments_parent_id ON comments (parent_comment_id);
+CREATE INDEX IF NOT EXISTS idx_comments_type ON comments (type);
 
 CREATE INDEX IF NOT EXISTS users_my_id_num_idx ON users ((user_id::bigint));
 CREATE INDEX IF NOT EXISTS profiles_my_id_num_idx ON user_profiles ((user_id::bigint));
