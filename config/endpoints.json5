@@ -97,11 +97,15 @@
             load_data: true,
             data: {
                 content: { min_len: 1, max_len: 1024, filter: "xss" }
+            },
+            optional_data: {
+                type: { values: ["comment", "update"] }
             }
         },
         get_comments: {
             optional_params: {
-                cursor: { min_len: 1, max_len: 256 }
+                cursor: { min_len: 1, max_len: 256 },
+                type: { values: ["comment", "update"] }
             }
         },
         comment_add_reaction: {

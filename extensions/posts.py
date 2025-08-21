@@ -187,10 +187,14 @@ async def rem_reaction(id: str) -> tuple[Response, int]:
 async def create_comment(id: str) -> tuple[Response, int]:
     data = g.data
     content = data.get("content")
+    type = data.get("type")
 
     async with AutoConnection(pool) as conn:
         post = await cache_posts.get_post(id, conn)
-        result = await posts.create_comment(g.user_id, id, content, conn)
+        if type == "update" and post.data.user_id != g.user_id:
+            raise FunctionError("FORBIDDEN", 403, None)
+
+        result = await posts.create_comment(g.user_id, id, content, conn, type)
         await rt_manager.publish_notification(
             g.user_id, post.data.user_id, NotificationType.NEW_COMMENT,
             conn, None, "comment",
@@ -230,11 +234,12 @@ async def get_comment(id: str, cid: str) -> tuple[Response, int]:
 async def get_comments(id: str) -> tuple[Response, int]:
     params: dict = g.params
     cursor = params.get("cursor", None)
+    type = params.get("type", None)
 
     async with AutoConnection(pool) as conn:
         await cache_posts.get_post(id, conn)
 
-        result = await posts.get_comments(id, cursor, g.user_id, conn)
+        result = await posts.get_comments(id, cursor, g.user_id, conn, type)
 
         users = {}
         comments = []

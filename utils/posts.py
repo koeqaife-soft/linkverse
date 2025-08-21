@@ -54,6 +54,7 @@ class Comment:
     parent_comment_id: str | None
     likes_count: int
     dislikes_count: int
+    type: str
 
     @property
     def created_at(self) -> float:
@@ -268,21 +269,22 @@ async def rem_reaction(
 
 async def create_comment(
     user_id: str, post_id: str, content: str,
-    conn: AutoConnection
+    conn: AutoConnection,
+    type: str | None = None
 ) -> Status[Comment]:
     db = await conn.create_conn()
     comment_id = str(generate_id())
     async with db.transaction():
         await db.execute(
             """
-            INSERT INTO comments (comment_id, post_id, user_id, content)
-            VALUES ($1, $2, $3, $4)
-            """, comment_id, post_id, user_id, content
+            INSERT INTO comments (comment_id, post_id, user_id, content, type)
+            VALUES ($1, $2, $3, $4, $5)
+            """, comment_id, post_id, user_id, content, type or "comment"
         )
         comment = await db.fetchrow(
             """
                 SELECT comment_id, parent_comment_id, post_id, user_id,
-                       content, likes_count, dislikes_count
+                       content, likes_count, dislikes_count, type
                 FROM comments
                 WHERE post_id = $1 AND comment_id = $2
             """, post_id, comment_id
@@ -298,7 +300,7 @@ async def get_comment(
     db = await conn.create_conn()
     query = """
         SELECT comment_id, parent_comment_id, post_id, user_id, content,
-               likes_count, dislikes_count
+               likes_count, dislikes_count, type
         FROM comments
         WHERE post_id = $1 AND comment_id = $2
     """
@@ -329,7 +331,8 @@ async def get_comments(
     post_id: str,
     cursor: str | None,
     user_id: str,
-    conn: AutoConnection
+    conn: AutoConnection,
+    type: str | None = None
 ) -> Status[CommentList]:
     db = await conn.create_conn()
     params: list[t.Any] = [post_id, user_id]
@@ -338,7 +341,7 @@ async def get_comments(
         WITH ranked_comments AS (
             SELECT comment_id, parent_comment_id, post_id, user_id, content,
                    likes_count, dislikes_count,
-                   popularity_score,
+                   popularity_score, type,
                    CASE WHEN user_id = $2 THEN 1 ELSE 0 END AS is_user_comment
             FROM comments
             WHERE post_id = $1
@@ -364,10 +367,26 @@ async def get_comments(
                     AND comment_id < $5))
         """
         params.extend([is_user_comment, popularity_score, comment_id])
+        if type:
+            main_query += " AND type = $6"
+            params.append(type)
+    elif type:
+        main_query += "WHERE type = $3"
+        params.append(type)
+
+    if type == "comment":
+        main_query += """
+            ORDER BY is_user_comment DESC, popularity_score DESC,
+                    comment_id::bigint DESC
+        """
+    elif type == "update":
+        main_query += """
+            ORDER BY comment_id::bigint
+        """
+    else:
+        raise FunctionError("UNKNOWN_COMMENT_TYPE", 404, None)
 
     main_query += """
-        ORDER BY is_user_comment DESC, popularity_score DESC,
-                 comment_id::bigint DESC
         LIMIT 21
     """
 

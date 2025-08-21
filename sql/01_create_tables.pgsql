@@ -62,7 +62,9 @@ CREATE TABLE IF NOT EXISTS comments (
     content TEXT NOT NULL,
     likes_count BIGINT DEFAULT 0,
     dislikes_count BIGINT DEFAULT 0,
+    comments_count BIGINT DEFAULT 0,
     popularity_score BIGINT GENERATED ALWAYS AS (likes_count - dislikes_count) STORED,
+    type ENUM('comment', 'update') DEFAULT 'comment',
     FOREIGN KEY (parent_comment_id) REFERENCES comments (comment_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
     FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE
