@@ -4,6 +4,7 @@ from quart import Blueprint, Quart, Response
 from core import response, Global, route, FunctionError
 from quart import g
 import utils.posts as posts
+import utils.comments as comments
 from utils.cache import posts as cache_posts
 from utils.database import AutoConnection
 import utils.posts_list as posts_list
@@ -194,7 +195,9 @@ async def create_comment(id: str) -> tuple[Response, int]:
         if type == "update" and post.data.user_id != g.user_id:
             raise FunctionError("FORBIDDEN", 403, None)
 
-        result = await posts.create_comment(g.user_id, id, content, conn, type)
+        result = await comments.create_comment(
+            g.user_id, id, content, conn, type
+        )
         await rt_manager.publish_notification(
             g.user_id, post.data.user_id, NotificationType.NEW_COMMENT,
             conn, None, "comment",
@@ -209,11 +212,11 @@ async def create_comment(id: str) -> tuple[Response, int]:
 @route(bp, "/posts/<id>/comments/<cid>", methods=["DELETE"])
 async def delete_comment(id: str, cid: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
-        comment = await posts.get_comment(id, cid, conn)
+        comment = await comments.get_comment(id, cid, conn)
         if comment.data.user_id != g.user_id:
             raise FunctionError("FORBIDDEN", 403, None)
 
-        await posts.delete_comment(id, cid, conn)
+        await comments.delete_comment(id, cid, conn)
 
     return response(), 204
 
@@ -239,10 +242,12 @@ async def get_comments(id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         await cache_posts.get_post(id, conn)
 
-        result = await posts.get_comments(id, cursor, g.user_id, conn, type)
+        result = await comments.get_comments(
+            id, cursor, g.user_id, conn, type
+        )
 
-        users = {}
-        comments = []
+        users: dict[str, dict] = {}
+        _comments = []
 
         for comment in result.data["comments"]:
             _temp = await combined.get_full_comment(
@@ -250,9 +255,9 @@ async def get_comments(id: str) -> tuple[Response, int]:
                 conn, users, comment.dict
             )
 
-            comments.append(_temp.data)
+            _comments.append(_temp.data)
 
-    _data = result.data | {"users": users, "comments": comments}
+    _data = result.data | {"users": users, "comments": _comments}
     return response(data=_data, cache=True), 200
 
 
@@ -263,7 +268,7 @@ async def comment_add_reaction(id: str, cid: str) -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         await cache_posts.get_post(id, conn)
-        await posts.get_comment(id, cid, conn)
+        await comments.get_comment(id, cid, conn)
         await posts.add_reaction(g.user_id, is_like, id, cid, conn)
 
     return response(), 204
@@ -273,7 +278,7 @@ async def comment_add_reaction(id: str, cid: str) -> tuple[Response, int]:
 async def comment_rem_reaction(id: str, cid: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         await cache_posts.get_post(id, conn)
-        await posts.get_comment(id, cid, conn)
+        await comments.get_comment(id, cid, conn)
         await posts.rem_reaction(g.user_id, id, cid, conn)
 
     return response(), 204

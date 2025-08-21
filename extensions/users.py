@@ -4,6 +4,7 @@ from core import FunctionError, response, Global, route
 from quart import g
 import utils.users as users
 import utils.posts as posts
+import utils.comments as comments
 from utils.cache import users as cache_users
 from utils.database import AutoConnection
 from utils.realtime import RealtimeManager
@@ -46,7 +47,7 @@ async def validate_post_or_comment(
     conn: AutoConnection
 ) -> None:
     if comment_id:
-        await posts.get_comment(post_id, comment_id, conn)
+        await comments.get_comment(post_id, comment_id, conn)
     else:
         await posts.get_post(post_id, conn)
 

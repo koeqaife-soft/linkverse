@@ -50,11 +50,11 @@ class NotificationType(str, Enum):
 class Notification(TypedDict):
     id: str
     from_id: str
-    message: str
+    message: str | None
     type: NotificationType | str
-    linked_type: str
-    linked_id: str
-    second_linked_id: str
+    linked_type: str | None
+    linked_id: str | None
+    second_linked_id: str | None
     unread: bool
 
 

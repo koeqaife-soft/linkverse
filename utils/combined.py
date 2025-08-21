@@ -2,6 +2,7 @@ from utils.database import AutoConnection
 from utils.cache import posts as cache_posts
 from utils.cache import users as cache_users
 import utils.posts as posts
+import utils.comments as comments
 from core import Status, FunctionError
 from schemas import Notification
 import typing as t
@@ -16,11 +17,13 @@ async def get_entity(
     if loaded_entity is None:
         fetch_func = (
             cache_posts.get_post if entity_type == "post"
-            else posts.get_comment
+            else comments.get_comment
         )
         entity = (
-            await fetch_func(post_id, conn) if entity_type == "post"
-            else await fetch_func(post_id, comment_id, conn)
+            await fetch_func(post_id, conn)  # type: ignore
+            if entity_type == "post"
+            else
+            await fetch_func(post_id, comment_id, conn)  # type: ignore
         )
     else:
         if (
@@ -111,17 +114,16 @@ async def preload_items(
 
 async def preload_notification(
     user_id: str, conn: AutoConnection,
-    notification: Notification | dict
-) -> Status[dict]:
-    notification = t.cast(dict, notification)
-    types_actions = {
+    notification: Notification
+) -> Status[Notification]:
+    types_actions: dict = {
         "post": lambda post, _: get_full_post(
             user_id, post, conn,
-            loaded=notification.get("loaded")
+            loaded=t.cast(dict, notification.get("loaded"))
         ),
         "comment": lambda comment, post: get_full_comment(
             user_id, post, comment, conn,
-            loaded=notification.get("loaded")
+            loaded=t.cast(dict, notification.get("loaded"))
         )
     }
 
@@ -130,7 +132,7 @@ async def preload_notification(
         data = (await types_actions[notification["linked_type"]](
             notification["linked_id"], notification["second_linked_id"]
         )).data
-        notification["loaded"] = data
+        notification["loaded"] = data  # type: ignore
     except FunctionError:
         pass
 

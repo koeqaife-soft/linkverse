@@ -153,7 +153,7 @@ class RealtimeManager:
             linked_type, linked_id, second_linked_id,
             unread
         )).data
-        notification["loaded"] = loaded
+        notification["loaded"] = loaded  # type: ignore
         notification = (await combined.preload_notification(
             user_id, conn, notification
         )).data
