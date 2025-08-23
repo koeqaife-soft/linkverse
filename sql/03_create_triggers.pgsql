@@ -67,3 +67,19 @@ EXECUTE FUNCTION update_modified_column();
     CREATE OR REPLACE TRIGGER trigger_delete_notifications_on_post_delete
     AFTER DELETE ON posts
     FOR EACH ROW EXECUTE FUNCTION delete_notifications_on_post_delete();
+
+-- (4) replies
+-- (4) on insert
+    CREATE OR REPLACE TRIGGER trigger_replies_insert
+    AFTER INSERT ON comments
+    FOR EACH ROW
+    WHEN (NEW.parent_comment_id IS NOT NULL)
+    EXECUTE FUNCTION increment_replies_count();
+
+-- (4) on delete
+    CREATE OR REPLACE TRIGGER trigger_replies_delete
+    AFTER DELETE ON comments
+    FOR EACH ROW
+    WHEN (OLD.parent_comment_id IS NOT NULL)
+    EXECUTE FUNCTION decrement_replies_count();
+

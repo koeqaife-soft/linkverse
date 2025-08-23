@@ -135,3 +135,24 @@ $$ LANGUAGE plpgsql;
         RETURN OLD;
     END;
     $$ LANGUAGE plpgsql;
+
+-- (4) replies
+-- (4) increment
+    CREATE OR REPLACE FUNCTION increment_replies_count() RETURNS TRIGGER AS $$
+    BEGIN
+        UPDATE comments
+        SET replies_count = replies_count + 1
+        WHERE comment_id = NEW.parent_comment_id;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+-- (4) decrement
+    CREATE OR REPLACE FUNCTION decrement_replies_count() RETURNS TRIGGER AS $$
+    BEGIN
+        UPDATE comments
+        SET replies_count = replies_count - 1
+        WHERE comment_id = OLD.parent_comment_id;
+        RETURN OLD;
+    END;
+    $$ LANGUAGE plpgsql;
