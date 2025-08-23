@@ -71,10 +71,13 @@ async def get_comment(
 ) -> Status[Comment]:
     db = await conn.create_conn()
     query = """
-        SELECT comment_id, parent_comment_id, post_id, user_id, content,
-               likes_count, dislikes_count, type
-        FROM comments
-        WHERE post_id = $1 AND comment_id = $2
+        SELECT c.comment_id, c.parent_comment_id, c.post_id, c.user_id,
+               c.content, c.likes_count, c.dislikes_count, c.type
+        FROM comments c
+        JOIN posts p ON c.post_id = p.post_id
+        WHERE c.post_id = $1
+          AND c.comment_id = $2
+          AND p.is_deleted = FALSE
     """
     row = await db.fetchrow(query, post_id, comment_id)
 
