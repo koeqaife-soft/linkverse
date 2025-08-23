@@ -134,6 +134,8 @@ async def preload_notification(
         )).data
         notification["loaded"] = data  # type: ignore
     except FunctionError:
-        pass
+        user = await cache_users.get_user(notification["from_id"], conn, True)
+        notification["loaded"] = notification.get("loaded") or {}
+        notification["loaded"]["user"] = user.data.dict
 
     return Status(True, notification)
