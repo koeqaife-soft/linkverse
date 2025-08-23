@@ -498,18 +498,40 @@ async def get_notifications(
 ) -> Status[NotificationList]:
     db = await conn.create_conn()
     query = """
-        SELECT id, type, message, from_id,
-               linked_type, linked_id, second_linked_id,
-               unread
-        FROM user_notifications WHERE user_id = $1
+        SELECT n.id,
+            n.type,
+            n.message,
+            n.from_id,
+            n.linked_type,
+            n.linked_id,
+            n.second_linked_id,
+            n.unread
+        FROM user_notifications n
+        LEFT JOIN posts p1
+            ON n.linked_type = 'post'
+            AND n.linked_id = p1.post_id
+        LEFT JOIN posts p2
+            ON n.linked_type = 'comment'
+            AND n.second_linked_id = p2.post_id
+        LEFT JOIN comments c
+            ON n.linked_type = 'comment'
+            AND n.linked_id = c.comment_id
+        WHERE n.user_id = $1
+        AND (
+                (n.linked_type = 'post'
+                 AND p1.is_deleted = FALSE)
+            OR  (n.linked_type = 'comment'
+                 AND p2.is_deleted = FALSE)
+            OR  (n.linked_type NOT IN ('post', 'comment'))
+        )
     """
     params: list[t.Any] = [user_id]
 
     if cursor:
-        query += " AND id < $2"
+        query += " AND n.id < $2"
         params.append(cursor)
 
-    query += f" ORDER BY id::bigint DESC LIMIT {limit + 1}"
+    query += f" ORDER BY n.id::bigint DESC LIMIT {limit + 1}"
 
     rows = await db.fetch(query, *params)
     if not rows:
