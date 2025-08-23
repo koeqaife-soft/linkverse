@@ -3,12 +3,13 @@ from core import Global, remove_none_values
 import asyncio
 import asyncpg
 import orjson
-import utils.users as users
+import utils.notifs as notifs
 from utils.database import AutoConnection
 import utils.combined as combined
 from collections import defaultdict
 import typing as t
 from enum import Enum
+from schemas import NotificationType
 
 
 gb = Global()
@@ -134,7 +135,7 @@ class RealtimeManager:
         self,
         user_id: str,
         to: str,
-        type: users.NotificationType | str,
+        type: NotificationType | str,
         conn: AutoConnection,
         message: str | None = None,
         linked_type: str | None = None,
@@ -148,7 +149,7 @@ class RealtimeManager:
         if loaded:
             message = None
 
-        notification = (await users.create_notification(
+        notification = (await notifs.create_notification(
             to, user_id, type, conn, message,
             linked_type, linked_id, second_linked_id,
             unread

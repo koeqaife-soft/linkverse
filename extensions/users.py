@@ -197,65 +197,6 @@ async def unfollow_user(target_id: str) -> tuple[Response, int]:
     return response(is_empty=True), 204
 
 
-@route(bp, "/users/me/notifications", methods=["GET"])
-async def get_notifications() -> tuple[Response, int]:
-    params: dict = g.params
-    cursor = params.get("cursor", None)
-    preload = params.get("preload", False)
-    limit = params.get("limit", 20)
-
-    async with AutoConnection(pool) as conn:
-        result = await users.get_notifications(g.user_id, conn, cursor, limit)
-        notifications = result.data.get("notifications", [])
-        response_data = {key: val for key, val in result.data.items()
-                         if key != "notifications"}
-        if preload:
-            preloaded = []
-            for object in notifications:
-                _result = await combined.preload_notification(
-                    g.user_id, conn, object
-                )
-                preloaded.append(_result.data)
-            response_data.update({"notifications": preloaded})
-        else:
-            response_data.update({"notifications": notifications})
-    return response(data=response_data, cache=True), 200
-
-
-@route(bp, "/users/me/notifications/unread", methods=["GET"])
-async def get_unread_notifications_count() -> tuple[Response, int]:
-    async with AutoConnection(pool) as conn:
-        result = await users.get_unread_notifications_count(g.user_id, conn)
-        count = result.data
-    return response(data={"count": count}, cache=True), 200
-
-
-@route(bp, "/users/me/notifications/<id>/read", methods=["POST"])
-async def read_notification(id: str) -> tuple[Response, int]:
-    async with AutoConnection(pool) as conn:
-        await users.mark_notification_read(g.user_id, id, conn)
-        unread_count = await users.get_unread_notifications_count(
-            g.user_id, conn
-        )
-
-    await rt_manager.publish_event(
-        g.user_id, "notification_read",
-        {"id": id, "unread": unread_count.data}
-    )
-    return response(is_empty=True), 204
-
-
-@route(bp, "/users/me/notifications/read", methods=["POST"])
-async def read_all_notifications() -> tuple[Response, int]:
-    async with AutoConnection(pool) as conn:
-        await users.mark_all_notifications_read(g.user_id, conn)
-
-    await rt_manager.publish_event(
-        g.user_id, "notification_read", {}
-    )
-    return response(is_empty=True), 204
-
-
 @route(bp, "/users/<user_id>", methods=["GET"])
 async def get_profile(user_id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:

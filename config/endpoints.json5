@@ -92,7 +92,9 @@
                     f_max_len: 400
                 }
             }
-        },
+        }
+    },
+    comments: {
         create_comment: {
             load_data: true,
             data: {
@@ -113,7 +115,16 @@
             data: {
                 is_like: { type: "bool" }
             }
-        },
+        }
+    },
+    notifs: {
+        get_notifications: {
+            optional_params: {
+                cursor: { min_len: 1, max_len: 256 },
+                preload: { type: "bool" },
+                limit: { type: "int", min: 1, max: 50 }
+            }
+        }
     },
     users: {
         update_profile_me: {
@@ -173,13 +184,6 @@
                 cursor: { min_len: 1, max_len: 256 },
                 sort: { values: ["old", "new", "popular"] }
             }
-        },
-        get_notifications: {
-            optional_params: {
-                cursor: { min_len: 1, max_len: 256 },
-                preload: { type: "bool" },
-                limit: { type: "int", min: 1, max: 50 }
-            }
-        },
+        }
     }
 }
