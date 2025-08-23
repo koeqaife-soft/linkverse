@@ -129,11 +129,13 @@ async def preload_notification(
 
     data = None
     try:
-        data = (await types_actions[notification["linked_type"]](
-            notification["linked_id"], notification["second_linked_id"]
-        )).data
+        data = (
+            await types_actions[notification["linked_type"]](
+                notification["linked_id"], notification["second_linked_id"]
+            )
+        ).data
         notification["loaded"] = data  # type: ignore
-    except FunctionError:
+    except (FunctionError, KeyError):
         user = await cache_users.get_user(notification["from_id"], conn, True)
         notification["loaded"] = notification.get("loaded") or {}
         notification["loaded"]["user"] = user.data.dict
