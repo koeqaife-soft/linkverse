@@ -9,6 +9,10 @@ modules = [
     Extension(
         name="utils_cy.snowflake",
         sources=["utils_cy/snowflake.pyx"],
+    ),
+    Extension(
+        name="utils_cy.validate",
+        sources=["utils_cy/validate.pyx"],
     )
 ]
 

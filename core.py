@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-import re
 from typing import overload
 import typing as t
 import orjson
@@ -15,8 +14,8 @@ from colorama import Fore, Style, init
 import importlib
 import glob
 from quart_cors import cors
-import bleach
 import xxhash
+from utils_cy.validate import Validator
 
 from io import BytesIO
 from gzip import GzipFile
@@ -28,12 +27,6 @@ init(autoreset=True)
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 T = t.TypeVar("T")
-ALLOWED_TAGS = [
-    "p", "br", "b", "i", "strong", "em", "u", "ul", "ol", "li",
-    "blockquote", "code", "pre", "a", "img", "div", "span",
-    "table", "tr", "td", "th", "thead", "tbody"
-]
-
 
 load_dotenv()
 app = Quart(__name__)
@@ -396,144 +389,12 @@ def validate(
         validator.validate_str
     )
 
-    _result = _validate(value)
+    try:
+        _result = _validate(value)
+    except TypeError:
+        _result = False, None
 
     return _result[0], value if _result[1] is None else _result[1]
-
-
-class Validator:
-    def __init__(self, options: dict) -> None:
-        self.options = options
-
-    def validate_dict(self, value: dict) -> ReturnType:
-        return isinstance(value, dict), None
-
-    def validate_bool(self, value: bool) -> ReturnType:
-        return isinstance(value, bool), None
-
-    def validate_list(self, value: list) -> ReturnType:
-        options = self.options
-        if not isinstance(value, list):
-            return False, None
-        checks = {
-            "min_len": lambda s, v: len(s) >= int(v),
-            "max_len": lambda s, v: len(s) <= int(v),
-            "len": lambda s, v: len(s) == int(v),
-            "value_max_len": lambda s, v: all(
-                len(str(item)) <= int(v) for item in s
-            ),
-            "value_min_len": lambda s, v: all(
-                len(str(item)) >= int(v) for item in s
-            ),
-        }
-
-        for option, check in checks.items():
-            if option in options and not check(value, options[option]):
-                return False, None
-
-        return True, None
-
-    def validate_int(self, value: int) -> ReturnType:
-        options = self.options
-        if not isinstance(value, int):
-            return False, None
-        checks = {
-            "min": lambda s, v: s >= int(v),
-            "max": lambda s, v: s <= int(v)
-        }
-
-        for option, check in checks.items():
-            if option in options and not check(value, options[option]):
-                return False, None
-
-        return True, None
-
-    def validate_str(self, value: str) -> ReturnType:
-        options = self.options
-        if not isinstance(value, str):
-            return False, None
-        checks = {
-            "min_len": lambda s, v: len(s) >= int(v),
-            "max_len": lambda s, v: len(s) <= int(v),
-            "len": lambda s, v: len(s) == int(v),
-            "values": lambda s, v: s in v
-        }
-        filters = {
-            "xss": lambda v: bleach.clean(v, tags=ALLOWED_TAGS)
-        }
-
-        if "regex" in options:
-            if not re.match(options["regex"], value):
-                return False, None
-
-        for option, check in checks.items():
-            if option in options and not check(value, options[option]):
-                return False, None
-
-        if "filter" in options:
-            if isinstance(options["filter"], list):
-                for x in options["filter"]:
-                    value = filters[x](value)
-            if isinstance(options["filter"], str):
-                value = filters[options["filter"]](value)
-
-        return True, value
-
-    def validate_email(self, value: str) -> ReturnType:
-        options = self.options
-        options["min_len"] = 4
-        options["max_len"] = 254
-        options["regex"] = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        return self.validate_str(value)
-
-    def parameters_str(self, value: str) -> ReturnType:
-        return self.validate_str(value)
-
-    def parameters_int(self, value: str) -> ReturnType:
-        if not value.isdigit():
-            return False, None
-
-        _value = int(value)
-        return self.validate_int(_value)[0], _value
-
-    def parameters_bool(self, value: str) -> ReturnType:
-        _value = value.lower()
-        return _value in ["true", "false"], _value == "true"
-
-    def parameters_list(self, value: str) -> ReturnType:
-        options = self.options
-        if not isinstance(value, str):
-            return False, None
-
-        if "f_max_len" in options and len(value) > options["f_max_len"]:
-            return False, None
-
-        _value = value.split(",")
-
-        checks = {
-            "min_len": lambda s, v: len(s) >= int(v),
-            "max_len": lambda s, v: len(s) <= int(v),
-            "len": lambda s, v: len(s) == int(v)
-        }
-
-        for option, check in checks.items():
-            if option in options and not check(_value, options[option]):
-                return False, None
-
-        v_checks = {
-            "v_min_len": lambda s, v: len(s) >= int(v),
-            "v_max_len": lambda s, v: len(s) <= int(v),
-            "v_len": lambda s, v: len(s) == int(v),
-            "is_digit": lambda s, v: v and str(s).isdigit()
-        }
-
-        for option, check in v_checks.items():
-            if option in options:
-                for x in _value:
-                    if not check(x, options[option]):
-                        return False, None
-
-        return True, _value
 
 
 def are_all_keys_present(source: dict, target: dict) -> bool:
