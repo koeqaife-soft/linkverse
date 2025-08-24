@@ -101,13 +101,15 @@
                 content: { min_len: 1, max_len: 1024, filter: "xss" }
             },
             optional_data: {
-                type: { values: ["comment", "update"] }
+                type: { values: ["comment", "update"] },
+                parent_id: { comment_id: { min_len: 10, max_len: 32 } }
             }
         },
         get_comments: {
             optional_params: {
                 cursor: { min_len: 1, max_len: 256 },
-                type: { values: ["comment", "update"] }
+                type: { values: ["comment", "update"] },
+                parent_id: { comment_id: { min_len: 10, max_len: 32 } }
             }
         },
         comment_add_reaction: {

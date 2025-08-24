@@ -21,6 +21,7 @@ async def create_comment(id: str) -> tuple[Response, int]:
     data = g.data
     content = data.get("content")
     type = data.get("type")
+    parent_id = data.get("parent_id")
 
     async with AutoConnection(pool) as conn:
         post = await cache_posts.get_post(id, conn)
@@ -28,7 +29,7 @@ async def create_comment(id: str) -> tuple[Response, int]:
             raise FunctionError("FORBIDDEN", 403, None)
 
         result = await comments.create_comment(
-            g.user_id, id, content, conn, type
+            g.user_id, id, content, conn, type, parent_id
         )
         await rt_manager.publish_notification(
             g.user_id, post.data.user_id, NotificationType.NEW_COMMENT,
@@ -70,12 +71,13 @@ async def get_comments(id: str) -> tuple[Response, int]:
     params: dict = g.params
     cursor = params.get("cursor", None)
     type = params.get("type", None)
+    parent_id = params.get("parent_id", None)
 
     async with AutoConnection(pool) as conn:
         await cache_posts.get_post(id, conn)
 
         result = await comments.get_comments(
-            id, cursor, g.user_id, conn, type
+            id, cursor, g.user_id, conn, type, parent_id
         )
 
         users: dict[str, dict] = {}
