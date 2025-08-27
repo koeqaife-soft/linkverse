@@ -38,8 +38,12 @@
                 content: { min_len: 1, max_len: 16384, filter: "xss" }
             },
             optional_data: {
+                ctags: {
+                    type: "list", max_len: 4,
+                    value_max_len: 22, value_min_len: 1
+                },
                 tags: {
-                    type: "list", max_len: 8,
+                    type: "list", max_len: 4,
                     value_max_len: 22, value_min_len: 1
                 },
                 media: { type: "list" }
@@ -50,7 +54,7 @@
             optional_data: {
                 content: { min_len: 1, max_len: 16384 },
                 tags: {
-                    type: "list", max_len: 8,
+                    type: "list", max_len: 4,
                     value_max_len: 22, value_min_len: 1
                 },
                 media: { type: "list" }
@@ -91,6 +95,12 @@
                     is_digit: true, 
                     f_max_len: 400
                 }
+            }
+        },
+        get_tag_posts: {
+            optional_params: {
+                cursor: { min_len: 1, max_len: 256 },
+                limit: { type: "int", min: 1, max: 1000 }
             }
         }
     },

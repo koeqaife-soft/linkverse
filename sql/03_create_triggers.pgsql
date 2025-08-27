@@ -83,3 +83,15 @@ EXECUTE FUNCTION update_modified_column();
     WHEN (OLD.parent_comment_id IS NOT NULL)
     EXECUTE FUNCTION decrement_replies_count();
 
+-- (5) tag posts count
+-- (5) increment
+    CREATE OR REPLACE TRIGGER trigger_tag_posts_count_increment
+    AFTER INSERT ON post_tags
+    FOR EACH ROW
+    EXECUTE FUNCTION increment_tag_posts_count();
+
+-- (5) decrement
+    CREATE OR REPLACE TRIGGER trigger_tag_posts_count_decrement
+    AFTER DELETE ON post_tags
+    FOR EACH ROW
+    EXECUTE FUNCTION decrement_tag_posts_count();

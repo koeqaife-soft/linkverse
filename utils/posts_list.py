@@ -197,3 +197,51 @@ async def mark_posts_as_viewed(
         for post_id in post_ids:
             await db.execute(query, user_id, str(post_id))
     return Status(True)
+
+
+async def get_tag_posts(
+    tag_id: str,
+    conn: AutoConnection,
+    limit: int = 50,
+    cursor: str | None = None
+) -> Status[list[int]]:
+    db = await conn.create_conn()
+    query = """
+        SELECT pt.post_id, p.popularity_score
+        FROM post_tags pt
+        LEFT JOIN posts p ON p.post_id = pt.post_id
+        WHERE pt.tag_id = $2
+        GROUP BY pt.post_id, p.post_id, p.popularity_score
+    """
+    parameters: list = [limit, tag_id]
+
+    if cursor:
+        _popularity_score, post_id = cursor.split(",")
+        popularity_score = int(_popularity_score)
+        query += """
+            AND (
+                (p.popularity_score) < $3 OR
+                ((p.popularity_score) = $3 AND p.post_id < $4)
+            )
+        """
+        parameters.extend([popularity_score, post_id])
+
+    query += """
+        ORDER BY p.popularity_score DESC, p.post_id::bigint DESC
+        LIMIT $1
+    """
+
+    rows = await db.fetch(query, *parameters)
+
+    if not rows:
+        raise FunctionError("NO_MORE_POSTS", 200, None)
+
+    posts = [row["post_id"] for row in rows]
+    last_post = rows[-1]
+
+    next_cursor = (f"{last_post["popularity_score"]},{last_post["post_id"]}"
+                   if rows else None)
+    return Status(True, data={
+        "posts": posts,
+        "next_cursor": next_cursor
+    })

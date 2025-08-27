@@ -112,3 +112,16 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     badges SMALLINT[],
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS tags (
+    tag_id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    posts_count BIGINT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS post_tags (
+    post_id TEXT NOT NULL REFERENCES posts(post_id) ON DELETE CASCADE,
+    tag_id TEXT NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
+    PRIMARY KEY (post_id, tag_id)
+);

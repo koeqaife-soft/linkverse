@@ -156,3 +156,24 @@ $$ LANGUAGE plpgsql;
         RETURN OLD;
     END;
     $$ LANGUAGE plpgsql;
+
+-- (5) tag posts count
+-- (5) increment
+    CREATE OR REPLACE FUNCTION increment_tag_posts_count() RETURNS TRIGGER AS $$
+    BEGIN
+        UPDATE tags
+        SET posts_count = posts_count + 1
+        WHERE tag_id = NEW.tag_id;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+-- (5) decrement
+    CREATE OR REPLACE FUNCTION decrement_tag_posts_count() RETURNS TRIGGER AS $$
+    BEGIN
+        UPDATE tags
+        SET posts_count = posts_count - 1
+        WHERE tag_id = OLD.tag_id;
+        RETURN OLD;
+    END;
+    $$ LANGUAGE plpgsql;

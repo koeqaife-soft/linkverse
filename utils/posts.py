@@ -21,13 +21,18 @@ class Post:
     media: list[str]
     status: str | None = None
     is_deleted: bool | None = None
+    ctags: list[str] | None = None
 
     @property
     def created_at_unix(self) -> float:
+        if isinstance(self.created_at, int):
+            return self.created_at
         return self.created_at.timestamp()
 
     @property
     def updated_at_unix(self) -> float:
+        if isinstance(self.updated_at, int):
+            return self.updated_at
         return self.updated_at.timestamp()
 
     @property
@@ -49,31 +54,79 @@ class PostList(t.TypedDict, ListsDefault):
     posts: list[Post]
 
 
+@dataclass
+class Tag:
+    tag_id: str
+    name: str
+    created_at: datetime.datetime
+    posts_count: int
+
+    @property
+    def created_at_unix(self) -> float:
+        if isinstance(self.created_at, int):
+            return self.created_at
+        return self.created_at.timestamp()
+
+    @property
+    def dict(self) -> dict:
+        post_dict = asdict(self)
+        post_dict['created_at'] = int(self.created_at_unix)
+        return post_dict
+
+    def __dict__(self):
+        return self.dict
+
+
+def post_query(
+    where: str = "",
+    more_info: bool = False,
+    popularity_score: bool = False
+) -> str:
+    query = f"""
+        SELECT p.post_id, p.user_id, p.content, p.created_at, p.updated_at,
+               p.likes_count, p.comments_count,
+               p.dislikes_count, p.tags, p.media
+               {", p.popularity_score" if popularity_score else ""}
+               {", p.status, p.is_deleted" if more_info else ""},
+               COALESCE(
+                   array_agg(t.name)
+                   FILTER (WHERE t.tag_id IS NOT NULL),
+                   '{{}}'
+               ) AS ctags
+        FROM posts p
+        LEFT JOIN post_tags pt ON pt.post_id = p.post_id
+        LEFT JOIN tags t ON t.tag_id = pt.tag_id
+        {where}
+        GROUP BY p.post_id
+    """
+    return query
+
+
 async def get_post(
-    post_id: str, conn: AutoConnection,
+    post_id: str,
+    conn: AutoConnection,
     more_info: bool = False
 ) -> Status[Post]:
     db = await conn.create_conn()
-    query = f"""
-        SELECT post_id, user_id, content, created_at, updated_at,
-               likes_count, comments_count, dislikes_count, tags, media
-               {", status, is_deleted" if more_info else ""}
-        FROM posts
-        WHERE post_id = $1 AND is_deleted = FALSE
-    """
+    query = post_query(
+        where="WHERE p.post_id = $1 AND p.is_deleted = FALSE",
+        more_info=more_info
+    )
     row = await db.fetchrow(query, post_id)
 
     if row is None:
         raise FunctionError("POST_DOES_NOT_EXIST", 404, None)
 
-    return Status(True, data=Post.from_dict(row))
+    data = dict(row)
+    return Status(True, data=Post.from_dict(data))
 
 
 async def create_post(
     user_id: str, content: str,
     conn: AutoConnection,
     tags: list[str] = [],
-    media: list[str] = []
+    media: list[str] = [],
+    ctags: list[str] = []
 ) -> Status[dict | None]:
     db = await conn.create_conn()
     post_id = str(generate_id())
@@ -84,14 +137,28 @@ async def create_post(
             VALUES ($1, $2, $3, $4, $5)
             """, post_id, user_id, content, tags, media
         )
-        created_post = await db.fetchrow(
-            """
-            SELECT post_id, user_id, content, created_at, updated_at,
-                   likes_count, comments_count, tags, media, status,
-                   is_deleted, dislikes_count
-            FROM posts WHERE post_id = $1
-            """, post_id
-        )
+
+        if ctags:
+            await db.executemany(
+                """
+                INSERT INTO tags (name, tag_id)
+                VALUES ($1, $2)
+                ON CONFLICT (name) DO NOTHING
+                """,
+                [(tag, str(generate_id())) for tag in ctags]
+            )
+            await db.executemany(
+                """
+                INSERT INTO post_tags (post_id, tag_id)
+                SELECT $1, tag_id FROM tags WHERE name = $2
+                ON CONFLICT DO NOTHING
+                """,
+                [(post_id, tag) for tag in ctags]
+            )
+
+        created_post = (
+            await get_post(post_id, conn, more_info=False)
+        ).data.dict
 
     return Status(
         True,
@@ -242,13 +309,10 @@ async def get_user_posts(
 ) -> Status[PostList]:
     sort = sort or "new"
     db = await conn.create_conn()
-    query = """
-        SELECT post_id, user_id, content, created_at, updated_at,
-               likes_count, comments_count, tags, media, status,
-               is_deleted, dislikes_count,
-               popularity_score
-        FROM posts WHERE user_id = $1 AND is_deleted = FALSE
-    """
+    query = post_query(
+        where="WHERE p.user_id = $1 AND p.is_deleted = FALSE",
+        popularity_score=True
+    )
     params: list[t.Any] = [user_id]
 
     if cursor:
@@ -261,24 +325,24 @@ async def get_user_posts(
         if sort == "popular":
             query += """
                 AND (
-                    (popularity_score) < $2 OR
-                    ((popularity_score) = $2 AND post_id < $3)
+                    (p.popularity_score) < $2 OR
+                    ((p.popularity_score) = $2 AND p.post_id < $3)
                 )
             """
             params.extend([popularity_score, post_id])
         elif sort == "new":
-            query += " AND post_id < $2"
+            query += " AND p.post_id < $2"
             params.append(post_id)
         elif sort == "old":
-            query += " AND post_id > $2"
+            query += " AND p.post_id > $2"
             params.append(post_id)
 
     if sort == "popular":
-        query += " ORDER BY popularity_score DESC, post_id::bigint DESC"
+        query += " ORDER BY p.popularity_score DESC, p.post_id::bigint DESC"
     elif sort == "new":
-        query += " ORDER BY post_id::bigint DESC"
+        query += " ORDER BY p.post_id::bigint DESC"
     elif sort == "old":
-        query += " ORDER BY post_id::bigint ASC"
+        query += " ORDER BY p.post_id::bigint ASC"
 
     query += " LIMIT 21"
 
@@ -335,3 +399,20 @@ async def get_fav_and_reaction(
               row["reaction"] if row else None)
 
     return Status(True, data=result)
+
+
+async def get_tag(
+    tag_name: str,
+    conn: AutoConnection
+) -> Status[Tag]:
+    db = await conn.create_conn()
+    row = await db.fetchrow(
+        """
+        SELECT tag_id, name, created_at, posts_count
+        FROM tags
+        WHERE name = $1
+        """, tag_name
+    )
+    if row is None:
+        raise FunctionError("TAG_DOES_NOT_EXIST", 404, None)
+    return Status(True, data=Tag(**dict(row)))

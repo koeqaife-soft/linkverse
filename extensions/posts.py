@@ -78,10 +78,13 @@ async def create_post() -> tuple[Response, int]:
     data = g.data
     content: str = data.get('content')
     tags: list[str] = data.get("tags", [])
+    ctags: list[str] = data.get("ctags", [])
     media: list[str] = data.get("media", [])
 
     async with AutoConnection(pool) as conn:
-        result = await posts.create_post(g.user_id, content, conn, tags, media)
+        result = await posts.create_post(
+            g.user_id, content, conn, tags, media, ctags
+        )
 
     return response(data=result.data or {}), 201
 
@@ -180,6 +183,30 @@ async def rem_reaction(id: str) -> tuple[Response, int]:
         await posts.rem_reaction(g.user_id, id, None, conn)
 
     return response(), 204
+
+
+@route(bp, "/tags/<name>/posts", methods=["GET"])
+async def get_tag_posts(name: str) -> tuple[Response, int]:
+    params: dict = g.params
+    cursor = params.get("cursor")
+    limit = params.get("limit", 50)
+
+    async with AutoConnection(pool) as conn:
+        tag = await posts.get_tag(name, conn)
+        id = tag.data.tag_id
+        _posts = (
+            await posts_list.get_tag_posts(id, conn, limit, cursor)
+        ).data
+
+    return response(data=_posts), 200
+
+
+@route(bp, "/tags/<name>", methods=["GET"])
+async def get_tag(name: str) -> tuple[Response, int]:
+    async with AutoConnection(pool) as conn:
+        tag = await posts.get_tag(name, conn)
+
+    return response(data=tag.data.dict), 200
 
 
 def load(app: Quart):
