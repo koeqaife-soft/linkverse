@@ -25,14 +25,19 @@ async def create_comment(id: str) -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         post = await cache_posts.get_post(id, conn)
+        notif_to = post.data.user_id
         if type == "update" and post.data.user_id != g.user_id:
             raise FunctionError("FORBIDDEN", 403, None)
+
+        if parent_id:
+            comment = await comments.get_comment(id, parent_id, conn)
+            notif_to = comment.data.user_id
 
         result = await comments.create_comment(
             g.user_id, id, content, conn, type, parent_id
         )
         await rt_manager.publish_notification(
-            g.user_id, post.data.user_id, NotificationType.NEW_COMMENT,
+            g.user_id, notif_to, NotificationType.NEW_COMMENT,
             conn, None, "comment",
             result.data.comment_id,
             result.data.post_id,
