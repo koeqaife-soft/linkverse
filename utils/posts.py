@@ -1,5 +1,7 @@
 from dataclasses import dataclass, asdict
 import datetime
+import re
+import unicodedata
 from core import Status, FunctionError
 from utils.generation import generate_id
 import typing as t
@@ -121,6 +123,15 @@ async def get_post(
     return Status(True, data=Post.from_dict(data))
 
 
+def normalize_tag(tag: str) -> str:
+    tag = tag.strip().lower()
+    tag = unicodedata.normalize("NFKD", tag)
+    tag = re.sub(r"[^\w\s-]", "", tag)
+    tag = re.sub(r"[\s]+", "-", tag)
+    tag = tag[:50]
+    return tag
+
+
 async def create_post(
     user_id: str, content: str,
     conn: AutoConnection,
@@ -130,6 +141,7 @@ async def create_post(
 ) -> Status[dict | None]:
     db = await conn.create_conn()
     post_id = str(generate_id())
+    ctags = list(set([normalize_tag(tag) for tag in ctags if tag]))
     async with db.transaction():
         await db.execute(
             """

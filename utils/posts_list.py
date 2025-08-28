@@ -211,9 +211,8 @@ async def get_tag_posts(
         FROM post_tags pt
         LEFT JOIN posts p ON p.post_id = pt.post_id
         WHERE pt.tag_id = $2
-        GROUP BY pt.post_id, p.post_id, p.popularity_score
     """
-    parameters: list = [limit, tag_id]
+    parameters: list = [limit + 1, tag_id]
 
     if cursor:
         _popularity_score, post_id = cursor.split(",")
@@ -227,6 +226,7 @@ async def get_tag_posts(
         parameters.extend([popularity_score, post_id])
 
     query += """
+        GROUP BY pt.post_id, p.post_id, p.popularity_score
         ORDER BY p.popularity_score DESC, p.post_id::bigint DESC
         LIMIT $1
     """
@@ -236,12 +236,16 @@ async def get_tag_posts(
     if not rows:
         raise FunctionError("NO_MORE_POSTS", 200, None)
 
+    rows = rows[:limit]
     posts = [row["post_id"] for row in rows]
     last_post = rows[-1]
+
+    has_more = len(rows) > limit
 
     next_cursor = (f"{last_post["popularity_score"]},{last_post["post_id"]}"
                    if rows else None)
     return Status(True, data={
         "posts": posts,
-        "next_cursor": next_cursor
+        "next_cursor": next_cursor,
+        "has_more": has_more
     })
