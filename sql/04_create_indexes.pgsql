@@ -22,5 +22,3 @@ CREATE INDEX IF NOT EXISTS comments_id_num_idx ON comments ((comment_id::bigint)
 CREATE INDEX IF NOT EXISTS tag_id_num_idx ON tags ((tag_id::bigint));
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON user_notifications (user_id, unread);
-
-CREATE INDEX IF NOT EXISTS idx_tag_name_id ON tags (tag_id, name);
