@@ -19,3 +19,5 @@ setuptools
 orjson
 xxhash
 redis
+aioboto3
+boto3

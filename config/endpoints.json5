@@ -197,5 +197,17 @@
                 sort: { values: ["old", "new", "popular"] }
             }
         }
+    },
+    storage: {
+        upload_file: {
+            load_data: true,
+            data: {
+                file_name: { min_len: 1, max_len: 128 },
+                type: { values: ["avatar", "banner", "context"] }
+            },
+            optional_data: {
+                context_id: { min_len: 10, max_len: 32 }
+            }
+        }
     }
 }

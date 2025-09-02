@@ -15,8 +15,8 @@ def upload_file(file_path: str, file_name: str, token: str) -> None:
     headers = {"Authorization": token}
 
     response = requests.post(
-        "http://localhost:6169/v1/generate_upload_url",
-        json={"file_name": file_name},
+        "http://localhost:6169/v1/storage/file",
+        json={"file_name": file_name, "type": "avatar"},
         headers=headers
     )
     response.raise_for_status()
@@ -25,26 +25,30 @@ def upload_file(file_path: str, file_name: str, token: str) -> None:
         logging.error(data)
         exit(1)
 
-    upload_url = data["data"]["upload_url"]
+    headers = data["data"]["headers"]
     file_url = data["data"]["file_url"]
     random_file_name = data["data"]["file_name"]
+    print(f"Headers: {headers}")
 
     logging.info("Link is ready!")
     if input("Continue? (y/n): ").strip().lower() != "y":
         print("Operation cancelled.")
         return
 
-    if upload_url:
+    if file_url:
         with open(file_path, 'rb') as file:
             files = {'file': (file_name, file, mime_type)}
-            upload_response = requests.put(upload_url, files=files)
+            upload_response = requests.put(
+                file_url, files=files, headers=headers
+            )
 
-        if upload_response.status_code == 200:
+        if upload_response.ok:
             print(f"File uploaded successfully! File URL: {file_url}")
             print(f"File name: {random_file_name}")
         else:
             print("Failed to upload file.")
             print(f"Response: {upload_response.text}")
+            print(f"Code: {upload_response.status_code}")
 
 
 def main() -> None:
