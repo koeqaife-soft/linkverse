@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS post_tags (
 
 CREATE TABLE IF NOT EXISTS files (
     context_id TEXT PRIMARY KEY,
+    context_hash BIGINT GENERATED ALWAYS AS (abs(hashtext(context_id))) STORED,
     user_id TEXT NOT NULL,
     objects TEXT[] NOT NULL,
     reference_count INT NOT NULL DEFAULT 0,

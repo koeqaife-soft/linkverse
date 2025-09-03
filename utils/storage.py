@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import hmac
 import base64
@@ -6,9 +7,17 @@ import orjson
 import os
 import typing as t
 from utils.database import AutoConnection
-from core import Status, FunctionError
+from core import Status, FunctionError, Global, get_proc_identity
 from utils.generation import generate_id
+import aiohttp
 
+gb = Global()
+pool = gb.pool
+
+DELETE_THRESHOLD_MINUTES = 30
+BATCH_SIZE = 10000
+SLEEP_INTERVAL = 300
+MAX_CONCURRENCY = 10
 
 PUBLIC_PATH = "https://storage.sharinflame.com"
 SECRET_KEY = os.environ["CDN_SECRET_KEY"].encode()
@@ -25,7 +34,7 @@ def sign(key: bytes, msg: bytes) -> bytes:
 def generate_signed_token(
     allowed_operations: list[tuple[Operation, str]],
     expires: int,
-    max_size: int
+    max_size: int | None = None
 ) -> dict[str, str]:
     """Create presigned url for Cloudflare R2 Worker
 
@@ -48,9 +57,10 @@ def generate_signed_token(
 
     payload = {
         "expires": expires_timestamp,
-        "allowed_operations": operations,
-        "max_size": max_size
+        "allowed_operations": operations
     }
+    if max_size is not None:
+        payload["max_size"] = max_size
     payload_b64 = base64.b64encode(orjson.dumps(payload))
     signature = base64.b64encode(sign(SECRET_KEY, payload_b64))
     return f"LV {SECRET_KEY_N}.{payload_b64.decode()}.{signature.decode()}"
@@ -148,3 +158,73 @@ async def add_object_to_file(
         )
 
     return Status(True)
+
+
+async def delete_object(
+    object_path: str,
+    session: aiohttp.ClientSession
+) -> None:
+    token = generate_signed_token([("DELETE", object_path)], 60)
+    async with session.delete(
+        f"{PUBLIC_PATH}/{object_path}",
+        headers={
+            "X-Custom-Auth": token
+        }
+    ) as request:
+        if not request.ok:
+            print(await request.text())
+        request.raise_for_status()
+
+
+async def cleanup_files(
+    total_workers: int, worker_id: int
+) -> None:
+    semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
+
+    async with AutoConnection(pool) as conn:
+        db = await conn.create_conn()
+        files_to_delete = await db.fetch(
+            """
+            SELECT context_id, objects
+            FROM files
+            WHERE reference_count = 0
+                AND created_at < NOW() - INTERVAL '30 minutes'
+                AND (context_hash % $1) = $2
+            LIMIT $3
+            """,
+            total_workers,
+            worker_id,
+            BATCH_SIZE,
+        )
+
+        for record in files_to_delete:
+            context_id: str = record["context_id"]
+            objects: list[str] = record["objects"]
+
+            async with aiohttp.ClientSession() as session:
+                async def bounded_delete(obj: str) -> None:
+                    async with semaphore:
+                        await delete_object(obj, session)
+
+                tasks = [bounded_delete(obj) for obj in objects]
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+            await db.execute(
+                "DELETE FROM files WHERE context_id = $1", context_id
+            )
+
+
+async def scheduler(total_workers: int, worker_id: int) -> None:
+    while True:
+        try:
+            await cleanup_files(total_workers, worker_id)
+        except Exception as e:
+            print(f"{worker_id}: Error during cleanup: {e}")
+        await asyncio.sleep(SLEEP_INTERVAL)
+
+
+def start_scheduler() -> None:
+    total_workers = int(os.getenv("_TOTAL_WORKERS", "1"))
+    start_n = int(os.getenv("WORKER_START_N", "0"))
+    worker_id = start_n + max(get_proc_identity() - 1, 0)
+    asyncio.create_task(scheduler(total_workers, worker_id))

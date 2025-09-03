@@ -17,6 +17,7 @@ import utils.cache as cache
 from utils.database import AutoConnection
 from utils.cache import auth as cache_auth
 from utils.realtime import RealtimeManager
+import utils.storage as storage
 from redis.asyncio import Redis
 
 debug = os.getenv('DEBUG') == 'True'
@@ -260,8 +261,6 @@ async def ping():
 
 @app.before_serving
 async def startup():
-    worker_id = get_proc_identity()
-
     with open("config/postgres.json") as f:
         config = json5.load(f)
     pool = await create_pool(**config)
@@ -278,9 +277,16 @@ async def startup():
     asyncio.create_task(rt_manager.start())
     gb.rt_manager = rt_manager
 
+    storage.start_scheduler()
+
+    total_workers = int(os.getenv("_TOTAL_WORKERS", "1"))
+    start_n = int(os.getenv("WORKER_START_N", "0"))
+    worker_id = max(get_proc_identity() - 1, 0)
+
     logger.info(
         "Worker started!" +
-        (f" ({worker_id}/{worker_count})" if worker_id != 0 else "")
+        f" ({worker_id + 1}/{worker_count})" +
+        f" G:({start_n + worker_id + 1}/{total_workers})"
     )
 
 
