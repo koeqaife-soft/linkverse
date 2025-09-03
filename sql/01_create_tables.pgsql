@@ -40,9 +40,11 @@ CREATE TABLE IF NOT EXISTS posts (
     popularity_score BIGINT GENERATED ALWAYS AS (likes_count - dislikes_count + (comments_count * 0.25)) STORED,
     tags TEXT[],
     media TEXT[],
+    file_context_id TEXT,
     status VARCHAR(20) DEFAULT 'active',
     is_deleted BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
+    FOREIGN KEY (file_context_id) REFERENCES files(context_id)
 );
 
 CREATE TABLE IF NOT EXISTS user_post_views (
@@ -105,12 +107,15 @@ CREATE TABLE IF NOT EXISTS followed (
 CREATE TABLE IF NOT EXISTS user_profiles (
     user_id TEXT PRIMARY KEY,
     display_name TEXT,
-    avatar_url TEXT,
-    banner_url TEXT,
+    banner_context_id TEXT,
+    avatar_context_id TEXT,
     bio TEXT,
     languages TEXT[],
     badges SMALLINT[],
-    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
+    FOREIGN KEY (banner_context_id) REFERENCES files(context_id),
+    FOREIGN KEY (avatar_context_id) REFERENCES files(context_id)
+
 );
 
 CREATE TABLE IF NOT EXISTS tags (
@@ -125,3 +130,13 @@ CREATE TABLE IF NOT EXISTS post_tags (
     tag_id TEXT NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
     PRIMARY KEY (post_id, tag_id)
 );
+
+CREATE TABLE IF NOT EXISTS files (
+    context_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    objects TEXT[] NOT NULL,
+    reference_count INT NOT NULL DEFAULT 0,
+    allowed_count INT NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (user_id)
+)

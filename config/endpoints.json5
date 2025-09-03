@@ -143,8 +143,8 @@
             load_data: true,
             optional_data: {
                 display_name: { min_len: 0, max_len: 16 },
-                avatar_url: { min_len: 0, max_len: 8192 },
-                banner_url: { min_len: 0, max_len: 8192 },
+                avatar_context_id: { min_len: 0, max_len: 32, allow_none: 1 },
+                banner_context_id: { min_len: 0, max_len: 32, allow_none: 1 },
                 bio: { min_len: 0, max_len: 512 },
                 languages: {
                     type: "list",

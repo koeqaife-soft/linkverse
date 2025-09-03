@@ -1,5 +1,7 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 
+const allowedTypes = ["video/mp4", "audio/mpeg", "image/webp", "image/png", "image/jpeg"];
+
 type Operation = `${"PUT" | "GET" | "DELETE"}:${string}`;
 
 interface Payload {
@@ -107,6 +109,10 @@ export default class extends WorkerEntrypoint<Env> {
         const formData = await request.formData();
         const file = formData.get("file") as File;
 
+        if (!allowedTypes.includes(file.type)) {
+          return new Response("Unsupported file type", { status: 415 });
+        }
+
         if (file.size > maxSize) {
           return new Response("File too large", { status: 413 });
         }
@@ -135,6 +141,7 @@ export default class extends WorkerEntrypoint<Env> {
         const headers = new Headers();
         object.writeHttpMetadata(headers);
         headers.set("etag", object.httpEtag);
+        headers.set("Cache-Control", "public, max-age=604800");
 
         if ("body" in object && object.body) {
           return new Response(object.body, { status: 200, headers });
@@ -151,10 +158,7 @@ export default class extends WorkerEntrypoint<Env> {
         const ifNoneMatch = ifNoneMatchRaw?.replace(/^"|"$/g, "");
         const rangeHeader = request.headers.get("Range");
 
-        const object = await this.env.R2.get(key, {
-          onlyIf: ifNoneMatch ? { etagMatches: ifNoneMatch } : undefined,
-          range: rangeHeader ?? undefined
-        });
+        const object = await this.env.R2.head(key);
 
         if (!object) {
           return new Response(null, { status: 404 });

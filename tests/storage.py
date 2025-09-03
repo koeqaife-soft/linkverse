@@ -25,10 +25,12 @@ def upload_file(file_path: str, file_name: str, token: str) -> None:
         logging.error(data)
         exit(1)
 
+    context_id = data["data"]["context_id"]
     headers = data["data"]["headers"]
     file_url = data["data"]["file_url"]
     random_file_name = data["data"]["file_name"]
     print(f"Headers: {headers}")
+    print(f"Context id: {context_id}")
 
     logging.info("Link is ready!")
     if input("Continue? (y/n): ").strip().lower() != "y":

@@ -177,3 +177,37 @@ $$ LANGUAGE plpgsql;
         RETURN OLD;
     END;
     $$ LANGUAGE plpgsql;
+
+
+-- (6) File ref count
+CREATE OR REPLACE FUNCTION file_refcount_trigger()
+RETURNS TRIGGER AS $$
+DECLARE
+    context_id_old TEXT;
+    context_id_new TEXT;
+BEGIN
+    EXECUTE format('SELECT ($1).%I', TG_ARGV[0])
+    USING OLD INTO context_id_old;
+
+    EXECUTE format('SELECT ($1).%I', TG_ARGV[0])
+    USING NEW INTO context_id_new;
+
+    -- decrement
+    IF context_id_old IS NOT NULL
+       AND (context_id_new IS NULL OR context_id_new IS DISTINCT FROM context_id_old) THEN
+        UPDATE files
+        SET reference_count = reference_count - 1
+        WHERE context_id = context_id_old;
+    END IF;
+
+    -- increment
+    IF context_id_new IS NOT NULL
+       AND (context_id_old IS NULL OR context_id_new IS DISTINCT FROM context_id_old) THEN
+        UPDATE files
+        SET reference_count = reference_count + 1
+        WHERE context_id = context_id_new;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;

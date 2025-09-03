@@ -95,3 +95,22 @@ EXECUTE FUNCTION update_modified_column();
     AFTER DELETE ON post_tags
     FOR EACH ROW
     EXECUTE FUNCTION decrement_tag_posts_count();
+
+-- (6) File ref count
+-- (6)(posts) refcount
+CREATE OR REPLACE TRIGGER posts_file_refcount
+AFTER INSERT OR UPDATE OR DELETE ON posts
+FOR EACH ROW
+EXECUTE FUNCTION file_refcount_trigger('file_context_id');
+
+-- (6)(user)(avatar) refcount
+CREATE OR REPLACE TRIGGER user_avatar_file_refcount
+AFTER INSERT OR UPDATE OR DELETE ON user_profiles
+FOR EACH ROW
+EXECUTE FUNCTION file_refcount_trigger('avatar_context_id');
+
+-- (6)(user)(banner)
+CREATE OR REPLACE TRIGGER user_banner_file_refcount
+AFTER INSERT OR UPDATE OR DELETE ON user_profiles
+FOR EACH ROW
+EXECUTE FUNCTION file_refcount_trigger('banner_context_id');

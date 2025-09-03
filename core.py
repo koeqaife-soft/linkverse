@@ -377,6 +377,8 @@ def validate(
     is_parameters: bool = False
 ) -> ReturnType:
     if value is None:
+        if options.get("allow_none"):
+            return True, None
         return False, None
 
     validator = Validator(options)

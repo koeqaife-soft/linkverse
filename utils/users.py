@@ -6,6 +6,7 @@ from utils.database import AutoConnection
 import typing as t
 from schemas import FollowedList, FavoriteList, ReactionList
 from schemas import FollowedItem, FavoriteItem, ReactionItem
+import utils.storage as storage
 
 
 @dataclass
@@ -48,11 +49,15 @@ async def get_user(
 ) -> Status[User]:
     db = await conn.create_conn()
     query = f"""
-        SELECT u.user_id, u.username, p.display_name, p.avatar_url
-               {",p.banner_url, p.bio, p.badges, p.languages"
+        SELECT u.user_id, u.username, p.display_name,
+               ac.objects[1] as avatar_url
+               {", bc.objects[1] as banner_url, p.bio, p.badges, p.languages"
                 if not minimize_info else ""}
         FROM users u
         LEFT JOIN user_profiles p ON u.user_id = p.user_id
+        LEFT JOIN files ac ON ac.context_id = p.avatar_context_id
+        {"LEFT JOIN files bc ON bc.context_id = p.banner_context_id"
+         if not minimize_info else ""}
         WHERE u.user_id = $1;
     """
     row = await db.fetchrow(query, user_id)
@@ -60,7 +65,12 @@ async def get_user(
     if row is None:
         raise FunctionError("USER_DOES_NOT_EXIST", 404, None)
 
-    return Status(True, data=User.from_dict(row))
+    _dict = dict(row)
+    for name in ("avatar_url", "banner_url"):
+        if _dict.get(name) and "://" not in str(_dict[name]):
+            _dict[name] = f"{storage.PUBLIC_PATH}/{_dict[name]}"
+
+    return Status(True, data=User.from_dict(_dict))
 
 
 async def update_user(
@@ -68,8 +78,13 @@ async def update_user(
     conn: AutoConnection
 ) -> Status[None]:
     db = await conn.create_conn()
-    allowed_values = {"display_name", "avatar_url", "banner_url",
-                      "bio", "languages"}
+    allowed_values = {
+        "display_name",
+        "avatar_context_id",
+        "banner_context_id",
+        "bio",
+        "languages"
+    }
 
     new_values = {
         k: v for k, v in values.items()
