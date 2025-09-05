@@ -1,6 +1,10 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 
-const allowedTypes = ["video/mp4", "audio/mpeg", "image/webp", "image/png", "image/jpeg"];
+const allowedTypes: Record<string, string[]> = {
+	banner: ["image/webp"],
+	avatar: ["image/webp"],
+	context: ["video/mp4", "audio/mpeg", "image/webp", "image/png", "image/jpeg"]
+};
 
 type Operation = `${"PUT" | "GET" | "DELETE"}:${string}`;
 
@@ -8,6 +12,7 @@ interface Payload {
   expires: number;
   allowed_operations: Operation[];
   max_size?: number;
+	type?: string;
 }
 
 function buildCorsHeaders(origin: string): Headers {
@@ -150,7 +155,7 @@ export default class extends WorkerEntrypoint<Env> {
           file = new File([blob], "upload", { type: contentType });
         }
 
-        if (!allowedTypes.includes(file.type)) {
+        if (!allowedTypes[tokenPayload.type ?? "context"].includes(file.type)) {
           return withCors(new Response("Unsupported file type", { status: 415 }), origin);
         }
 
@@ -183,7 +188,7 @@ export default class extends WorkerEntrypoint<Env> {
         const headers = new Headers();
         object.writeHttpMetadata(headers);
         headers.set("etag", object.httpEtag);
-        headers.set("Cache-Control", "public, max-age=604800");
+        headers.set("Cache-Control", "public, max-age=31536000");
 
         if ("body" in object && object.body) {
           return withCors(new Response(object.body, { status: 200, headers }), origin);
