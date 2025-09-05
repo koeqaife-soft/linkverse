@@ -23,5 +23,4 @@ CREATE INDEX IF NOT EXISTS tag_id_num_idx ON tags ((tag_id::bigint));
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON user_notifications (user_id, unread);
 
-CREATE INDEX IF NOT EXISTS idx_files_context_hash ON files (context_hash);
 CREATE INDEX IF NOT EXISTS idx_refcount_created_at ON files (reference_count, created_at);
