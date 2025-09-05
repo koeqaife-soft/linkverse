@@ -191,8 +191,8 @@ async def cleanup_files(worker_id: int) -> None:
             FROM files
             WHERE reference_count = 0
                 AND created_at < NOW() - INTERVAL '30 minutes'
-                AND (context_hash % $1) = $2  -- server
-                AND (context_hash % $3) = $4  -- worker
+                AND (context_id::bigint % $1) = $2  -- server
+                AND (context_id::bigint % $3) = $4  -- worker
             LIMIT $5
             """,
             total_servers,
