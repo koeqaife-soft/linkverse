@@ -8,8 +8,12 @@ import os
 import typing as t
 from utils.database import AutoConnection
 from core import Status, FunctionError, Global, get_proc_identity
+from core import worker_count, total_servers, server_id
 from utils.generation import generate_id
 import aiohttp
+import logging
+
+logger = logging.getLogger("linkverse.storage")
 
 gb = Global()
 pool = gb.pool
@@ -176,9 +180,7 @@ async def delete_object(
         request.raise_for_status()
 
 
-async def cleanup_files(
-    total_workers: int, worker_id: int
-) -> None:
+async def cleanup_files(worker_id: int) -> None:
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
 
     async with AutoConnection(pool) as conn:
@@ -189,10 +191,13 @@ async def cleanup_files(
             FROM files
             WHERE reference_count = 0
                 AND created_at < NOW() - INTERVAL '30 minutes'
-                AND (context_hash % $1) = $2
-            LIMIT $3
+                AND (context_hash % $1) = $2  -- server
+                AND (context_hash % $3) = $4  -- worker
+            LIMIT $5
             """,
-            total_workers,
+            total_servers,
+            server_id,
+            worker_count,
             worker_id,
             BATCH_SIZE,
         )
@@ -214,17 +219,15 @@ async def cleanup_files(
             )
 
 
-async def scheduler(total_workers: int, worker_id: int) -> None:
+async def scheduler(worker_id: int) -> None:
     while True:
         try:
-            await cleanup_files(total_workers, worker_id)
+            await cleanup_files(worker_id)
         except Exception as e:
-            print(f"{worker_id}: Error during cleanup: {e}")
+            logger.exception("Error during cleanup", exc_info=e)
         await asyncio.sleep(SLEEP_INTERVAL)
 
 
 def start_scheduler() -> None:
-    total_workers = int(os.getenv("_TOTAL_WORKERS", "1"))
-    start_n = int(os.getenv("WORKER_START_N", "0"))
-    worker_id = start_n + max(get_proc_identity() - 1, 0)
-    asyncio.create_task(scheduler(total_workers, worker_id))
+    worker_id = max(get_proc_identity() - 1, 0)
+    asyncio.create_task(scheduler(worker_id))

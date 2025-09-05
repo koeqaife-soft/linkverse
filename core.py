@@ -23,6 +23,8 @@ import brotli  # type: ignore
 
 _logger = logging.getLogger("linkverse")
 worker_count = int(os.getenv('_WORKER_COUNT', '1'))
+server_id = int(os.getenv("SERVER_ID", "0"))
+total_servers = int(os.getenv("TOTAL_SERVERS", "1"))
 init(autoreset=True)
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -278,8 +280,10 @@ def setup_logger(logger: logging.Logger | None = None):
 
     handler = logging.StreamHandler()
 
+    id = f"[{get_proc_identity()}/{worker_count}|" \
+         f"{server_id + 1}/{total_servers}]"
     formatter = ColoredFormatter(
-        '%(asctime)s [%(process)d]: %(message)s',
+        f'%(asctime)s [%(process)d] {id}: %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     handler.setFormatter(formatter)

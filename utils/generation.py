@@ -1,5 +1,6 @@
 import datetime
 import os
+from core import server_id
 from utils_cy.encryption import encode_shuffle_base64 as encode
 from utils_cy.encryption import decode_shuffle_base64 as decode
 from utils.encryption import generate_nonce
@@ -82,6 +83,6 @@ async def decode_token(token: str, key: str) -> dict:
         }
 
 
-snowflake = SnowflakeGeneration()
+snowflake = SnowflakeGeneration(server_id)
 generate_id = snowflake.generate
 parse_id = snowflake.parse
