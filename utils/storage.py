@@ -38,7 +38,8 @@ def sign(key: bytes, msg: bytes) -> bytes:
 def generate_signed_token(
     allowed_operations: list[tuple[Operation, str]],
     expires: int,
-    max_size: int | None = None
+    max_size: int | None = None,
+    type: str | None = None
 ) -> dict[str, str]:
     """Create presigned url for Cloudflare R2 Worker
 
@@ -65,6 +66,8 @@ def generate_signed_token(
     }
     if max_size is not None:
         payload["max_size"] = max_size
+    if type is not None:
+        payload["type"] = type
     payload_b64 = base64.b64encode(orjson.dumps(payload))
     signature = base64.b64encode(sign(SECRET_KEY, payload_b64))
     return f"LV {SECRET_KEY_N}.{payload_b64.decode()}.{signature.decode()}"
