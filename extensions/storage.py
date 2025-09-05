@@ -5,7 +5,7 @@ from quart import g
 from utils.database import AutoConnection
 import typing as t
 from utils.storage import generate_signed_token, PUBLIC_PATH
-from utils.storage import create_file_context  # , add_object_to_file
+from utils.storage import create_file_context, add_object_to_file
 import os
 from urllib.parse import quote
 
@@ -52,14 +52,17 @@ async def upload_file() -> tuple[Response, int]:
             raise NotImplementedError
         else:
             subfolder = "avatars" if _type == "avatar" else "banners"
-            file_name = f"public/{subfolder}/{g.user_id}/{_file_name}"
             context_id = (await create_file_context(
-                g.user_id, [file_name], 0, conn
+                g.user_id, [], 1, conn
             )).data
+            file_name = f"public/{subfolder}/{g.user_id}/{context_id}.webp"
+            await add_object_to_file(context_id, file_name, conn)
+
         token = generate_signed_token(
             [("GET", file_name), ("PUT", file_name)],
             expires=900,  # 15 minutes
-            max_size=LIMITS[_type]
+            max_size=LIMITS[_type],
+            type=_type
         )
 
     return response(data={
