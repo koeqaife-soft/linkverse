@@ -10,12 +10,40 @@ interface Payload {
   max_size?: number;
 }
 
+function buildCorsHeaders(origin: string): Headers {
+  const h = new Headers();
+  h.set("Access-Control-Allow-Origin", origin);
+  h.set("Access-Control-Allow-Methods", "GET, PUT, DELETE, HEAD, OPTIONS");
+  h.set("Access-Control-Allow-Headers", "X-Custom-Auth, Content-Type, Range, If-None-Match, Content-Length");
+  h.set("Access-Control-Expose-Headers", "ETag, Content-Length, Content-Range, Cache-Control");
+  h.set("Access-Control-Max-Age", "86400");
+  if (origin !== "*") h.set("Vary", "Origin");
+  return h;
+}
+
+function withCors(response: Response, origin: string): Response {
+  const headers = new Headers(response.headers);
+  const cors = buildCorsHeaders(origin);
+  for (const [k, v] of cors) {
+    headers.set(k, v);
+  }
+  return new Response(response.body, { status: response.status, headers });
+}
+
 export default class extends WorkerEntrypoint<Env> {
   async fetch(request: Request) {
+    const origin = request.headers.get("Origin") ?? "*";
+
+    // Handle preflight CORS
+    if (request.method === "OPTIONS") {
+      const headers = buildCorsHeaders(origin);
+      return new Response(null, { status: 204, headers });
+    }
+
     const url = new URL(request.url);
     let key = url.pathname.slice(1);
     if (decodeURIComponent(key).includes("..") || !decodeURIComponent(key)) {
-      return new Response("Invalid path", { status: 400 });
+      return withCors(new Response("Invalid path", { status: 400 }), origin);
     }
 
     const publicPath = /^public\/.+/;
@@ -29,12 +57,12 @@ export default class extends WorkerEntrypoint<Env> {
         const raw = request.headers.get("X-Custom-Auth") || "";
         const token = raw.replace(/^\s*LV\s*/i, "").trim();
         if (!token) {
-          return new Response("Missing token", { status: 401 });
+          return withCors(new Response("Missing token", { status: 401 }), origin);
         }
 
         const [kid, payloadB64, signatureB64] = token.split(".");
         if (!payloadB64 || !signatureB64) {
-          return new Response("Invalid token format", { status: 400 });
+          return withCors(new Response("Invalid token format", { status: 400 }), origin);
         }
 
         const payloadRaw = atob(payloadB64);
@@ -46,7 +74,7 @@ export default class extends WorkerEntrypoint<Env> {
         } else if (kid == "2") {
           secret = this.env.SECRET_KEY_N2;
         } else {
-          return new Response("Invalid token", { status: 400 });
+          return withCors(new Response("Invalid token", { status: 400 }), origin);
         }
         const secretKey = await crypto.subtle.importKey(
           "raw",
@@ -59,7 +87,7 @@ export default class extends WorkerEntrypoint<Env> {
         const sigBytes = Uint8Array.from(atob(signatureB64), (c) => c.charCodeAt(0));
         const data = new TextEncoder().encode(payloadB64);
         const valid = await crypto.subtle.verify("HMAC", secretKey, sigBytes, data);
-        if (!valid) return new Response("Invalid signature", { status: 403 });
+        if (!valid) return withCors(new Response("Invalid signature", { status: 403 }), origin);
 
         const arr = new Uint8Array(payloadRaw.length);
         for (let i = 0; i < payloadRaw.length; ++i) arr[i] = payloadRaw.charCodeAt(i);
@@ -67,23 +95,23 @@ export default class extends WorkerEntrypoint<Env> {
         const payload: Payload = JSON.parse(payloadJson);
 
         if (Date.now() / 1000 > payload.expires) {
-          return new Response("Token expired", { status: 403 });
+          return withCors(new Response("Token expired", { status: 403 }), origin);
         }
 
         if (!payload.allowed_operations || !payload.expires) {
-          return new Response("Invalid token format", { status: 400 });
+          return withCors(new Response("Invalid token format", { status: 400 }), origin);
         }
 
         const operation = `${request.method.replace("HEAD", "GET")}:${key}` as Operation;
 
         if (!payload.allowed_operations.includes(operation)) {
-          return new Response("Operation is not allowed", { status: 403 });
+          return withCors(new Response("Operation is not allowed", { status: 403 }), origin);
         }
 
         tokenPayload = payload;
       } catch (e) {
         console.error(e);
-        return new Response("Invalid token", { status: 403 });
+        return withCors(new Response("Invalid token", { status: 403 }), origin);
       }
     }
 
@@ -93,28 +121,41 @@ export default class extends WorkerEntrypoint<Env> {
         const contentLength = parseInt(request.headers.get("content-length") ?? "0", 10);
 
         if (!contentLength) {
-          return new Response("Missing Content-Length", { status: 411 });
+          return withCors(new Response("Missing Content-Length", { status: 411 }), origin);
         }
 
         if (!tokenPayload.max_size) {
-          return new Response("Invalid token format", { status: 400 });
+          return withCors(new Response("Invalid token format", { status: 400 }), origin);
         }
 
         const maxSize = tokenPayload.max_size * 1024 * 1024;
 
         if (contentLength > maxSize) {
-          return new Response("File too large", { status: 413 });
+          return withCors(new Response("File too large", { status: 413 }), origin);
         }
 
-        const formData = await request.formData();
-        const file = formData.get("file") as File;
+        let file: File | null = null;
+
+        const contentType = request.headers.get("content-type") ?? "";
+
+        if (contentType.startsWith("multipart/form-data")) {
+          const formData = await request.formData();
+          file = formData.get("file") as File;
+          if (!file) {
+            return withCors(new Response("File field missing in form data", { status: 400 }), origin);
+          }
+        } else {
+          const arrayBuffer = await request.arrayBuffer();
+          const blob = new Blob([arrayBuffer], { type: contentType });
+          file = new File([blob], "upload", { type: contentType });
+        }
 
         if (!allowedTypes.includes(file.type)) {
-          return new Response("Unsupported file type", { status: 415 });
+          return withCors(new Response("Unsupported file type", { status: 415 }), origin);
         }
 
         if (file.size > maxSize) {
-          return new Response("File too large", { status: 413 });
+          return withCors(new Response("File too large", { status: 413 }), origin);
         }
 
         const arrayBuffer = await file.arrayBuffer();
@@ -122,7 +163,8 @@ export default class extends WorkerEntrypoint<Env> {
         await this.env.R2.put(key, arrayBuffer, {
           httpMetadata: { contentType: file.type || "application/octet-stream" }
         });
-        return new Response(null, { status: 204 });
+
+        return withCors(new Response(null, { status: 204 }), origin);
       }
       case "GET": {
         const ifNoneMatchRaw = request.headers.get("If-None-Match");
@@ -135,7 +177,7 @@ export default class extends WorkerEntrypoint<Env> {
         });
 
         if (!object) {
-          return new Response("Object Not Found", { status: 404 });
+          return withCors(new Response("Object Not Found", { status: 404 }), origin);
         }
 
         const headers = new Headers();
@@ -144,39 +186,38 @@ export default class extends WorkerEntrypoint<Env> {
         headers.set("Cache-Control", "public, max-age=604800");
 
         if ("body" in object && object.body) {
-          return new Response(object.body, { status: 200, headers });
+          return withCors(new Response(object.body, { status: 200, headers }), origin);
         }
 
-        return new Response(null, { status: 304, headers });
+        return withCors(new Response(null, { status: 304, headers }), origin);
       }
       case "DELETE": {
         await this.env.R2.delete(key);
-        return new Response(undefined, { status: 204 });
+        return withCors(new Response(undefined, { status: 204 }), origin);
       }
       case "HEAD": {
-        const ifNoneMatchRaw = request.headers.get("If-None-Match");
-        const ifNoneMatch = ifNoneMatchRaw?.replace(/^"|"$/g, "");
-        const rangeHeader = request.headers.get("Range");
-
         const object = await this.env.R2.head(key);
 
         if (!object) {
-          return new Response(null, { status: 404 });
+          return withCors(new Response(null, { status: 404 }), origin);
         }
 
         const headers = new Headers();
         object.writeHttpMetadata(headers);
         headers.set("etag", object.httpEtag);
 
-        return new Response(null, { status: 200, headers });
+        return withCors(new Response(null, { status: 200, headers }), origin);
       }
       default:
-        return new Response("Method Not Allowed", {
-          status: 405,
-          headers: {
-            Allow: "PUT, GET, DELETE, HEAD"
-          }
-        });
+        return withCors(
+          new Response("Method Not Allowed", {
+            status: 405,
+            headers: {
+              Allow: "PUT, GET, DELETE, HEAD, OPTIONS"
+            }
+          }),
+          origin
+        );
     }
   }
 }

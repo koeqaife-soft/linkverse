@@ -175,8 +175,8 @@ async def delete_object(
             "X-Custom-Auth": token
         }
     ) as request:
-        if not request.ok:
-            print(await request.text())
+        if request.status == 404:
+            return
         request.raise_for_status()
 
 

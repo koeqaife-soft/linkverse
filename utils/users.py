@@ -88,7 +88,7 @@ async def update_user(
 
     new_values = {
         k: v for k, v in values.items()
-        if k in allowed_values and v is not None
+        if k in allowed_values
     }
 
     if not new_values:
