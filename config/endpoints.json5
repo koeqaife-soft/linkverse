@@ -46,7 +46,7 @@
                     type: "list", max_len: 4,
                     value_max_len: 22, value_min_len: 1
                 },
-                media: { type: "list" }
+                file_context_id: { min_len: 1, max_len: 32 }
             }
         },
         update_post: {
@@ -56,8 +56,7 @@
                 tags: {
                     type: "list", max_len: 4,
                     value_max_len: 22, value_min_len: 1
-                },
-                media: { type: "list" }
+                }
             }
         },
         add_reaction: {

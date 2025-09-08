@@ -39,7 +39,6 @@ CREATE TABLE IF NOT EXISTS posts (
     comments_count BIGINT DEFAULT 0,
     popularity_score BIGINT GENERATED ALWAYS AS (likes_count - dislikes_count + (comments_count * 0.25)) STORED,
     tags TEXT[],
-    media TEXT[],
     file_context_id TEXT,
     status VARCHAR(20) DEFAULT 'active',
     is_deleted BOOLEAN DEFAULT FALSE,

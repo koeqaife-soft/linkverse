@@ -73,6 +73,34 @@ def generate_signed_token(
     return f"LV {SECRET_KEY_N}.{payload_b64.decode()}.{signature.decode()}"
 
 
+def build_get_link(
+    object: str,
+    expires: int = 43200  # 12 hours
+) -> str:
+    full_path = f"{PUBLIC_PATH}/{object}"
+
+    if object.startswith("public/"):
+        return full_path
+
+    expires_timestamp = int(time.time() + expires)
+
+    payload = str(expires_timestamp)
+    payload_b64 = (
+        base64.urlsafe_b64encode(payload.encode())
+        .decode()
+        .rstrip("=")
+    )
+    signature_payload = f"{object}|{expires_timestamp}".encode()
+    signature = (
+        base64.urlsafe_b64encode(sign(SECRET_KEY, signature_payload))
+        .decode()
+        .rstrip("=")
+    )
+    token = f"lv.{SECRET_KEY_N}.{payload_b64}.{signature}"
+    full_path += f"?token={token}"
+    return full_path
+
+
 async def create_file_context(
     user_id: int,
     objects: list[str],
@@ -165,6 +193,28 @@ async def add_object_to_file(
         )
 
     return Status(True)
+
+
+async def get_context(
+    context_id: int, conn: AutoConnection
+) -> Status[dict]:
+    db = await conn.create_conn()
+    row = await db.fetchrow(
+        """
+        SELECT objects, user_id
+        FROM files
+        WHERE context_id = $1
+        """,
+        context_id
+    )
+
+    if not row:
+        raise FunctionError("CONTEXT_NOT_FOUND", 404, None)
+
+    return Status(True, data={
+        "user_id": row["user_id"],
+        "objects": row["objects"]
+    })
 
 
 async def delete_object(

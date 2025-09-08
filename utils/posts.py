@@ -7,6 +7,7 @@ from utils.generation import generate_id
 import typing as t
 from utils.database import AutoConnection, condition
 from schemas import ListsDefault
+from utils.storage import build_get_link
 
 
 @dataclass
@@ -87,7 +88,7 @@ def post_query(
     query = f"""
         SELECT p.post_id, p.user_id, p.content, p.created_at, p.updated_at,
                p.likes_count, p.comments_count,
-               p.dislikes_count, p.tags, p.media
+               p.dislikes_count, p.tags, m.objects as media
                {", p.popularity_score" if popularity_score else ""}
                {", p.status, p.is_deleted" if more_info else ""},
                COALESCE(
@@ -98,10 +99,22 @@ def post_query(
         FROM posts p
         LEFT JOIN post_tags pt ON pt.post_id = p.post_id
         LEFT JOIN tags t ON t.tag_id = pt.tag_id
+        LEFT JOIN files m ON m.context_id = p.file_context_id
         {where}
-        GROUP BY p.post_id
+        GROUP BY p.post_id, m.objects
     """
     return query
+
+
+def build_post_media(media: list) -> list:
+    if media is None:
+        return []
+
+    new_media = []
+    for file in media:
+        new_media.append(build_get_link(file))
+
+    return new_media
 
 
 async def get_post(
@@ -120,6 +133,7 @@ async def get_post(
         raise FunctionError("POST_DOES_NOT_EXIST", 404, None)
 
     data = dict(row)
+    data["media"] = build_post_media(data["media"])
     return Status(True, data=Post.from_dict(data))
 
 
@@ -136,7 +150,7 @@ async def create_post(
     user_id: str, content: str,
     conn: AutoConnection,
     tags: list[str] = [],
-    media: list[str] = [],
+    file_context_id: str | None = None,
     ctags: list[str] = []
 ) -> Status[dict | None]:
     db = await conn.create_conn()
@@ -145,9 +159,11 @@ async def create_post(
     async with db.transaction():
         await db.execute(
             """
-            INSERT INTO posts (post_id, user_id, content, tags, media)
+            INSERT INTO posts
+            (post_id, user_id, content, tags, file_context_id)
+
             VALUES ($1, $2, $3, $4, $5)
-            """, post_id, user_id, content, tags, media
+            """, post_id, user_id, content, tags, file_context_id
         )
 
         if ctags:
@@ -170,14 +186,11 @@ async def create_post(
 
         created_post = (
             await get_post(post_id, conn, more_info=False)
-        ).data.dict
+        ).data
 
     return Status(
         True,
-        data=(
-            Post.from_dict(created_post).dict
-            if created_post else None
-        )
+        data=created_post.dict
     )
 
 
@@ -199,18 +212,17 @@ async def delete_post(
 
 async def update_post(
     post_id: str, content: str | None,
-    tags: list[str] | None, media: list[str] | None,
+    tags: list[str] | None,
     conn: AutoConnection
 ) -> Status[None]:
     db = await conn.create_conn()
-    if content is None and tags is None and media is None:
+    if content is None and tags is None:
         raise ValueError("All arguments is None!")
     _parameters = []
     _query = []
     _keys = {
         "content": content,
-        "tags": tags,
-        "media": media
+        "tags": tags
     }
     for key, value in _keys.items():
         if value is not None:
@@ -376,6 +388,10 @@ async def get_user_posts(
         )
         for row in rows
     ]
+
+    for post in posts:
+        post.media = build_post_media(post.media)
+
     return Status(
         success=True,
         data={"posts": posts, "next_cursor": next_cursor, "has_more": has_more}

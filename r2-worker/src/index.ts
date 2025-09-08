@@ -35,6 +35,16 @@ function withCors(response: Response, origin: string): Response {
   return new Response(response.body, { status: response.status, headers });
 }
 
+function urlSafeBase64ToBase64(urlSafeB64: string) {
+  let base64 = urlSafeB64.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = base64.length % 4;
+  if (padding === 2) base64 += '==';
+  else if (padding === 3) base64 += '=';
+  else if (padding !== 0) throw new Error('Invalid base64 string');
+  return base64;
+}
+
+
 export default class extends WorkerEntrypoint<Env> {
   async fetch(request: Request) {
     const origin = request.headers.get("Origin") ?? "*";
@@ -59,61 +69,111 @@ export default class extends WorkerEntrypoint<Env> {
 
     if (!isPublic || request.method != "GET") {
       try {
-        const raw = request.headers.get("X-Custom-Auth") || "";
-        const token = raw.replace(/^\s*LV\s*/i, "").trim();
-        if (!token) {
-          return withCors(new Response("Missing token", { status: 401 }), origin);
-        }
+				const headerToken = request.headers.get("X-Custom-Auth") || "";
+				const optionsHeaders = url.searchParams.get("token")
 
-        const [kid, payloadB64, signatureB64] = token.split(".");
-        if (!payloadB64 || !signatureB64) {
-          return withCors(new Response("Invalid token format", { status: 400 }), origin);
-        }
+				if (headerToken) {
+					const token = headerToken.replace(/^\s*LV\s*/i, "").trim();
+					if (!token) {
+						return withCors(new Response("Missing token", { status: 401 }), origin);
+					}
 
-        const payloadRaw = atob(payloadB64);
+					const [kid, payloadB64, signatureB64] = token.split(".");
+					if (!kid || !payloadB64 || !signatureB64) {
+						return withCors(new Response("Invalid token format", { status: 400 }), origin);
+					}
 
-        let secret: string;
-        // For making new secrets without losing old tokens
-        if (kid == "1") {
-          secret = this.env.SECRET_KEY_N1;
-        } else if (kid == "2") {
-          secret = this.env.SECRET_KEY_N2;
-        } else {
-          return withCors(new Response("Invalid token", { status: 400 }), origin);
-        }
-        const secretKey = await crypto.subtle.importKey(
-          "raw",
-          new TextEncoder().encode(secret),
-          { name: "HMAC", hash: "SHA-256" },
-          false,
-          ["verify"]
-        );
+					const payloadRaw = atob(payloadB64);
 
-        const sigBytes = Uint8Array.from(atob(signatureB64), (c) => c.charCodeAt(0));
-        const data = new TextEncoder().encode(payloadB64);
-        const valid = await crypto.subtle.verify("HMAC", secretKey, sigBytes, data);
-        if (!valid) return withCors(new Response("Invalid signature", { status: 403 }), origin);
+					let secret: string;
+					// For making new secrets without losing old tokens
+					if (kid == "1") {
+						secret = this.env.SECRET_KEY_N1;
+					} else if (kid == "2") {
+						secret = this.env.SECRET_KEY_N2;
+					} else {
+						return withCors(new Response("Invalid token", { status: 400 }), origin);
+					}
+					const secretKey = await crypto.subtle.importKey(
+						"raw",
+						new TextEncoder().encode(secret),
+						{ name: "HMAC", hash: "SHA-256" },
+						false,
+						["verify"]
+					);
 
-        const arr = new Uint8Array(payloadRaw.length);
-        for (let i = 0; i < payloadRaw.length; ++i) arr[i] = payloadRaw.charCodeAt(i);
-        const payloadJson = new TextDecoder().decode(arr);
-        const payload: Payload = JSON.parse(payloadJson);
+					const sigBytes = Uint8Array.from(atob(signatureB64), (c) => c.charCodeAt(0));
+					const data = new TextEncoder().encode(payloadB64);
+					const valid = await crypto.subtle.verify("HMAC", secretKey, sigBytes, data);
+					if (!valid) return withCors(new Response("Invalid signature", { status: 403 }), origin);
 
-        if (Date.now() / 1000 > payload.expires) {
-          return withCors(new Response("Token expired", { status: 403 }), origin);
-        }
+					const arr = new Uint8Array(payloadRaw.length);
+					for (let i = 0; i < payloadRaw.length; ++i) arr[i] = payloadRaw.charCodeAt(i);
+					const payloadJson = new TextDecoder().decode(arr);
+					const payload: Payload = JSON.parse(payloadJson);
 
-        if (!payload.allowed_operations || !payload.expires) {
-          return withCors(new Response("Invalid token format", { status: 400 }), origin);
-        }
+					if (Date.now() / 1000 > payload.expires) {
+						return withCors(new Response("Token expired", { status: 403 }), origin);
+					}
 
-        const operation = `${request.method.replace("HEAD", "GET")}:${key}` as Operation;
+					if (!payload.allowed_operations || !payload.expires) {
+						return withCors(new Response("Invalid token format", { status: 400 }), origin);
+					}
 
-        if (!payload.allowed_operations.includes(operation)) {
-          return withCors(new Response("Operation is not allowed", { status: 403 }), origin);
-        }
+					const operation = `${request.method.replace("HEAD", "GET")}:${key}` as Operation;
 
-        tokenPayload = payload;
+					if (!payload.allowed_operations.includes(operation)) {
+						return withCors(new Response("Operation is not allowed", { status: 403 }), origin);
+					}
+
+					tokenPayload = payload;
+				} else if (optionsHeaders) {
+					const token = optionsHeaders;
+
+					const [magic, kid, payloadB64, signatureB64] = token.split(".");
+					if (magic != "lv" || !kid || !payloadB64 || !signatureB64) {
+						return withCors(new Response("Invalid token format", { status: 400 }), origin);
+					}
+					const payloadRaw = atob(urlSafeBase64ToBase64(payloadB64));
+
+					let secret: string;
+					// For making new secrets without losing old tokens
+					if (kid == "1") {
+						secret = this.env.SECRET_KEY_N1;
+					} else if (kid == "2") {
+						secret = this.env.SECRET_KEY_N2;
+					} else {
+						return withCors(new Response("Invalid token", { status: 400 }), origin);
+					}
+
+					const secretKey = await crypto.subtle.importKey(
+						"raw",
+						new TextEncoder().encode(secret),
+						{ name: "HMAC", hash: "SHA-256" },
+						false,
+						["verify"]
+					);
+
+					const arr = new Uint8Array(payloadRaw.length);
+					for (let i = 0; i < payloadRaw.length; ++i) arr[i] = payloadRaw.charCodeAt(i);
+					const payload = new TextDecoder().decode(arr);
+
+					const sigBytes = Uint8Array.from(atob(urlSafeBase64ToBase64(signatureB64)), (c) => c.charCodeAt(0));
+					const data = new TextEncoder().encode(`${key}|${payload}`);
+					const valid = await crypto.subtle.verify("HMAC", secretKey, sigBytes, data);
+					if (!valid) return withCors(new Response("Invalid signature", { status: 403 }), origin);
+
+					if (Date.now() / 1000 > Number(payload)) {
+						return withCors(new Response("Token expired", { status: 403 }), origin);
+					}
+
+					if (request.method !== "GET") {
+						return withCors(new Response("Operation is not allowed", { status: 403 }), origin);
+					}
+				} else {
+					return withCors(new Response("Missing token", { status: 401 }), origin);
+				}
+
       } catch (e) {
         console.error(e);
         return withCors(new Response("Invalid token", { status: 403 }), origin);

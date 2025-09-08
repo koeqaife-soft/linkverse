@@ -9,6 +9,7 @@ from utils.database import AutoConnection
 import utils.posts_list as posts_list
 from utils.realtime import RealtimeManager
 import utils.combined as combined
+from utils.storage import get_context
 
 bp = Blueprint('posts', __name__)
 gb = Global()
@@ -79,11 +80,14 @@ async def create_post() -> tuple[Response, int]:
     content: str = data.get('content')
     tags: list[str] = data.get("tags", [])
     ctags: list[str] = data.get("ctags", [])
-    media: list[str] = data.get("media", [])
+    file_context_id = data.get("file_context_id")
 
     async with AutoConnection(pool) as conn:
+        if file_context_id:
+            await get_context(file_context_id, conn)
+
         result = await posts.create_post(
-            g.user_id, content, conn, tags, media, ctags
+            g.user_id, content, conn, tags, file_context_id, ctags
         )
 
     return response(data=result.data or {}), 201
@@ -141,9 +145,8 @@ async def update_post(id: str) -> tuple[Response, int]:
     data = g.data
     content: str | None = data.get("content")
     tags: list[str] | None = data.get("tags")
-    media: list[str] | None = data.get("media")
 
-    if content is None and tags is None and media is None:
+    if content is None and tags is None:
         raise FunctionError("INCORRECT_DATA", 400, None)
 
     now = time.time()
@@ -157,7 +160,7 @@ async def update_post(id: str) -> tuple[Response, int]:
         ):
             raise FunctionError("FORBIDDEN", 403, None)
 
-        await posts.update_post(id, content, tags, media, conn)
+        await posts.update_post(id, content, tags, conn)
 
     await cache_posts.remove_post_cache(id)
 

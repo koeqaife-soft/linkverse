@@ -6,8 +6,10 @@ from utils.database import AutoConnection
 import typing as t
 from utils.storage import generate_signed_token, PUBLIC_PATH
 from utils.storage import create_file_context, add_object_to_file
+from utils.storage import get_context
 import os
 from urllib.parse import quote
+import time
 
 bp = Blueprint('storage', __name__)
 gb = Global()
@@ -27,14 +29,16 @@ def create_random_string() -> str:
 
 @route(bp, "/storage/context", methods=["POST"])
 async def create_context() -> tuple[Response, int]:
-    # TODO: Create context
-    raise NotImplementedError
-
-
-@route(bp, "/storage/context/<id>", methods=["DELETE"])
-async def delete_context(id: str) -> tuple[Response, int]:
-    # TODO: Delete context
-    raise NotImplementedError
+    async with AutoConnection(pool) as conn:
+        context_id = (await create_file_context(
+            g.user_id, [], 5, conn
+        )).data
+    return response(data={
+        "context_id": context_id,
+        "max_size": LIMITS["context"],
+        "max_count": 5,
+        "expires": time.time() + 30 * 60
+    }), 200
 
 
 @route(bp, "/storage/file", methods=["POST"])
@@ -48,8 +52,13 @@ async def upload_file() -> tuple[Response, int]:
         if _type == "context":
             if not context_id:
                 raise FunctionError("INCORRECT_DATA", 400, None)
-            # TODO: Check context and increase count of uses for limiting
-            raise NotImplementedError
+
+            context = (await get_context(context_id, conn)).data
+            if context["user_id"] != g.user_id:
+                raise FunctionError("FORBIDDEN", 403, None)
+
+            file_name = f"private/{context_id}/{_file_name}"
+            await add_object_to_file(context_id, file_name, conn)
         else:
             subfolder = "avatars" if _type == "avatar" else "banners"
             context_id = (await create_file_context(
