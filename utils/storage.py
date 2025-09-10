@@ -201,7 +201,7 @@ async def get_context(
     db = await conn.create_conn()
     row = await db.fetchrow(
         """
-        SELECT objects, user_id
+        SELECT objects, user_id, created_at
         FROM files
         WHERE context_id = $1
         """,
@@ -213,7 +213,8 @@ async def get_context(
 
     return Status(True, data={
         "user_id": row["user_id"],
-        "objects": row["objects"]
+        "objects": row["objects"],
+        "created_at": int(row["created_at"].timestamp())
     })
 
 

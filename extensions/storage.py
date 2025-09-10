@@ -54,7 +54,10 @@ async def upload_file() -> tuple[Response, int]:
                 raise FunctionError("INCORRECT_DATA", 400, None)
 
             context = (await get_context(context_id, conn)).data
-            if context["user_id"] != g.user_id:
+            if (
+                context["user_id"] != g.user_id
+                or time.time() - 60 * 60 > context["created_at"]
+            ):
                 raise FunctionError("FORBIDDEN", 403, None)
 
             file_name = f"private/{context_id}/{_file_name}"
