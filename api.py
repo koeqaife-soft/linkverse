@@ -1,7 +1,8 @@
 import asyncpg
 import quart
+from extensions import load_all
 from core import app, response, route, setup_logger, Global, FunctionError
-from core import get_proc_identity, load_extensions, compress
+from core import get_proc_identity, compress
 from core import compress_config, flatten_dict
 import traceback
 from quart import request, g, websocket
@@ -17,8 +18,8 @@ import utils.cache as cache
 from utils.database import AutoConnection
 from utils.cache import auth as cache_auth
 from utils.realtime import RealtimeManager
-import utils.storage as storage
 from redis.asyncio import Redis
+from queues.scheduler import start_scheduler
 
 debug = os.getenv('DEBUG') == 'True'
 gb = Global()
@@ -277,7 +278,7 @@ async def startup():
     asyncio.create_task(rt_manager.start())
     gb.rt_manager = rt_manager
 
-    storage.start_scheduler()
+    start_scheduler()
 
     logger.info("Worker started!")
 
@@ -292,7 +293,8 @@ async def shutdown():
         logger.warning("Stopping worker")
 
 
-load_extensions(debug=debug)
+load_all(app)
+
 
 if __name__ == '__main__':
     app.run(port=6169, debug=debug, host="0.0.0.0",

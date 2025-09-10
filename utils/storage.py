@@ -1,4 +1,3 @@
-import asyncio
 import hashlib
 import hmac
 import base64
@@ -7,8 +6,7 @@ import orjson
 import os
 import typing as t
 from utils.database import AutoConnection
-from core import Status, FunctionError, Global, get_proc_identity
-from core import worker_count, total_servers, server_id
+from core import Status, FunctionError, Global
 from utils.generation import generate_id
 import aiohttp
 import logging
@@ -17,11 +15,6 @@ logger = logging.getLogger("linkverse.storage")
 
 gb = Global()
 pool = gb.pool
-
-DELETE_THRESHOLD_MINUTES = 30
-BATCH_SIZE = 10000
-SLEEP_INTERVAL = 300
-MAX_CONCURRENCY = 10
 
 PUBLIC_PATH = "https://storage.sharinflame.com"
 SECRET_KEY = os.environ["CDN_SECRET_KEY"].encode()
@@ -232,56 +225,3 @@ async def delete_object(
         if request.status == 404:
             return
         request.raise_for_status()
-
-
-async def cleanup_files(worker_id: int) -> None:
-    semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
-
-    async with AutoConnection(pool) as conn:
-        db = await conn.create_conn()
-        files_to_delete = await db.fetch(
-            """
-            SELECT context_id, objects
-            FROM files
-            WHERE reference_count = 0
-                AND created_at < NOW() - INTERVAL '30 minutes'
-                AND (context_id::bigint % $1) = $2  -- server
-                AND (context_id::bigint % $3) = $4  -- worker
-            LIMIT $5
-            """,
-            total_servers,
-            server_id,
-            worker_count,
-            worker_id,
-            BATCH_SIZE,
-        )
-
-        for record in files_to_delete:
-            context_id: str = record["context_id"]
-            objects: list[str] = record["objects"]
-
-            async with aiohttp.ClientSession() as session:
-                async def bounded_delete(obj: str) -> None:
-                    async with semaphore:
-                        await delete_object(obj, session)
-
-                tasks = [bounded_delete(obj) for obj in objects]
-                await asyncio.gather(*tasks, return_exceptions=True)
-
-            await db.execute(
-                "DELETE FROM files WHERE context_id = $1", context_id
-            )
-
-
-async def scheduler(worker_id: int) -> None:
-    while True:
-        try:
-            await cleanup_files(worker_id)
-        except Exception as e:
-            logger.exception("Error during cleanup", exc_info=e)
-        await asyncio.sleep(SLEEP_INTERVAL)
-
-
-def start_scheduler() -> None:
-    worker_id = max(get_proc_identity() - 1, 0)
-    asyncio.create_task(scheduler(worker_id))

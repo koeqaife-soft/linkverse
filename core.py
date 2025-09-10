@@ -11,8 +11,6 @@ import asyncio
 import multiprocessing
 import logging
 from colorama import Fore, Style, init
-import importlib
-import glob
 from quart_cors import cors
 import xxhash
 from utils_cy.validate import Validator
@@ -288,7 +286,7 @@ def setup_logger(logger: logging.Logger | None = None):
     )
     handler.setFormatter(formatter)
 
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     logger.addHandler(handler)
 
     return logger
@@ -356,16 +354,6 @@ def get_module_name(file_path: str) -> str:
     module_path = os.path.splitext(relative_path)[0]
 
     return module_path.replace(os.sep, '.')
-
-
-def load_extensions(dir: str = "./extensions", debug: bool = False):
-    files = glob.glob(f"{dir}/*.py")
-    for file in files:
-        name = get_module_name(file)
-        module = importlib.import_module(name, __package__)
-        module.load(app)
-        if debug:
-            _logger.info(f"Module {name} loaded!")
 
 
 def route(_app: Quart | Blueprint, url_rule: str, **kwargs):

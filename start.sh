@@ -36,8 +36,13 @@ if [[ "$USE_SSL" == "True" ]]; then
     SSL_ARGS+=(--certfile "$CERT_FILE" --keyfile "$KEY_FILE")
 fi
 
+PY_ARGS=()
+if [[ "$DEBUG" != "True" ]]; then
+	PY_ARGS+=(-O)
+fi
+
 run_hypercorn() {
-    python -O -m hypercorn \
+    python "${PY_ARGS[@]}" -m hypercorn \
         -w "$1" \
         -b "$HOST:$PORT" \
         api:app \
