@@ -2,22 +2,20 @@ CREATE OR REPLACE TRIGGER update_posts_modified
 BEFORE UPDATE ON posts
 FOR EACH ROW
 WHEN (
-    (OLD.user_id IS DISTINCT FROM NEW.user_id OR
-        OLD.content IS DISTINCT FROM NEW.content OR
-        OLD.created_at IS DISTINCT FROM NEW.created_at OR
-        OLD.updated_at IS DISTINCT FROM NEW.updated_at OR
-        OLD.likes_count IS DISTINCT FROM NEW.likes_count OR
-        OLD.dislikes_count IS DISTINCT FROM NEW.dislikes_count OR
-        OLD.comments_count IS DISTINCT FROM NEW.comments_count OR
-        OLD.tags IS DISTINCT FROM NEW.tags OR
-        OLD.media IS DISTINCT FROM NEW.media OR
-        OLD.status IS DISTINCT FROM NEW.status OR
-        OLD.is_deleted IS DISTINCT FROM NEW.is_deleted)
-    AND (OLD.likes_count IS NOT DISTINCT FROM NEW.likes_count)
-    AND (OLD.dislikes_count IS NOT DISTINCT FROM NEW.dislikes_count)
-    AND (OLD.comments_count IS NOT DISTINCT FROM NEW.comments_count)
+    OLD.user_id IS DISTINCT FROM NEW.user_id OR
+    OLD.content IS DISTINCT FROM NEW.content OR
+    OLD.tags IS DISTINCT FROM NEW.tags OR
+    OLD.media IS DISTINCT FROM NEW.media
 )
 EXECUTE FUNCTION update_modified_column();
+
+CREATE OR REPLACE TRIGGER update_posts_deleted_at
+BEFORE UPDATE ON posts
+FOR EACH ROW
+WHEN (
+    OLD.is_deleted IS DISTINCT FROM NEW.is_deleted
+)
+EXECUTE FUNCTION update_deleted_at();
 
 -- (0) likes
 -- (0) on insert

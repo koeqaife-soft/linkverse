@@ -14,6 +14,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION update_deleted_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.is_deleted IS DISTINCT FROM OLD.is_deleted THEN
+            NEW.deleted_at := CURRENT_TIMESTAMP;
+        ELSE
+            NEW.deleted_at := NULL;
+        END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- (0) likes
 -- (0) on insert
     CREATE OR REPLACE FUNCTION update_likes_count_on_insert() RETURNS TRIGGER AS $$

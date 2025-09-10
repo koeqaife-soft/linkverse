@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS posts (
     content TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ DEFAULT NULL,
     likes_count BIGINT DEFAULT 0,
     dislikes_count BIGINT DEFAULT 0,
     comments_count BIGINT DEFAULT 0,
