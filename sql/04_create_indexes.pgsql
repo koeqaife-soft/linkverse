@@ -4,6 +4,7 @@ CREATE INDEX IF NOT EXISTS idx_auth_keys ON auth_keys(user_id, token_secret);
 CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts (user_id);
 CREATE INDEX IF NOT EXISTS idx_posts_status ON posts (status);
 CREATE INDEX IF NOT EXISTS idx_posts_is_deleted ON posts (is_deleted);
+CREATE INDEX IF NOT EXISTS idx_posts_deletion ON posts (is_deleted, deleted_at);
 CREATE INDEX IF NOT EXISTS idx_posts_popularity ON posts (popularity_score DESC);
 
 CREATE INDEX IF NOT EXISTS idx_reactions_user_id_is_like ON reactions (user_id, is_like);
