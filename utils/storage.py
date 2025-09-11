@@ -68,7 +68,7 @@ def generate_signed_token(
 
 def build_get_link(
     object: str,
-    expires: int = 43200  # 12 hours
+    expires: int = 259200  # 3 days
 ) -> str:
     full_path = f"{PUBLIC_PATH}/{object}"
 
