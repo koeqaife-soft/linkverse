@@ -22,6 +22,7 @@ class Post:
     comments_count: int
     tags: list[str]
     media: list[str]
+    media_type: str | None = None
     status: str | None = None
     is_deleted: bool | None = None
     ctags: list[str] | None = None
@@ -88,7 +89,8 @@ def post_query(
     query = f"""
         SELECT p.post_id, p.user_id, p.content, p.created_at, p.updated_at,
                p.likes_count, p.comments_count,
-               p.dislikes_count, p.tags, m.objects as media
+               p.dislikes_count, p.tags, m.objects as media,
+               m.type as media_type
                {", p.popularity_score" if popularity_score else ""}
                {", p.status, p.is_deleted" if more_info else ""},
                COALESCE(
@@ -101,7 +103,7 @@ def post_query(
         LEFT JOIN tags t ON t.tag_id = pt.tag_id
         LEFT JOIN files m ON m.context_id = p.file_context_id
         {where}
-        GROUP BY p.post_id, m.objects
+        GROUP BY p.post_id, m.objects, m.type
     """
     return query
 

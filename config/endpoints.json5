@@ -207,6 +207,12 @@
             optional_data: {
                 context_id: { min_len: 10, max_len: 32 }
             }
+        },
+        create_context: {
+            load_data: true,
+            data: {
+                type: { values: ["post_video", "post_image"] }
+            }
         }
     }
 }

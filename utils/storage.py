@@ -98,6 +98,7 @@ async def create_file_context(
     user_id: int,
     objects: list[str],
     max_count: int,
+    type: str,
     conn: AutoConnection
 ) -> Status[str]:
     db = await conn.create_conn()
@@ -106,9 +107,10 @@ async def create_file_context(
     async with db.transaction():
         await db.execute(
             """
-            INSERT INTO files (user_id, objects, allowed_count, context_id)
-            VALUES ($1, $2, $3, $4)
-            """, user_id, objects, max_count, new_id
+            INSERT INTO files
+            (user_id, objects, allowed_count, context_id, type)
+            VALUES ($1, $2, $3, $4, $5)
+            """, user_id, objects, max_count, new_id, type
         )
 
     return Status(True, data=new_id)
@@ -194,7 +196,7 @@ async def get_context(
     db = await conn.create_conn()
     row = await db.fetchrow(
         """
-        SELECT objects, user_id, created_at
+        SELECT objects, user_id, created_at, type
         FROM files
         WHERE context_id = $1
         """,
@@ -207,7 +209,8 @@ async def get_context(
     return Status(True, data={
         "user_id": row["user_id"],
         "objects": row["objects"],
-        "created_at": int(row["created_at"].timestamp())
+        "created_at": int(row["created_at"].timestamp()),
+        "type": row["type"]
     })
 
 

@@ -3,7 +3,6 @@ from quart import Blueprint, Quart, Response
 from core import response, Global, route, FunctionError
 from quart import g
 from utils.database import AutoConnection
-import typing as t
 from utils.storage import generate_signed_token, PUBLIC_PATH
 from utils.storage import create_file_context, add_object_to_file
 from utils.storage import get_context
@@ -18,7 +17,13 @@ pool: asyncpg.Pool = gb.pool
 LIMITS = {
     "avatar": 2,
     "banner": 8,
-    "context": 10
+    "post_video": 15,
+    "post_image": 10
+}
+
+MAX_COUNT = {
+    "post_video": 1,
+    "post_image": 5
 }
 
 
@@ -29,14 +34,17 @@ def create_random_string() -> str:
 
 @route(bp, "/storage/context", methods=["POST"])
 async def create_context() -> tuple[Response, int]:
+    data: dict = g.data
+    type: str = data["type"]
+
     async with AutoConnection(pool) as conn:
         context_id = (await create_file_context(
-            g.user_id, [], 5, conn
+            g.user_id, [], 5, type, conn
         )).data
     return response(data={
         "context_id": context_id,
-        "max_size": LIMITS["context"],
-        "max_count": 5,
+        "max_size": LIMITS[type],
+        "max_count": MAX_COUNT[type],
         "expires": time.time() + 30 * 60
     }), 200
 
@@ -45,7 +53,7 @@ async def create_context() -> tuple[Response, int]:
 async def upload_file() -> tuple[Response, int]:
     data = g.data
     _file_name = quote(data["file_name"])
-    _type: t.Literal["avatar", "banner", "context"] = data["type"]
+    _type: str = data["type"]
     context_id: str = data.get("context_id")
 
     async with AutoConnection(pool) as conn:
@@ -60,6 +68,7 @@ async def upload_file() -> tuple[Response, int]:
             ):
                 raise FunctionError("FORBIDDEN", 403, None)
 
+            _type = context["type"]
             file_name = f"private/{context_id}/{_file_name}"
             await add_object_to_file(context_id, file_name, conn)
         else:

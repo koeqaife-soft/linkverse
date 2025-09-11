@@ -3,7 +3,9 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 const allowedTypes: Record<string, string[]> = {
 	banner: ["image/webp"],
 	avatar: ["image/webp"],
-	context: ["video/mp4", "audio/mpeg", "image/webp", "image/png", "image/jpeg"]
+	context: ["video/mp4", "audio/mpeg", "image/webp", "image/png", "image/jpeg"],
+	post_video: ["video/mp4", "video/webm"],
+	post_image: ["image/webp", "image/png", "image/jeg", "image/gif"]
 };
 
 type Operation = `${"PUT" | "GET" | "DELETE"}:${string}`;

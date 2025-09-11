@@ -138,5 +138,6 @@ CREATE TABLE IF NOT EXISTS files (
     reference_count INT NOT NULL DEFAULT 0,
     allowed_count INT NOT NULL DEFAULT 1,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    type TEXT NOT NULL DEFAULT 'context',  -- "avatar" | "banner" | "post_video" | "post_image" | any
     FOREIGN KEY (user_id) REFERENCES users (user_id)
 )
