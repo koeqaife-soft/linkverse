@@ -1,3 +1,4 @@
+import datetime
 import hashlib
 import hmac
 import base64
@@ -68,14 +69,18 @@ def generate_signed_token(
 
 def build_get_link(
     object: str,
-    expires: int = 259200  # 3 days
+    expires_days: int = 3
 ) -> str:
     full_path = f"{PUBLIC_PATH}/{object}"
 
     if object.startswith("public/"):
         return full_path
 
-    expires_timestamp = int(time.time() + expires)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    expiry_date = (now + datetime.timedelta(days=expires_days)).replace(
+        hour=23, minute=59, second=59, microsecond=0
+    )
+    expires_timestamp = int(expiry_date.timestamp())
 
     payload = str(expires_timestamp)
     payload_b64 = (
