@@ -14,8 +14,9 @@ async def get_popular_posts(
     hide_viewed = True if hide_viewed is None else hide_viewed
 
     if cursor:
-        _popularity_score, post_id = cursor.split(",")
+        _popularity_score, _post_id = cursor.split(",")
         popularity_score = int(_popularity_score)
+        post_id = int(_post_id)
 
     parameters: list = [limit, user_id]
 
@@ -37,8 +38,8 @@ async def get_popular_posts(
     elif cursor:
         query += """
             AND (
-                (popularity_score) < $2 OR
-                ((popularity_score) = $2 AND post_id < $3)
+                (popularity_score) < $3 OR
+                ((popularity_score) = $3 AND post_id::bigint < $4)
             )
         """
         parameters.extend([popularity_score, post_id])
@@ -92,8 +93,8 @@ async def get_new_posts(
             )
         """
     elif cursor:
-        query += " AND post_id < $2"
-        parameters.append(cursor)
+        query += " AND post_id::bigint < $3"
+        parameters.append(int(cursor))
 
     query += """
         ORDER BY post_id::bigint DESC
@@ -146,8 +147,8 @@ async def get_posts_by_following(
             )
         """
     elif cursor:
-        query += " AND post_id < $3"
-        parameters.append(cursor)
+        query += " AND post_id::bigint < $3"
+        parameters.append(int(cursor))
 
     query += """
         ORDER BY post_id::bigint DESC
@@ -220,10 +221,10 @@ async def get_tag_posts(
         query += """
             AND (
                 (p.popularity_score) < $3 OR
-                ((p.popularity_score) = $3 AND p.post_id < $4)
+                ((p.popularity_score) = $3 AND p.post_id::bigint < $4)
             )
         """
-        parameters.extend([popularity_score, post_id])
+        parameters.extend([popularity_score, int(post_id)])
 
     query += """
         GROUP BY pt.post_id, p.post_id, p.popularity_score

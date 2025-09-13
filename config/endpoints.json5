@@ -85,6 +85,13 @@
                 limit: { type: "int", min: 1, max: 1000 }
             }
         },
+        posts_by_following: {
+            optional_params: {
+                hide_viewed: { type: "bool" },
+                cursor: { min_len: 1, max_len: 256 },
+                limit: { type: "int", min: 1, max: 1000 }
+            }
+        },
         get_posts_batch: {
             params: {
                 posts: {
