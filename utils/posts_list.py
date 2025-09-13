@@ -18,6 +18,9 @@ async def get_popular_posts(
         popularity_score = int(_popularity_score)
         post_id = int(_post_id)
 
+    if not hide_viewed:
+        user_id = 0
+
     parameters: list = [limit, user_id]
 
     query = """
@@ -75,6 +78,8 @@ async def get_new_posts(
     db = await conn.create_conn()
     hide_viewed = True if hide_viewed is None else hide_viewed
 
+    if not hide_viewed:
+        user_id = 0
     parameters: list = [limit, user_id]
 
     query = """
