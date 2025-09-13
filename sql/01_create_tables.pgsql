@@ -28,6 +28,17 @@ CREATE TABLE IF NOT EXISTS auth_keys (
     UNIQUE (token_secret, user_id, session_id)
 );
 
+CREATE TABLE IF NOT EXISTS files (
+    context_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    objects TEXT[] NOT NULL,
+    reference_count INT NOT NULL DEFAULT 0,
+    allowed_count INT NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    type TEXT NOT NULL DEFAULT 'context',  -- "avatar" | "banner" | "post_video" | "post_image" | any
+    FOREIGN KEY (user_id) REFERENCES users (user_id)
+);
+
 CREATE TABLE IF NOT EXISTS posts (
     post_id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
@@ -66,7 +77,7 @@ CREATE TABLE IF NOT EXISTS comments (
     dislikes_count BIGINT DEFAULT 0,
     replies_count BIGINT DEFAULT 0,
     popularity_score BIGINT GENERATED ALWAYS AS (likes_count - dislikes_count + (replies_count * 0.25)) STORED,
-    type ENUM('comment', 'update') DEFAULT 'comment',
+    type TEXT DEFAULT 'comment',
     FOREIGN KEY (parent_comment_id) REFERENCES comments (comment_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
     FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE
@@ -129,17 +140,6 @@ CREATE TABLE IF NOT EXISTS post_tags (
     post_id TEXT NOT NULL REFERENCES posts(post_id) ON DELETE CASCADE,
     tag_id TEXT NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
     PRIMARY KEY (post_id, tag_id)
-);
-
-CREATE TABLE IF NOT EXISTS files (
-    context_id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    objects TEXT[] NOT NULL,
-    reference_count INT NOT NULL DEFAULT 0,
-    allowed_count INT NOT NULL DEFAULT 1,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    type TEXT NOT NULL DEFAULT 'context',  -- "avatar" | "banner" | "post_video" | "post_image" | any
-    FOREIGN KEY (user_id) REFERENCES users (user_id)
 );
 
 CREATE TABLE IF NOT EXISTS reports (

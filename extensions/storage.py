@@ -74,7 +74,7 @@ async def upload_file() -> tuple[Response, int]:
         else:
             subfolder = "avatars" if _type == "avatar" else "banners"
             context_id = (await create_file_context(
-                g.user_id, [], 1, conn
+                g.user_id, [], 1, _type, conn
             )).data
             file_name = f"public/{subfolder}/{g.user_id}/{context_id}.webp"
             await add_object_to_file(context_id, file_name, conn)
