@@ -27,6 +27,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = NOW();
+   RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- (0) likes
 -- (0) on insert
     CREATE OR REPLACE FUNCTION update_likes_count_on_insert() RETURNS TRIGGER AS $$
@@ -130,21 +138,29 @@ $$ LANGUAGE plpgsql;
     END;
     $$ LANGUAGE plpgsql;
 
--- (3) auto delete notification
+-- (3) auto delete linked resources
 -- (3) comment
-    CREATE OR REPLACE FUNCTION delete_notifications_on_comment_delete() RETURNS TRIGGER AS $$
+    CREATE OR REPLACE FUNCTION delete_resources_on_comment_delete() RETURNS TRIGGER AS $$
     BEGIN
         DELETE FROM user_notifications
         WHERE linked_type = 'comment' AND linked_id = OLD.comment_id;
+
+        DELETE FROM reports
+        WHERE target_type = 'comment' AND target_id = OLD.comment_id;
+
         RETURN OLD;
     END;
     $$ LANGUAGE plpgsql;
 
 -- (3) post
-    CREATE OR REPLACE FUNCTION delete_notifications_on_post_delete() RETURNS TRIGGER AS $$
+    CREATE OR REPLACE FUNCTION delete_resources_on_post_delete() RETURNS TRIGGER AS $$
     BEGIN
         DELETE FROM user_notifications
         WHERE linked_type = 'post' AND linked_id = OLD.post_id;
+
+        DELETE FROM reports
+        WHERE target_type = 'post' AND target_id = OLD.post_id;
+
         RETURN OLD;
     END;
     $$ LANGUAGE plpgsql;

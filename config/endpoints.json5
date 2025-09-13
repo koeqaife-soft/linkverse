@@ -221,5 +221,15 @@
                 type: { values: ["post_video", "post_image"] }
             }
         }
+    },
+    reports: {
+        post_report: {
+            load_data: true,
+            data: {
+                target_type: { values: ["post", "comment", "user", "message"] },
+                target_id: { min_len: 1, max_len: 32 },
+                reason: { min_len: 1, max_len: 512 }
+            }
+        }
     }
 }

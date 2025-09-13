@@ -17,6 +17,11 @@ WHEN (
 )
 EXECUTE FUNCTION update_deleted_at();
 
+CREATE OR REPLACE TRIGGER reports_updated_at
+BEFORE UPDATE ON reports
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
 -- (0) likes
 -- (0) on insert
     CREATE OR REPLACE TRIGGER trigger_likes_insert
@@ -55,16 +60,16 @@ EXECUTE FUNCTION update_deleted_at();
     BEFORE INSERT OR UPDATE ON user_notifications
     FOR EACH ROW EXECUTE FUNCTION check_linked_id();
 
--- (3) auto delete notification
+-- (3) auto delete linked resources
 -- (3) post
-    CREATE OR REPLACE TRIGGER trigger_delete_notifications_on_comment_delete
+    CREATE OR REPLACE TRIGGER trigger_delete_resources_on_comment_delete
     AFTER DELETE ON comments
-    FOR EACH ROW EXECUTE FUNCTION delete_notifications_on_comment_delete();
+    FOR EACH ROW EXECUTE FUNCTION delete_resources_on_comment_delete();
 
 -- (3) comment
-    CREATE OR REPLACE TRIGGER trigger_delete_notifications_on_post_delete
+    CREATE OR REPLACE TRIGGER trigger_delete_resources_on_post_delete
     AFTER DELETE ON posts
-    FOR EACH ROW EXECUTE FUNCTION delete_notifications_on_post_delete();
+    FOR EACH ROW EXECUTE FUNCTION delete_resources_on_post_delete();
 
 -- (4) replies
 -- (4) on insert

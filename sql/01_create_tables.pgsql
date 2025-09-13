@@ -140,4 +140,17 @@ CREATE TABLE IF NOT EXISTS files (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     type TEXT NOT NULL DEFAULT 'context',  -- "avatar" | "banner" | "post_video" | "post_image" | any
     FOREIGN KEY (user_id) REFERENCES users (user_id)
-)
+);
+
+CREATE TABLE IF NOT EXISTS reports (
+    report_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    target_type TEXT NOT NULL
+        CHECK (target_type IN ('post', 'comment', 'user', 'message')),
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'reviewed', 'dismissed')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
