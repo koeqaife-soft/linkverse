@@ -50,7 +50,7 @@ allow_headers = [
     "Content-Type", "Authorization"
 ]
 app = cors(
-    app, allow_origin="*",
+    app, allow_origin=["*", "app.sharinflame.com"],
     allow_headers=allow_headers,
     max_age=86400
 )
