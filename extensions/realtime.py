@@ -11,7 +11,7 @@ import utils.realtime as realtime
 from utils.realtime import SessionActions, SessionMessage
 import orjson
 import typing as t
-from utils.rate_limiting import rate_limit
+from utils.rate_limiting import ip_rate_limit
 
 bp = Blueprint('realtime', __name__)
 gb = Global()
@@ -181,7 +181,7 @@ async def incoming_handler():
 
 
 @bp.websocket('/ws')
-@rate_limit(30, 60)
+@ip_rate_limit(30, 60)
 @cors_exempt
 async def ws():
     await websocket.accept()
