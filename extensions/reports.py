@@ -4,6 +4,7 @@ from core import response, Global, route
 from quart import g
 from utils.database import AutoConnection
 from utils.reports import create_report
+from utils.rate_limiting import rate_limit
 
 bp = Blueprint('reports', __name__)
 gb = Global()
@@ -11,6 +12,7 @@ pool: asyncpg.Pool = gb.pool
 
 
 @route(bp, "/reports", methods=["POST"])
+@rate_limit(5, 60)
 async def post_report() -> tuple[Response, int]:
     data = g.data
     reason: str = data["reason"]

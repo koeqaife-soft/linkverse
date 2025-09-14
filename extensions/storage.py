@@ -9,6 +9,7 @@ from utils.storage import get_context
 import os
 from urllib.parse import quote
 import time
+from utils.rate_limiting import rate_limit
 
 bp = Blueprint('storage', __name__)
 gb = Global()
@@ -33,6 +34,7 @@ def create_random_string() -> str:
 
 
 @route(bp, "/storage/context", methods=["POST"])
+@rate_limit(60, 60, 20, 60)
 async def create_context() -> tuple[Response, int]:
     data: dict = g.data
     type: str = data["type"]
@@ -50,6 +52,7 @@ async def create_context() -> tuple[Response, int]:
 
 
 @route(bp, "/storage/file", methods=["POST"])
+@rate_limit(60, 60, 20, 60)
 async def upload_file() -> tuple[Response, int]:
     data = g.data
     _file_name = quote(data["file_name"])

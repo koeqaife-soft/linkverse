@@ -10,6 +10,7 @@ import utils.posts_list as posts_list
 from utils.realtime import RealtimeManager
 import utils.combined as combined
 from utils.storage import get_context
+from utils.rate_limiting import rate_limit
 
 bp = Blueprint('posts', __name__)
 gb = Global()
@@ -18,6 +19,7 @@ rt_manager: RealtimeManager = gb.rt_manager
 
 
 @route(bp, "/posts/following", methods=["GET"])
+@rate_limit(30, 60)
 async def posts_by_following() -> tuple[Response, int]:
     params: dict = g.params
     hide_viewed = params.get("hide_viewed", True)
@@ -33,6 +35,7 @@ async def posts_by_following() -> tuple[Response, int]:
 
 
 @route(bp, "/posts/popular", methods=["GET"])
+@rate_limit(30, 60)
 async def popular_posts() -> tuple[Response, int]:
     params: dict = g.params
     hide_viewed = params.get("hide_viewed", True)
@@ -48,6 +51,7 @@ async def popular_posts() -> tuple[Response, int]:
 
 
 @route(bp, "/posts/new", methods=["GET"])
+@rate_limit(30, 60)
 async def new_posts() -> tuple[Response, int]:
     params: dict = g.params
     hide_viewed = params.get("hide_viewed", True)
@@ -63,6 +67,7 @@ async def new_posts() -> tuple[Response, int]:
 
 
 @route(bp, "/posts/view", methods=["POST"])
+@rate_limit(6000, 60, 300, 60)
 async def view_posts() -> tuple[Response, int]:
     data = g.data
     posts = data["posts"]
@@ -75,6 +80,7 @@ async def view_posts() -> tuple[Response, int]:
 
 
 @route(bp, "/posts", methods=["POST"])
+@rate_limit(20, 60)
 async def create_post() -> tuple[Response, int]:
     data = g.data
     content: str = data.get('content')
@@ -94,6 +100,7 @@ async def create_post() -> tuple[Response, int]:
 
 
 @route(bp, "/posts/<id>", methods=["GET"])
+@rate_limit(60, 60)
 async def get_post(id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await combined.get_full_post(g.user_id, id, conn)
@@ -102,6 +109,7 @@ async def get_post(id: str) -> tuple[Response, int]:
 
 
 @route(bp, "/posts/batch", methods=["GET"])
+@rate_limit(60, 60)
 async def get_posts_batch() -> tuple[Response, int]:
     params: dict = g.params
     _posts = params.get('posts', [])
@@ -126,6 +134,7 @@ async def get_posts_batch() -> tuple[Response, int]:
 
 
 @route(bp, "/posts/<id>", methods=["DELETE"])
+@rate_limit(60, 60)
 async def delete_post(id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         post = await cache_posts.get_post(id, conn)
@@ -141,6 +150,7 @@ async def delete_post(id: str) -> tuple[Response, int]:
 
 
 @route(bp, "/posts/<id>", methods=["PATCH"])
+@rate_limit(20, 60)
 async def update_post(id: str) -> tuple[Response, int]:
     data = g.data
     content: str | None = data.get("content")
@@ -168,6 +178,7 @@ async def update_post(id: str) -> tuple[Response, int]:
 
 
 @route(bp, "/posts/<id>/reactions", methods=["POST"])
+@rate_limit(30, 60)
 async def add_reaction(id: str) -> tuple[Response, int]:
     data = g.data
     is_like: bool = data.get("is_like")
@@ -180,6 +191,7 @@ async def add_reaction(id: str) -> tuple[Response, int]:
 
 
 @route(bp, "/posts/<id>/reactions", methods=["DELETE"])
+@rate_limit(30, 60)
 async def rem_reaction(id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         await cache_posts.get_post(id, conn)
@@ -189,6 +201,7 @@ async def rem_reaction(id: str) -> tuple[Response, int]:
 
 
 @route(bp, "/tags/<name>/posts", methods=["GET"])
+@rate_limit(30, 60)
 async def get_tag_posts(name: str) -> tuple[Response, int]:
     params: dict = g.params
     cursor = params.get("cursor")
@@ -205,6 +218,7 @@ async def get_tag_posts(name: str) -> tuple[Response, int]:
 
 
 @route(bp, "/tags/<name>", methods=["GET"])
+@rate_limit(30, 60)
 async def get_tag(name: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         tag = await posts.get_tag(name, conn)

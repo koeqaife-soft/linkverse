@@ -180,6 +180,7 @@ async def before():
             return response(error=True, error_msg=error_msg), 401
 
         g.user_id = result.data["user_id"]
+        g.session_id = result.data["session_id"]
 
 
 compress_conditions = [

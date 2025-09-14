@@ -6,6 +6,7 @@ import utils.auth as auth
 from utils.cache import auth as auth_cache
 from utils.database import AutoConnection
 from utils.realtime import RealtimeManager, SessionActions
+from utils.rate_limiting import ip_rate_limit
 import os
 
 debug = os.getenv('DEBUG') == 'True'
@@ -16,6 +17,8 @@ rt_manager: RealtimeManager = gb.rt_manager
 
 
 @route(bp, '/auth/register', methods=['POST'])
+@ip_rate_limit(20, 24 * 60 * 60)
+@ip_rate_limit(5, 60)
 async def register() -> tuple[Response, int]:
     data = g.data
     username = data.get('username')
@@ -32,6 +35,8 @@ async def register() -> tuple[Response, int]:
 
 
 @route(bp, '/auth/login', methods=['POST'])
+@ip_rate_limit(30, 24 * 60 * 60)
+@ip_rate_limit(5, 60)
 async def login() -> tuple[Response, int]:
     data = g.data
     email = data.get('email')
@@ -44,6 +49,8 @@ async def login() -> tuple[Response, int]:
 
 
 @route(bp, '/auth/refresh', methods=['POST'])
+@ip_rate_limit(30, 24 * 60 * 60)
+@ip_rate_limit(1, 60)
 async def refresh() -> tuple[Response, int]:
     data = g.data
     token = data.get("refresh_token")
@@ -64,6 +71,7 @@ async def refresh() -> tuple[Response, int]:
 
 
 @route(bp, '/auth/logout', methods=['POST'])
+@ip_rate_limit(20, 60)
 async def logout() -> tuple[Response, int]:
     token = request.headers.get("Authorization")
 

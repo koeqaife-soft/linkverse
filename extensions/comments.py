@@ -9,6 +9,7 @@ from utils.database import AutoConnection
 from utils.realtime import RealtimeManager
 import utils.combined as combined
 from schemas import NotificationType
+from utils.rate_limiting import rate_limit
 
 bp = Blueprint('comments', __name__)
 gb = Global()
@@ -17,6 +18,7 @@ rt_manager: RealtimeManager = gb.rt_manager
 
 
 @route(bp, "/posts/<id>/comments", methods=["POST"])
+@rate_limit(20, 60, 5, 30)
 async def create_comment(id: str) -> tuple[Response, int]:
     data = g.data
     content = data.get("content")
@@ -48,6 +50,7 @@ async def create_comment(id: str) -> tuple[Response, int]:
 
 
 @route(bp, "/posts/<id>/comments/<cid>", methods=["DELETE"])
+@rate_limit(100, 60)
 async def delete_comment(id: str, cid: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         comment = await comments.get_comment(id, cid, conn)
@@ -60,6 +63,7 @@ async def delete_comment(id: str, cid: str) -> tuple[Response, int]:
 
 
 @route(bp, "/posts/<id>/comments/<cid>", methods=["GET"])
+@rate_limit(60, 60)
 async def get_comment(id: str, cid: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         await cache_posts.get_post(id, conn)
@@ -72,6 +76,7 @@ async def get_comment(id: str, cid: str) -> tuple[Response, int]:
 
 
 @route(bp, "/posts/<id>/comments", methods=["GET"])
+@rate_limit(60, 60)
 async def get_comments(id: str) -> tuple[Response, int]:
     params: dict = g.params
     cursor = params.get("cursor", None)
@@ -101,6 +106,7 @@ async def get_comments(id: str) -> tuple[Response, int]:
 
 
 @route(bp, "/posts/<id>/comments/<cid>/reactions", methods=["POST"])
+@rate_limit(30, 60)
 async def comment_add_reaction(id: str, cid: str) -> tuple[Response, int]:
     data = g.data
     is_like: bool = data.get("is_like")
@@ -114,6 +120,7 @@ async def comment_add_reaction(id: str, cid: str) -> tuple[Response, int]:
 
 
 @route(bp, "/posts/<id>/comments/<cid>/reactions", methods=["DELETE"])
+@rate_limit(30, 60)
 async def comment_rem_reaction(id: str, cid: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         await cache_posts.get_post(id, conn)

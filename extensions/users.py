@@ -10,6 +10,7 @@ from utils.database import AutoConnection
 from utils.realtime import RealtimeManager
 import utils.combined as combined
 import typing as t
+from utils.rate_limiting import rate_limit
 
 bp = Blueprint('users', __name__)
 gb = Global()
@@ -18,6 +19,7 @@ rt_manager: RealtimeManager = gb.rt_manager
 
 
 @route(bp, "/users/me", methods=["GET"])
+@rate_limit(45, 60)
 async def get_profile_me() -> tuple[Response, int]:
     user_id = g.user_id
 
@@ -28,6 +30,7 @@ async def get_profile_me() -> tuple[Response, int]:
 
 
 @route(bp, "/users/me", methods=["PATCH"])
+@rate_limit(20, 60)
 async def update_profile_me() -> tuple[Response, int]:
     data = g.data
     user_id = g.user_id
@@ -53,6 +56,7 @@ async def validate_post_or_comment(
 
 
 @route(bp, "/users/me/favorites", methods=["POST"])
+@rate_limit(30, 60)
 async def add_favorite() -> tuple[Response, int]:
     data = g.data
     post_id = data.get("post_id")
@@ -67,6 +71,7 @@ async def add_favorite() -> tuple[Response, int]:
 
 
 @route(bp, "/users/me/favorites", methods=["DELETE"])
+@rate_limit(30, 60)
 async def rem_favorite() -> tuple[Response, int]:
     params: dict = g.params
     post_id = params.get("post_id", "")
@@ -81,6 +86,7 @@ async def rem_favorite() -> tuple[Response, int]:
 
 
 @route(bp, "/users/me/favorites", methods=["GET"])
+@rate_limit(30, 60)
 async def get_favorites() -> tuple[Response, int]:
     params: dict = g.params
     cursor = params.get("cursor", None)
@@ -112,6 +118,7 @@ async def get_favorites() -> tuple[Response, int]:
 
 
 @route(bp, "/users/me/reactions", methods=["GET"])
+@rate_limit(30, 60)
 async def get_reactions() -> tuple[Response, int]:
     params: dict = g.params
     cursor = params.get("cursor", None)
@@ -146,6 +153,7 @@ async def get_reactions() -> tuple[Response, int]:
 
 
 @route(bp, "/users/me/following", methods=["GET"])
+@rate_limit(30, 60)
 async def get_following() -> tuple[Response, int]:
     params: dict = g.params
     cursor = params.get("cursor", None)
@@ -180,6 +188,7 @@ async def get_following() -> tuple[Response, int]:
 
 
 @route(bp, "/users/me/following/<target_id>", methods=["POST"])
+@rate_limit(30, 60)
 async def follow_user(target_id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         await cache_users.get_user(target_id, conn, True)
@@ -189,6 +198,7 @@ async def follow_user(target_id: str) -> tuple[Response, int]:
 
 
 @route(bp, "/users/me/following/<target_id>", methods=["DELETE"])
+@rate_limit(30, 60)
 async def unfollow_user(target_id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         await cache_users.get_user(target_id, conn, True)
@@ -198,6 +208,7 @@ async def unfollow_user(target_id: str) -> tuple[Response, int]:
 
 
 @route(bp, "/users/<user_id>", methods=["GET"])
+@rate_limit(30, 60)
 async def get_profile(user_id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         user = await cache_users.get_user(user_id, conn)
@@ -210,6 +221,7 @@ async def get_profile(user_id: str) -> tuple[Response, int]:
 
 
 @route(bp, "/users/<user_id>/posts", methods=["GET"])
+@rate_limit(30, 60)
 async def get_user_posts(user_id: str) -> tuple[Response, int]:
     params = g.params
     cursor = params.get("cursor", None)

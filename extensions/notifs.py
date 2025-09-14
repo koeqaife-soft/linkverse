@@ -7,6 +7,7 @@ import utils.notifs as notifs
 from utils.database import AutoConnection
 from utils.realtime import RealtimeManager
 import utils.combined as combined
+from utils.rate_limiting import rate_limit
 
 bp = Blueprint('notifs', __name__)
 gb = Global()
@@ -15,6 +16,7 @@ rt_manager: RealtimeManager = gb.rt_manager
 
 
 @route(bp, "/users/me/notifications", methods=["GET"])
+@rate_limit(60, 60)
 async def get_notifications() -> tuple[Response, int]:
     params: dict = g.params
     cursor = params.get("cursor", None)
@@ -40,6 +42,7 @@ async def get_notifications() -> tuple[Response, int]:
 
 
 @route(bp, "/users/me/notifications/unread", methods=["GET"])
+@rate_limit(300, 60)
 async def get_unread_notifications_count() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await notifs.get_unread_notifications_count(g.user_id, conn)
@@ -48,6 +51,7 @@ async def get_unread_notifications_count() -> tuple[Response, int]:
 
 
 @route(bp, "/users/me/notifications/<id>/read", methods=["POST"])
+@rate_limit(30, 60)
 async def read_notification(id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         await notifs.mark_notification_read(g.user_id, id, conn)
@@ -63,6 +67,7 @@ async def read_notification(id: str) -> tuple[Response, int]:
 
 
 @route(bp, "/users/me/notifications/read", methods=["POST"])
+@rate_limit(15, 60)
 async def read_all_notifications() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         await notifs.mark_all_notifications_read(g.user_id, conn)
