@@ -23,7 +23,6 @@ redis: Redis = gb.redis
 rt_manager: "RealtimeManager" = gb.rt_manager
 pool: Pool = gb.pool
 
-REDIS_URL = "redis://localhost:6379"
 STREAM_NAME = "webpush_stream"
 GROUP_NAME = "webpush_group"
 CONSUMER_NAME = f"worker_{get_proc_identity()}_{server_id}"
@@ -66,7 +65,8 @@ async def enqueue_push(
 
 async def send_push(
     subscription: dict, payload: WebPushNotification,
-    aiohttp_session: aiohttp.ClientSession
+    aiohttp_session: aiohttp.ClientSession,
+    session_id: str
 ) -> None:
     headers = generate_vapid_headers(subscription)
     pusher = WebPusher(
@@ -82,7 +82,7 @@ async def send_push(
     if response.status == 404 or response.status == 410:
         async with AutoConnection(pool) as conn:
             await delete_subscription(
-                payload["session_id"], conn
+                session_id, conn
             )
     else:
         response.raise_for_status()
@@ -96,7 +96,11 @@ async def send_pushes(
     subscriptions = (await get_subscriptions(user_id, conn)).data
     for sub in subscriptions:
         try:
-            await send_push(orjson.loads(sub["raw"]), payload, aiohttp_session)
+            await send_push(
+                orjson.loads(sub["raw"]),
+                payload, aiohttp_session,
+                sub["session_id"]
+            )
         except Exception as e:
             logger.exception(e)
 
