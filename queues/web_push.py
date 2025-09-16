@@ -1,4 +1,5 @@
 import asyncio
+import html
 import time
 from urllib.parse import urlparse
 
@@ -68,6 +69,9 @@ async def send_push(
     aiohttp_session: aiohttp.ClientSession,
     session_id: str
 ) -> None:
+    payload["message"] = html.unescape(payload["message"])
+    payload["username"] = html.unescape(payload["username"])
+
     headers = generate_vapid_headers(subscription)
     pusher = WebPusher(
         subscription, aiohttp_session=aiohttp_session
