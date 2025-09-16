@@ -1,3 +1,4 @@
+import time
 from redis.asyncio import Redis
 from core import Global, remove_none_values
 import asyncio
@@ -6,15 +7,19 @@ import orjson
 import utils.notifs as notifs
 from utils.database import AutoConnection
 import utils.combined as combined
+from utils.cache import users as cache_users
 from collections import defaultdict
 import typing as t
 from enum import Enum
 from schemas import NotificationType
+from queues.web_push import enqueue_push
 
 
 gb = Global()
 redis: Redis = gb.redis
 pool: asyncpg.Pool = gb.pool
+SESSION_TTL = 60
+ONLINE_THRESHOLD = 120
 
 
 class SessionActions(int, Enum):
@@ -160,6 +165,69 @@ class RealtimeManager:
         )).data
         notification = remove_none_values(notification)
 
-        await self.publish_event(
-            to, "notification", t.cast(dict, notification)
+        from_user = await cache_users.get_user(user_id, conn, True)
+
+        async def _task():
+            await self.publish_event(
+                to, "notification", t.cast(dict, notification)
+            )
+            loaded = notification.get("loaded")
+            content: str | None = None
+
+            if loaded:
+                content = loaded.get("content")
+
+            if not content:
+                content = message
+
+            payload = {
+                "avatar_url": from_user.data.avatar_url,
+                "id": notification["id"],
+                "message": content,
+                "type": linked_type or "message",
+                "username": (
+                    from_user.data.display_name
+                    or from_user.data.username
+                )
+            }
+            if notification["loaded"].get("parent_comment_id"):
+                payload["is_reply"] = True
+
+            await enqueue_push(to, payload)
+        asyncio.create_task(_task())
+
+    async def send_online(self, user_id: str, session_id: str):
+        now = time.time()
+        pipe = self.redis_client.pipeline()
+        pipe.setex(f"session:{session_id}:last_active", SESSION_TTL, now)
+        pipe.sadd(f"user:{user_id}:sessions", session_id)
+        pipe.expire(f"user:{user_id}:sessions", 3600)
+        await pipe.execute()
+
+    async def send_offline(self, user_id: str, session_id: str):
+        pipe = self.redis_client.pipeline()
+        pipe.delete(f"session:{session_id}:last_active")
+        pipe.srem(f"user:{user_id}:sessions", session_id)
+        await pipe.execute()
+
+    async def is_online(self, user_id: str) -> bool:
+        session_ids = await self.redis_client.smembers(
+            f"user:{user_id}:sessions"
         )
+
+        if not session_ids:
+            return False
+
+        now = time.time()
+
+        for sid in session_ids:
+            sid = sid.decode() if isinstance(sid, bytes) else sid
+            last_active = await self.redis_client.get(
+                f"session:{sid}:last_active"
+            )
+            if last_active and now - float(last_active) < ONLINE_THRESHOLD:
+                return True
+            elif not last_active:
+                await self.redis_client.srem(f"user:{user_id}:sessions", sid)
+
+        return False

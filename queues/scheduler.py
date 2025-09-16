@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import time
 from queues.file_deletion import cleanup_files
 from queues.post_deletion import cleanup_posts
+from queues.web_push import push_worker
 import typing as t
 from logging import getLogger
 
@@ -63,3 +64,4 @@ async def scheduler() -> None:
 
 def start_scheduler() -> None:
     asyncio.create_task(scheduler())
+    asyncio.create_task(push_worker())

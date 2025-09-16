@@ -9,8 +9,10 @@ import utils.auth as auth
 from utils.database import AutoConnection
 import utils.realtime as realtime
 from utils.realtime import SessionActions, SessionMessage
+from utils.notifs import subscribe
 import orjson
 import typing as t
+from queues.web_push import flush_pending, clear_pending
 
 bp = Blueprint("realtime", __name__)
 gb = Global()
@@ -31,8 +33,10 @@ class GlobalContext:
     token_result: dict
     expire_task: asyncio.Task
     user_id: str
+    session_id: str
     tasks: dict[str, asyncio.Task]
     closed: bool
+    last_active: int
 
 
 g: GlobalContext = untyped_g
@@ -109,6 +113,7 @@ async def ws_auth(
 
     g.expire_task = asyncio.create_task(expire_timeout())
     g.user_id = result.data["user_id"]
+    g.session_id = result.data["session_id"]
     return True
 
 
@@ -185,7 +190,21 @@ async def incoming_handler() -> None:
             queue.task_done()
             break
         try:
-            pass
+            if data.get("type") == "heartbeat":
+                last_active: int = data.get("last_active")
+                if last_active is not None:
+                    if last_active != g.last_active:
+                        await rt_manager.send_online(g.user_id, g.session_id)
+                        g.last_active = last_active
+                        await clear_pending(g.user_id)
+                    if g.last_active < time.time() - 120:
+                        await rt_manager.send_offline(g.user_id, g.session_id)
+                        await flush_pending(g.user_id)
+            elif data.get("type") == "push_subscription":
+                sub = data.get("data")
+                if sub:
+                    async with AutoConnection(pool) as conn:
+                        await subscribe(g.user_id, g.session_id, sub, conn)
         except asyncio.CancelledError:
             break
         finally:
@@ -252,11 +271,15 @@ async def close_connection(reason: str = "CLOSING") -> None:
     except Exception:
         pass
 
+    await rt_manager.send_offline(g.user_id, g.session_id)
+    await flush_pending(g.user_id)
+
 
 @bp.websocket("/ws")
 @cors_exempt
 async def ws() -> None:
     await websocket.accept()
+    g.last_active = time.time()
     g.queues = {
         "incoming": asyncio.Queue(),
         "auth": asyncio.Queue(),

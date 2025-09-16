@@ -1,8 +1,10 @@
+import orjson
 from utils.generation import snowflake
 from core import Status, FunctionError
 from utils.database import AutoConnection
 import typing as t
 from schemas import NotificationType, NotificationList, Notification
+from utils.generation import generate_id
 
 
 async def create_notification(
@@ -175,3 +177,80 @@ async def get_unread_notifications_count(
         user_id
     )
     return Status(True, value)
+
+
+async def subscribe(
+    user_id: str,
+    session_id: str,
+    subscription: dict,
+    conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+
+    async with db.transaction():
+        await db.execute(
+            """
+            INSERT INTO webpush_subscriptions (
+                id, user_id, session_id, expiration_time, raw
+            )
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (session_id) DO UPDATE
+            SET updated_at = now(),
+                raw = EXCLUDED.raw,
+                expiration_time = EXCLUDED.expiration_time
+            """,
+            str(generate_id()),
+            user_id,
+            session_id,
+            subscription.get("expirationTime"),
+            orjson.dumps(subscription).decode()
+        )
+
+    return Status(True)
+
+
+async def get_subscriptions(
+    user_id: str,
+    conn: AutoConnection
+) -> Status[list[dict[str, object]]]:
+    db = await conn.create_conn()
+
+    async with db.transaction():
+        rows = await db.fetch(
+            """
+            SELECT session_id, expiration_time, raw
+            FROM webpush_subscriptions
+            WHERE user_id = $1
+            """,
+            user_id
+        )
+
+    subscriptions = []
+    for row in rows:
+        subscriptions.append(
+            {
+                "session_id": row["session_id"],
+                "expirationTime": row["expiration_time"],
+                "raw": row["raw"],
+            }
+        )
+
+    return Status(True, data=subscriptions)
+
+
+async def delete_subscription(
+    session_id: str,
+    conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+
+    async with db.transaction():
+        await db.execute(
+            """
+            DELETE FROM webpush_subscriptions
+            WHERE session_id = $1
+            """,
+            session_id
+        )
+
+    return Status(True)
