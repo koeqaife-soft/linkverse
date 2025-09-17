@@ -184,7 +184,7 @@ class RealtimeManager:
                 "avatar_url": from_user.data.avatar_url,
                 "id": notification["id"],
                 "message": content,
-                "type": linked_type or "message",
+                "type": type,
                 "username": (
                     from_user.data.display_name
                     or from_user.data.username
