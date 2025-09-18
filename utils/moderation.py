@@ -28,7 +28,7 @@ async def create_log(
             VALUES (
                 $1, $2,
                 (SELECT role_id FROM users WHERE user_id = $2),
-                $3, $4, $5, $6, $7, $8, $9, $10
+                $3, $4, $5, $6, $7, $8, $9
             )
             """, new_id, user_id, towards_to,
             orjson.dumps(metadata).decode(),
