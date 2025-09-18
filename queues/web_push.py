@@ -158,38 +158,42 @@ async def push_worker():
 
     aiohttp_session = aiohttp.ClientSession()
 
-    while True:
-        msgs = await redis.xreadgroup(
-            GROUP_NAME,
-            CONSUMER_NAME,
-            {STREAM_NAME: ">"},
-            count=25,
-            block=60 * 60 * 1000
-        )
-        if not msgs:
-            continue
-        async with AutoConnection(pool) as conn:
-            tasks: list[asyncio.Task[None]] = []
-            for stream, entries in msgs:
-                for msg_id, data in entries:
-                    user_id: dict = orjson.loads(data[b'user_id'])
-                    payload: WebPushNotification = orjson.loads(
-                        data[b'payload']
-                    )
-                    try:
-                        tasks.append(asyncio.create_task(enqueue_pending(
-                            user_id,
-                            payload,
-                            aiohttp_session,
-                            conn
-                        )))
-                    except Exception as e:
-                        logger.exception(e)
-                    finally:
-                        await redis.xack(STREAM_NAME, GROUP_NAME, msg_id)
-            await asyncio.gather(*tasks, return_exceptions=True)
+    try:
+        while True:
+            msgs = await redis.xreadgroup(
+                GROUP_NAME,
+                CONSUMER_NAME,
+                {STREAM_NAME: ">"},
+                count=25,
+                block=60 * 60 * 1000
+            )
+            if not msgs:
+                continue
+            async with AutoConnection(pool) as conn:
+                tasks: list[asyncio.Task[None]] = []
+                for stream, entries in msgs:
+                    for msg_id, data in entries:
+                        user_id: dict = orjson.loads(data[b'user_id'])
+                        payload: WebPushNotification = orjson.loads(
+                            data[b'payload']
+                        )
+                        try:
+                            tasks.append(asyncio.create_task(enqueue_pending(
+                                user_id,
+                                payload,
+                                aiohttp_session,
+                                conn
+                            )))
+                        except Exception as e:
+                            logger.exception(e)
+                        finally:
+                            await redis.xack(STREAM_NAME, GROUP_NAME, msg_id)
+                await asyncio.gather(*tasks, return_exceptions=True)
 
-        await asyncio.sleep(0.01)
+            await asyncio.sleep(0.01)
+
+    finally:
+        await aiohttp_session.close()
 
 
 def generate_vapid_headers(subscription: dict) -> dict:
