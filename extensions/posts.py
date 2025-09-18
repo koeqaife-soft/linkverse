@@ -147,7 +147,7 @@ async def delete_post(id: str) -> tuple[Response, int]:
                 g.user_id, Permission.MODERATE_POSTS, conn
             )
             reason = g.params.get("reason")
-            if not permission_available or not reason:
+            if not permission_available.data or not reason:
                 raise FunctionError("FORBIDDEN", 403, None)
             else:
                 log_id = await create_log(
