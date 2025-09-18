@@ -67,4 +67,10 @@ async def get_audit_data(
         WHERE id = $1
         """, audit_id
     )
-    return Status(True, dict(row))
+
+    row_dict = dict(row)
+    for key in ["old_content", "metadata"]:
+        if key in row_dict.keys():
+            row_dict[key] = orjson.loads(row_dict[key])
+
+    return Status(True, row_dict)
