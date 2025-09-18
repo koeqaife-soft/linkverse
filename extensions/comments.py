@@ -75,8 +75,8 @@ async def delete_comment(id: str, cid: str) -> tuple[Response, int]:
                     g.user_id, comment.data.user_id,
                     NotificationType.MOD_DELETED_COMMENT,
                     conn,
-                    target_type="mod_audit",
-                    target_id=log_id.data,
+                    linked_type="mod_audit",
+                    linked_id=log_id.data,
                     message=reason
                 )
 
