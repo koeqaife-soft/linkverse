@@ -169,3 +169,19 @@ CREATE TABLE IF NOT EXISTS webpush_subscriptions (
     FOREIGN KEY (session_id) REFERENCES auth_keys (session_id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS mod_audit (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    towards_to TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    metadata JSONB,
+    old_content JSONB,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    action_type TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    role_id TEXT NOT NULL,
+    appellation_status TEXT NOT NULL DEFAULT 'none'
+        CHECK (appellation_status IN ('none', 'pending', 'rejected', 'approved'))
+)
+

@@ -10,6 +10,8 @@ from utils.realtime import RealtimeManager
 import utils.combined as combined
 from schemas import NotificationType
 from utils.rate_limiting import rate_limit
+from utils.users import Permission, check_permission
+from utils.moderation import create_log, log_metadata
 
 bp = Blueprint('comments', __name__)
 gb = Global()
@@ -55,7 +57,28 @@ async def delete_comment(id: str, cid: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         comment = await comments.get_comment(id, cid, conn)
         if comment.data.user_id != g.user_id:
-            raise FunctionError("FORBIDDEN", 403, None)
+            permission_available = await check_permission(
+                g.user_id, Permission.MODERATE_COMMENTS, conn
+            )
+            reason = g.params.get("reason")
+            if not permission_available or not reason:
+                raise FunctionError("FORBIDDEN", 403, None)
+            else:
+                log_id = await create_log(
+                    g.user_id, comment.data.user_id,
+                    log_metadata().data, comment.data.dict,
+                    "comment", comment.data.comment_id,
+                    "delete_comment", reason,
+                    conn
+                )
+                await rt_manager.publish_notification(
+                    g.user_id, comment.data.user_id,
+                    NotificationType.MOD_DELETED_COMMENT,
+                    conn,
+                    target_type="mod_audit",
+                    target_id=log_id.data,
+                    message=reason
+                )
 
         await comments.delete_comment(id, cid, conn)
 

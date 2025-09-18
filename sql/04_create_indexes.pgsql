@@ -25,3 +25,8 @@ CREATE INDEX IF NOT EXISTS tag_id_num_idx ON tags ((tag_id::bigint));
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON user_notifications (user_id, unread);
 
 CREATE INDEX IF NOT EXISTS idx_refcount_created_at ON files (reference_count, created_at);
+
+CREATE INDEX idx_mod_audit_user ON mod_audit(user_id);
+CREATE INDEX idx_mod_audit_target ON mod_audit(target_type, target_id);
+CREATE INDEX idx_mod_audit_action ON mod_audit(action_type);
+CREATE INDEX idx_mod_audit_created_at ON mod_audit(created_at);

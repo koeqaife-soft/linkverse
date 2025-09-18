@@ -11,6 +11,9 @@ from utils.realtime import RealtimeManager
 import utils.combined as combined
 from utils.storage import get_context
 from utils.rate_limiting import rate_limit
+from utils.users import Permission, check_permission
+from utils.moderation import create_log, log_metadata
+from schemas import NotificationType
 
 bp = Blueprint('posts', __name__)
 gb = Global()
@@ -140,7 +143,28 @@ async def delete_post(id: str) -> tuple[Response, int]:
         post = await cache_posts.get_post(id, conn)
 
         if post.data.user_id != g.user_id:
-            raise FunctionError("FORBIDDEN", 403, None)
+            permission_available = await check_permission(
+                g.user_id, Permission.MODERATE_POSTS, conn
+            )
+            reason = g.data.get("reason")
+            if not permission_available or not reason:
+                raise FunctionError("FORBIDDEN", 403, None)
+            else:
+                log_id = await create_log(
+                    g.user_id, post.data.user_id,
+                    log_metadata().data, post.data.dict,
+                    "post", post.data.post_id,
+                    "delete_post", reason,
+                    conn
+                )
+                await rt_manager.publish_notification(
+                    g.user_id, post.data.user_id,
+                    NotificationType.MOD_DELETED_POST,
+                    conn,
+                    linked_type="mod_audit",
+                    linked_id=log_id.data,
+                    message=reason
+                )
 
         await posts.delete_post(id, conn)
 

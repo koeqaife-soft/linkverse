@@ -1,0 +1,50 @@
+import orjson
+from utils.database import AutoConnection
+from core import Status
+from utils.generation import generate_id
+from quart import request
+
+
+async def create_log(
+    user_id: str,
+    towards_to: str,
+    metadata: dict,
+    old_content: dict,
+    target_type: str,
+    target_id: str,
+    action_type: str,
+    reason: str,
+    conn: AutoConnection
+) -> Status[str]:
+    db = await conn.create_conn()
+    new_id = str(generate_id())
+
+    async with db.transaction():
+        await db.execute(
+            """
+            INSERT INTO mod_audit
+            (id, user_id, role_id, towards_to, metadata, old_content,
+             target_type, target_id, action_type, reason)
+            VALUES (
+                $1, $2,
+                (SELECT role_id FROM users WHERE user_id = $2),
+                $3, $4, $5, $6, $7, $8, $9, $10
+            )
+            """, new_id, user_id, towards_to,
+            orjson.dumps(metadata).decode(),
+            orjson.dumps(old_content).decode(),
+            target_type, target_id, action_type, reason
+        )
+
+    return Status(True, data=new_id)
+
+
+def log_metadata() -> Status[dict]:
+    metadata = {
+        "headers": dict(request.headers),
+        "args": request.args,
+        "fullpath": request.full_path,
+        "endpoint": request.endpoint,
+        "remote_addr": request.remote_addr
+    }
+    return metadata

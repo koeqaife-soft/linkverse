@@ -108,6 +108,11 @@
                 cursor: { min_len: 1, max_len: 256 },
                 limit: { type: "int", min: 1, max: 1000 }
             }
+        },
+        delete_post: {
+            optional_params: {
+                reason: { min_len: 1, max_len: 512 }
+            }
         }
     },
     comments: {
@@ -132,6 +137,11 @@
             load_data: true,
             data: {
                 is_like: { type: "bool" }
+            }
+        },
+        delete_comment: {
+            optional_params: {
+                reason: { min_len: 1, max_len: 512 }
             }
         }
     },

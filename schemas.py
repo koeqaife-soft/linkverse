@@ -45,6 +45,8 @@ class PostsList(TypedDict):
 class NotificationType(str, Enum):
     NEW_COMMENT = "new_comment"
     FOLLOWED = "followed"
+    MOD_DELETED_COMMENT = "mod_deleted_comment"
+    MOD_DELETED_POST = "mod_deleted_post"
 
 
 class Notification(TypedDict):

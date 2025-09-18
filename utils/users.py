@@ -120,6 +120,26 @@ async def get_user(
     return Status(True, data=User.from_dict(_dict))
 
 
+async def check_permission(
+    user_id: str,
+    perm: Permission,
+    conn: AutoConnection
+) -> Status[bool]:
+    db = await conn.create_conn()
+    value = await db.fetchval(
+        """
+        SELECT role_id
+        FROM users
+        WHERE user_id = $1
+        """, user_id
+    )
+
+    if value not in ROLES:
+        return Status(True, False)
+
+    return Status(True, bool(ROLES[value] & perm))
+
+
 async def update_user(
     user_id: str, values: dict[str, str],
     conn: AutoConnection
