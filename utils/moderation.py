@@ -47,4 +47,4 @@ def log_metadata() -> Status[dict]:
         "endpoint": request.endpoint,
         "remote_addr": request.remote_addr
     }
-    return metadata
+    return Status(True, metadata)
