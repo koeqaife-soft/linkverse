@@ -59,9 +59,9 @@ async def get_audit_data(
 
     row = await db.fetchrow(
         f"""
-        SELECT user_id, old_content, target_type,
+        SELECT id, user_id, old_content, target_type,
                target_id, action_type, reason,
-               appellation_status
+               appellation_status, created_at
                {", metadata, towards_to, role_id" if full else ""}
         FROM mod_audit
         WHERE id = $1
@@ -72,5 +72,6 @@ async def get_audit_data(
     for key in ["old_content", "metadata"]:
         if key in row_dict.keys():
             row_dict[key] = orjson.loads(row_dict[key])
+    row_dict["created_at"] = row_dict["created_at"].timestamp()
 
     return Status(True, row_dict)
