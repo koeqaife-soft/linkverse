@@ -137,8 +137,6 @@ async def check_permission(
     if value not in ROLES:
         return Status(True, False)
 
-    print(bool(ROLES[value] & perm))
-
     return Status(True, bool(ROLES[value] & perm))
 
 
