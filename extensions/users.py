@@ -25,6 +25,9 @@ async def get_profile_me() -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         user = await cache_users.get_user(user_id, conn)
+        user["permissions"] = users.permissions_to_list(
+            users.ROLES[user.data.role_id]
+        )
 
     return response(data=user.data.dict, cache=True), 200
 

@@ -2,7 +2,8 @@ CREATE TABLE IF NOT EXISTS users (
     user_id TEXT PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL
+    password_hash TEXT NOT NULL,
+    role_id INT DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS user_notifications (

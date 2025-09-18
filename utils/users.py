@@ -7,12 +7,14 @@ import typing as t
 from schemas import FollowedList, FavoriteList, ReactionList
 from schemas import FollowedItem, FavoriteItem, ReactionItem
 import utils.storage as storage
+from enum import IntFlag, auto
 
 
 @dataclass
 class User:
     user_id: str
     username: str
+    role_id: int
     display_name: str | None = None
     avatar_url: str | None = None
     banner_url: str | None = None
@@ -43,13 +45,58 @@ class User:
         return User(**dict(object))
 
 
+class Permission(IntFlag):
+    NONE = 0
+    MODERATE_POSTS = auto()
+    MODERATE_COMMENTS = auto()
+    MODERATE_PROFILES = auto()
+    BAN_USERS = auto()
+    RED_BUTTON = auto()
+    RECOVER_POSTS = auto()
+    RECOVER_COMMENTS = auto()
+    ADMIN_PANEL = auto()
+    ALL = ~0
+
+
+ROLE_USER = Permission.NONE
+ROLE_TRUSTED = Permission.RED_BUTTON
+ROLE_MODERATOR = (
+    Permission.MODERATE_POSTS |
+    Permission.MODERATE_COMMENTS |
+    Permission.MODERATE_PROFILES
+)
+ROLE_ADMIN = (
+    ROLE_TRUSTED | ROLE_MODERATOR |
+    Permission.BAN_USERS |
+    Permission.ADMIN_PANEL
+)
+ROLE_OWNER = Permission.ALL
+ROLES = {
+    0: ROLE_USER,
+    1: ROLE_TRUSTED,
+    2: ROLE_TRUSTED | ROLE_MODERATOR,
+    3: ROLE_MODERATOR,
+    4: ROLE_ADMIN,
+    999: ROLE_OWNER
+}
+
+
+def permissions_to_list(perms: Permission) -> list[str]:
+    return [
+        perm.name
+        for perm in Permission
+        if perm in perms
+        and perm is not Permission.ALL
+    ]
+
+
 async def get_user(
     user_id: str, conn: AutoConnection,
     minimize_info: bool = False
 ) -> Status[User]:
     db = await conn.create_conn()
     query = f"""
-        SELECT u.user_id, u.username, p.display_name,
+        SELECT u.user_id, u.username, p.display_name, u.role_id,
                ac.objects[1] as avatar_url
                {", bc.objects[1] as banner_url, p.bio, p.badges, p.languages"
                 if not minimize_info else ""}
