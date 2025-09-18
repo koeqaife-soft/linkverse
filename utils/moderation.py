@@ -48,3 +48,21 @@ def log_metadata() -> Status[dict]:
         "remote_addr": request.remote_addr
     }
     return Status(True, metadata)
+
+
+async def get_audit_data(
+    audit_id: str,
+    full: bool,
+    conn: AutoConnection
+) -> Status[dict]:
+    db = await conn.create_conn()
+
+    row = await db.fetchrow(
+        f"""
+        SELECT user_id, old_content, target_type,
+               target_id, action_type, reason
+               {", metadata, towards_to, role_id" if full else ""}
+        WHERE id = $1
+        """, audit_id
+    )
+    return Status(True, dict(row))

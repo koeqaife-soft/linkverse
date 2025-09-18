@@ -1,4 +1,5 @@
 from utils.database import AutoConnection
+from utils.moderation import get_audit_data
 from utils.cache import posts as cache_posts
 from utils.cache import users as cache_users
 import utils.posts as posts
@@ -124,6 +125,9 @@ async def preload_notification(
         "comment": lambda comment, post: get_full_comment(
             user_id, post, comment, conn,
             loaded=t.cast(dict, notification.get("loaded"))
+        ),
+        "mod_audit": lambda audit, _: get_audit_data(
+            audit, False, conn
         )
     }
 
