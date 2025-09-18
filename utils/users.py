@@ -14,7 +14,7 @@ from enum import IntFlag, auto
 class User:
     user_id: str
     username: str
-    role_id: int
+    role_id: int = 0
     display_name: str | None = None
     avatar_url: str | None = None
     banner_url: str | None = None
