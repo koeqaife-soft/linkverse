@@ -64,6 +64,7 @@ async def delete_comment(id: str, cid: str) -> tuple[Response, int]:
             if not permission_available.data or not reason:
                 raise FunctionError("FORBIDDEN", 403, None)
             else:
+                await comments.delete_comment(id, cid, conn)
                 log_id = await create_log(
                     g.user_id, comment.data.user_id,
                     log_metadata().data, comment.data.dict,
@@ -79,8 +80,8 @@ async def delete_comment(id: str, cid: str) -> tuple[Response, int]:
                     linked_id=log_id.data,
                     message=reason
                 )
-
-        await comments.delete_comment(id, cid, conn)
+        else:
+            await comments.delete_comment(id, cid, conn)
 
     return response(), 204
 

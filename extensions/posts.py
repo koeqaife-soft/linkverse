@@ -150,6 +150,7 @@ async def delete_post(id: str) -> tuple[Response, int]:
             if not permission_available.data or not reason:
                 raise FunctionError("FORBIDDEN", 403, None)
             else:
+                await posts.delete_post(id, conn)
                 log_id = await create_log(
                     g.user_id, post.data.user_id,
                     log_metadata().data, post.data.dict,
@@ -165,8 +166,8 @@ async def delete_post(id: str) -> tuple[Response, int]:
                     linked_id=log_id.data,
                     message=reason
                 )
-
-        await posts.delete_post(id, conn)
+        else:
+            await posts.delete_post(id, conn)
 
     await cache_posts.remove_post_cache(id)
 
