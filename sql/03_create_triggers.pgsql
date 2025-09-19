@@ -70,6 +70,11 @@ EXECUTE FUNCTION update_updated_at_column();
     AFTER DELETE ON posts
     FOR EACH ROW EXECUTE FUNCTION delete_resources_on_post_delete();
 
+-- (3) audit
+    CREATE OR REPLACE TRIGGER trigger_delete_resources_on_audit_delete
+    AFTER DELETE ON mod_audit
+    FOR EACH ROW EXECUTE FUNCTION delete_resources_on_audit_delete();
+
 -- (4) replies
 -- (4) on insert
     CREATE OR REPLACE TRIGGER trigger_replies_insert

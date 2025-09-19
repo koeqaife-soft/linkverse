@@ -133,6 +133,10 @@ $$ LANGUAGE plpgsql;
             IF NOT EXISTS (SELECT 1 FROM posts WHERE post_id = NEW.linked_id) THEN
                 RAISE EXCEPTION 'Post with ID % does not exist', NEW.linked_id;
             END IF;
+        ELSIF NEW.linked_type = 'mod_audit' THEN
+            IF NOT EXISTS (SELECT 1 FROM mod_audit WHERE id = NEW.linked_id) THEN
+                RAISE EXCEPTION 'Mod audit with ID % does not exist', NEW.linked_id;
+            END IF;
         END IF;
         RETURN NEW;
     END;
@@ -160,6 +164,16 @@ $$ LANGUAGE plpgsql;
 
         DELETE FROM reports
         WHERE target_type = 'post' AND target_id = OLD.post_id;
+
+        RETURN OLD;
+    END;
+    $$ LANGUAGE plpgsql;
+
+-- (3) mod audit 
+    CREATE OR REPLACE FUNCTION delete_resources_on_audit_delete() RETURNS TRIGGER AS $$
+    BEGIN
+        DELETE FROM user_notifications
+        WHERE linked_type = 'mod_audit' AND linked_id = OLD.id;
 
         RETURN OLD;
     END;
