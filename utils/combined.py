@@ -50,10 +50,12 @@ async def get_entity(
 
     if users_list is None:
         user = await get_user()
-        data["user"] = user.data.dict
+        if user:
+            data["user"] = user.data.dict
     elif users_list.get(data["user_id"]) is None:
         user = await get_user()
-        users_list[data["user_id"]] = user.data.dict
+        if user:
+            users_list[data["user_id"]] = user.data.dict
 
     if reaction is not None:
         data["is_like"] = reaction

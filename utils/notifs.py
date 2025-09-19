@@ -85,7 +85,8 @@ async def get_notifications(
                 (n.linked_type = 'post'
                  AND p1.is_deleted = FALSE)
             OR  (n.linked_type = 'comment'
-                 AND p2.is_deleted = FALSE)
+                 AND p2.is_deleted = FALSE
+                 AND c.user_id IS NOT NULL)
             OR  (n.linked_type NOT IN ('post', 'comment'))
         )
     """
