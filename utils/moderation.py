@@ -64,8 +64,9 @@ async def get_audit_data(
         f"""
         SELECT id, user_id, old_content, target_type,
                target_id, action_type, reason,
-               appellation_status, created_at
-               {", metadata, towards_to, role_id" if full else ""}
+               appellation_status, created_at,
+               towards_to
+               {", metadata, role_id" if full else ""}
         FROM mod_audit
         WHERE id = $1
         """, audit_id
