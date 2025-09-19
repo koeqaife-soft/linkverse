@@ -278,7 +278,7 @@ $$ LANGUAGE plpgsql;
             UPDATE comments
             SET 
                 user_id = NULL,
-                content = NULL,
+                content = NULL
             WHERE id = OLD.id;
 
             RETURN NULL;
