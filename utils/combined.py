@@ -41,7 +41,12 @@ async def get_entity(
     data = entity.data.dict if loaded_entity is None else loaded_entity
 
     async def get_user():
-        return await cache_users.get_user(data["user_id"], conn, True)
+        try:
+            return await cache_users.get_user(data["user_id"], conn, True)
+        except FunctionError as e:
+            if e.code == 404:
+                return None
+            raise e
 
     if users_list is None:
         user = await get_user()
