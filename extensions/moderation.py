@@ -17,7 +17,7 @@ async def send_appellation(id: str) -> tuple[Response, int]:
     user_id = g.user_id
 
     async with AutoConnection(pool) as conn:
-        audit = await get_audit_data(id, False, conn)
+        audit = (await get_audit_data(id, False, conn)).data
         if not audit.get("user_id") == user_id:
             raise FunctionError("FORBIDDEN", 403, None)
         if audit.get("appellation_status") == "none":
