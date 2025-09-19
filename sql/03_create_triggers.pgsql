@@ -105,25 +105,25 @@ EXECUTE FUNCTION update_updated_at_column();
 
 -- (6) File ref count
 -- (6)(posts) refcount
-CREATE OR REPLACE TRIGGER posts_file_refcount
-AFTER INSERT OR UPDATE OR DELETE ON posts
-FOR EACH ROW
-EXECUTE FUNCTION file_refcount_trigger('file_context_id');
+    CREATE OR REPLACE TRIGGER posts_file_refcount
+    AFTER INSERT OR UPDATE OR DELETE ON posts
+    FOR EACH ROW
+    EXECUTE FUNCTION file_refcount_trigger('file_context_id');
 
 -- (6)(user)(avatar) refcount
-CREATE OR REPLACE TRIGGER user_avatar_file_refcount
-AFTER INSERT OR UPDATE OR DELETE ON user_profiles
-FOR EACH ROW
-EXECUTE FUNCTION file_refcount_trigger('avatar_context_id');
+    CREATE OR REPLACE TRIGGER user_avatar_file_refcount
+    AFTER INSERT OR UPDATE OR DELETE ON user_profiles
+    FOR EACH ROW
+    EXECUTE FUNCTION file_refcount_trigger('avatar_context_id');
 
 -- (6)(user)(banner)
-CREATE OR REPLACE TRIGGER user_banner_file_refcount
-AFTER INSERT OR UPDATE OR DELETE ON user_profiles
-FOR EACH ROW
-EXECUTE FUNCTION file_refcount_trigger('banner_context_id');
+    CREATE OR REPLACE TRIGGER user_banner_file_refcount
+    AFTER INSERT OR UPDATE OR DELETE ON user_profiles
+    FOR EACH ROW
+    EXECUTE FUNCTION file_refcount_trigger('banner_context_id');
 
 -- (7) Soft delete for comments
-    CREATE TRIGGER trg_soft_delete_comment
+    CREATE OR REPLACE TRIGGER trg_soft_delete_comment
     BEFORE DELETE ON comments
     FOR EACH ROW
     EXECUTE FUNCTION soft_delete_comment();
