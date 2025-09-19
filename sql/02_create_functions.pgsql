@@ -279,7 +279,7 @@ $$ LANGUAGE plpgsql;
             SET 
                 user_id = NULL,
                 content = NULL
-            WHERE id = OLD.id;
+            WHERE comment_id = OLD.comment_id;
 
             RETURN NULL;
         END IF;
