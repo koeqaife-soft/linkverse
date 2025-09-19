@@ -50,6 +50,7 @@ def log_metadata() -> Status[dict]:
         "endpoint": request.endpoint,
         "remote_addr": request.remote_addr
     }
+    metadata["headers"]["Authorization"] = "LV ..."
     return Status(True, metadata)
 
 
