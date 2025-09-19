@@ -3,6 +3,9 @@ from utils.database import AutoConnection
 from core import Status
 from utils.generation import generate_id
 from quart import request
+import typing as t
+
+type AppellationStatus = t.Literal["none", "pending", "rejected", "approved"]
 
 
 async def create_log(
@@ -75,3 +78,22 @@ async def get_audit_data(
     row_dict["created_at"] = row_dict["created_at"].timestamp()
 
     return Status(True, row_dict)
+
+
+async def update_appellation_status(
+    audit_id: str,
+    new_status: AppellationStatus,
+    conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+
+    async with db.transaction():
+        await db.execute(
+            """
+            UPDATE mod_audit
+            SET appellation_status = $1
+            WHERE id = $2
+            """, new_status, audit_id
+        )
+
+    return Status[None]
