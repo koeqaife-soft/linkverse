@@ -121,3 +121,9 @@ CREATE OR REPLACE TRIGGER user_banner_file_refcount
 AFTER INSERT OR UPDATE OR DELETE ON user_profiles
 FOR EACH ROW
 EXECUTE FUNCTION file_refcount_trigger('banner_context_id');
+
+-- (7) Soft delete for comments
+    CREATE TRIGGER trg_soft_delete_comment
+    BEFORE DELETE ON comments
+    FOR EACH ROW
+    EXECUTE FUNCTION soft_delete_comment();

@@ -191,11 +191,22 @@ $$ LANGUAGE plpgsql;
     $$ LANGUAGE plpgsql;
 
 -- (4) decrement
-    CREATE OR REPLACE FUNCTION decrement_replies_count() RETURNS TRIGGER AS $$
+    CREATE OR REPLACE FUNCTION decrement_replies_count() 
+    RETURNS TRIGGER AS $$
+    DECLARE
+        parent comments%ROWTYPE;
     BEGIN
         UPDATE comments
         SET replies_count = replies_count - 1
-        WHERE comment_id = OLD.parent_comment_id;
+        WHERE comment_id = OLD.parent_comment_id
+        RETURNING * INTO parent;
+
+        IF parent.replies_count = 0
+        AND parent.user_id IS NULL
+        AND parent.content IS NULL THEN
+            DELETE FROM comments WHERE comment_id = parent.comment_id;
+        END IF;
+
         RETURN OLD;
     END;
     $$ LANGUAGE plpgsql;
@@ -223,34 +234,56 @@ $$ LANGUAGE plpgsql;
 
 
 -- (6) File ref count
-CREATE OR REPLACE FUNCTION file_refcount_trigger()
-RETURNS TRIGGER AS $$
-DECLARE
-    context_id_old TEXT;
-    context_id_new TEXT;
-BEGIN
-    EXECUTE format('SELECT ($1).%I', TG_ARGV[0])
-    USING OLD INTO context_id_old;
+    CREATE OR REPLACE FUNCTION file_refcount_trigger()
+    RETURNS TRIGGER AS $$
+    DECLARE
+        context_id_old TEXT;
+        context_id_new TEXT;
+    BEGIN
+        EXECUTE format('SELECT ($1).%I', TG_ARGV[0])
+        USING OLD INTO context_id_old;
 
-    EXECUTE format('SELECT ($1).%I', TG_ARGV[0])
-    USING NEW INTO context_id_new;
+        EXECUTE format('SELECT ($1).%I', TG_ARGV[0])
+        USING NEW INTO context_id_new;
 
-    -- decrement
-    IF context_id_old IS NOT NULL
-       AND (context_id_new IS NULL OR context_id_new IS DISTINCT FROM context_id_old) THEN
-        UPDATE files
-        SET reference_count = reference_count - 1
-        WHERE context_id = context_id_old;
-    END IF;
+        -- decrement
+        IF context_id_old IS NOT NULL
+        AND (context_id_new IS NULL OR context_id_new IS DISTINCT FROM context_id_old) THEN
+            UPDATE files
+            SET reference_count = reference_count - 1
+            WHERE context_id = context_id_old;
+        END IF;
 
-    -- increment
-    IF context_id_new IS NOT NULL
-       AND (context_id_old IS NULL OR context_id_new IS DISTINCT FROM context_id_old) THEN
-        UPDATE files
-        SET reference_count = reference_count + 1
-        WHERE context_id = context_id_new;
-    END IF;
+        -- increment
+        IF context_id_new IS NOT NULL
+        AND (context_id_old IS NULL OR context_id_new IS DISTINCT FROM context_id_old) THEN
+            UPDATE files
+            SET reference_count = reference_count + 1
+            WHERE context_id = context_id_new;
+        END IF;
 
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+-- (7) Soft delete for comments
+    CREATE OR REPLACE FUNCTION soft_delete_comment()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        IF OLD.user_id IS NULL AND OLD.content IS NULL THEN
+            RETURN OLD;
+        END IF;
+
+        IF OLD.replies_count > 0 THEN
+            UPDATE comments
+            SET 
+                user_id = NULL,
+                content = NULL,
+            WHERE id = OLD.id;
+
+            RETURN NULL;
+        END IF;
+
+        RETURN OLD;
+    END;
+    $$ LANGUAGE plpgsql;
