@@ -40,13 +40,14 @@ async def create_comment(id: str) -> tuple[Response, int]:
         result = await comments.create_comment(
             g.user_id, id, content, conn, type, parent_id
         )
-        await rt_manager.publish_notification(
-            g.user_id, notif_to, NotificationType.NEW_COMMENT,
-            conn, None, "comment",
-            result.data.comment_id,
-            result.data.post_id,
-            result.data.dict
-        )
+        if notif_to:
+            await rt_manager.publish_notification(
+                g.user_id, notif_to, NotificationType.NEW_COMMENT,
+                conn, None, "comment",
+                result.data.comment_id,
+                result.data.post_id,
+                result.data.dict
+            )
 
     return response(data=result.data.dict), 201
 
