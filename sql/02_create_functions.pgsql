@@ -271,6 +271,7 @@ $$ LANGUAGE plpgsql;
     RETURNS TRIGGER AS $$
     BEGIN
         IF OLD.user_id IS NULL AND OLD.content IS NULL THEN
+            PERFORM decrement_comments_count();
             RETURN OLD;
         END IF;
 
@@ -284,6 +285,7 @@ $$ LANGUAGE plpgsql;
             RETURN NULL;
         END IF;
 
+        PERFORM decrement_comments_count();
         RETURN OLD;
     END;
     $$ LANGUAGE plpgsql;

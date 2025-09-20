@@ -48,12 +48,6 @@ EXECUTE FUNCTION update_updated_at_column();
     FOR EACH ROW
     EXECUTE FUNCTION increment_comments_count();
 
--- (1) on delete
-    CREATE OR REPLACE TRIGGER trigger_comments_delete
-    AFTER DELETE ON comments
-    FOR EACH ROW
-    EXECUTE FUNCTION decrement_comments_count();
-
 -- (2) notification linked_type check
     CREATE OR REPLACE TRIGGER trigger_check_linked_id
     BEFORE INSERT OR UPDATE ON user_notifications
