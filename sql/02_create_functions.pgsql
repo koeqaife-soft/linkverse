@@ -275,7 +275,9 @@ $$ LANGUAGE plpgsql;
     RETURNS TRIGGER AS $$
     BEGIN
         IF OLD.user_id IS NULL AND OLD.content IS NULL THEN
-            PERFORM decrement_comments_count();
+            UPDATE posts
+            SET comments_count = comments_count - 1
+            WHERE post_id = OLD.post_id;
             RETURN OLD;
         END IF;
 
@@ -289,7 +291,9 @@ $$ LANGUAGE plpgsql;
             RETURN NULL;
         END IF;
 
-        PERFORM decrement_comments_count();
+        UPDATE posts
+        SET comments_count = comments_count - 1
+        WHERE post_id = OLD.post_id;
         RETURN OLD;
     END;
     $$ LANGUAGE plpgsql;
