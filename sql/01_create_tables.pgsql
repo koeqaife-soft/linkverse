@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS reports (
         CHECK (target_type IN ('post', 'comment', 'user', 'message')),
     reason TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending'
-        CHECK (status IN ('pending', 'reviewed', 'dismissed')),
+        CHECK (status IN ('pending', 'reviewed')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -183,5 +183,15 @@ CREATE TABLE IF NOT EXISTS mod_audit (
     role_id TEXT NOT NULL,
     appellation_status TEXT NOT NULL DEFAULT 'none'
         CHECK (appellation_status IN ('none', 'pending', 'rejected', 'approved'))
-)
+);
+
+CREATE TABLE IF NOT EXISTS mod_assigned_resources (
+    resource_id TEXT NOT NULL,
+    resource_type TEXT NOT NULL
+        CHECK (resource_type IN ('post', 'comment', 'user', 'message', 'appellation')),
+    assigned_to TEXT NOT NULL,
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (resource_id, resource_type),
+    FOREIGN KEY (assigned_to) REFERENCES users (user_id) ON DELETE CASCADE
+);
 

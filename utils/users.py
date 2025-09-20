@@ -52,8 +52,7 @@ class Permission(IntFlag):
     MODERATE_PROFILES = auto()
     BAN_USERS = auto()
     RED_BUTTON = auto()
-    RECOVER_POSTS = auto()
-    RECOVER_COMMENTS = auto()
+    REVIEW_APPELLATIONS = auto()
     ADMIN_PANEL = auto()
     ALL = ~0
 

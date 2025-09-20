@@ -96,6 +96,26 @@ async def get_comment(
     return Status(True, data=Comment.from_dict(row))
 
 
+async def get_comment_directly(
+    comment_id: str,
+    conn: AutoConnection
+) -> Status[Comment]:
+    db = await conn.create_conn()
+    query = """
+        SELECT comment_id, parent_comment_id, post_id, user_id,
+               content, likes_count, dislikes_count, type,
+               replies_count
+        FROM comments
+        WHERE comment_id = $2
+    """
+    row = await db.fetchrow(query, comment_id)
+
+    if row is None:
+        raise FunctionError("COMMENT_DOES_NOT_EXIST", 404, None)
+
+    return Status(True, data=Comment.from_dict(row))
+
+
 async def delete_comment(
     post_id: str, comment_id: str,
     conn: AutoConnection

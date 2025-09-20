@@ -152,6 +152,9 @@ $$ LANGUAGE plpgsql;
         DELETE FROM reports
         WHERE target_type = 'comment' AND target_id = OLD.comment_id;
 
+        DELETE FROM mod_assigned_resources
+        WHERE resource_id = OLD.comment_id;
+
         RETURN OLD;
     END;
     $$ LANGUAGE plpgsql;
@@ -164,6 +167,9 @@ $$ LANGUAGE plpgsql;
 
         DELETE FROM reports
         WHERE target_type = 'post' AND target_id = OLD.post_id;
+
+        DELETE FROM mod_assigned_resources
+        WHERE resource_id = OLD.post_id;
 
         RETURN OLD;
     END;

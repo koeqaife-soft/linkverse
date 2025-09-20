@@ -1,6 +1,6 @@
 import orjson
 from utils.database import AutoConnection
-from core import Status
+from core import FunctionError, Status
 from utils.generation import generate_id
 from quart import request
 import typing as t
@@ -99,3 +99,105 @@ async def update_appellation_status(
         )
 
     return Status[None]
+
+
+async def assign_next_resource(
+    moderator_id: str,
+    allowed_types: tuple[str, ...],
+    conn: AutoConnection
+) -> Status[dict | None]:
+    db = await conn.create_conn()
+
+    row = await db.fetchrow("""
+        SELECT resource_id, resource_type
+        FROM mod_assigned_resources
+        WHERE assigned_to = $1
+        LIMIT 1;
+    """, moderator_id)
+
+    if row is not None:
+        return Status(True, {
+            "resource_id": row["resource_id"],
+            "resource_type": row["resource_type"]
+        })
+
+    async with db.transaction():
+        row = await db.fetchrow(
+            """
+            WITH next_resource AS (
+                SELECT r.target_id, r.target_type
+                FROM reports r
+                WHERE r.status = 'pending'
+                AND r.target_type = ANY($2::text[])
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM mod_assigned_resources mar
+                    WHERE mar.resource_id = r.target_id
+                        AND mar.resource_type = r.target_type
+                )
+                AND (
+                    r.target_type != 'post'
+                    OR EXISTS (
+                        SELECT 1
+                        FROM posts p
+                        WHERE p.post_id = r.target_id
+                            AND p.is_deleted = FALSE
+                    )
+                )
+                ORDER BY r.created_at + (random() * interval '10 minutes')
+                LIMIT 1
+                FOR UPDATE SKIP LOCKED
+            )
+            INSERT INTO mod_assigned_resources
+                (resource_id, resource_type, assigned_to)
+            SELECT target_id, target_type, $1
+            FROM next_resource
+            RETURNING *;
+            """, moderator_id, allowed_types
+        )
+        if row is None:
+            return Status(True, None)
+
+    return Status(True, {
+        "resource_id": row["resource_id"],
+        "resource_type": row["resource_type"]
+    })
+
+
+async def get_assigned_resource(
+    moderator_id: str,
+    conn: AutoConnection
+) -> Status[dict]:
+    db = await conn.create_conn()
+
+    row = await db.fetchrow("""
+        SELECT resource_id, resource_type
+        FROM mod_assigned_resources
+        WHERE assigned_to = $1
+        LIMIT 1;
+    """, moderator_id)
+
+    if row is None:
+        raise FunctionError(400, "NOT_ASSIGNED_ANYTHING")
+
+    return Status(True, {
+        "resource_id": row["resource_id"],
+        "resource_type": row["resource_type"]
+    })
+
+
+async def remove_assignation(
+    moderator_id: str,
+    conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+
+    async with db.transaction():
+        await db.execute(
+            """
+            DELETE FROM mod_assigned_resources
+            WHERE assigned_to = $1
+            """, moderator_id
+        )
+
+    return Status(True)

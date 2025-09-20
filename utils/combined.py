@@ -18,13 +18,17 @@ async def get_entity(
     if loaded_entity is None:
         fetch_func = (
             cache_posts.get_post if entity_type == "post"
-            else comments.get_comment
+            else comments.get_comment if comment_id is not None
+            else comments.get_comment_directly
         )
         entity = (
             await fetch_func(post_id, conn)  # type: ignore
             if entity_type == "post"
             else
             await fetch_func(post_id, comment_id, conn)  # type: ignore
+            if comment_id is not None
+            else
+            await fetch_func(comment_id, conn)
         )
     else:
         if (
