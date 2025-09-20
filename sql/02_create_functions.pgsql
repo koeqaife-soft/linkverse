@@ -205,10 +205,6 @@ $$ LANGUAGE plpgsql;
         AND parent.user_id IS NULL
         AND parent.content IS NULL THEN
             DELETE FROM comments WHERE comment_id = parent.comment_id;
-
-            UPDATE posts
-            SET comments_count = comments_count - 1
-            WHERE post_id = parent.post_id;
         END IF;
 
         RETURN OLD;
@@ -275,9 +271,6 @@ $$ LANGUAGE plpgsql;
     RETURNS TRIGGER AS $$
     BEGIN
         IF OLD.user_id IS NULL AND OLD.content IS NULL THEN
-            UPDATE posts
-            SET comments_count = comments_count - 1
-            WHERE post_id = OLD.post_id;
             RETURN OLD;
         END IF;
 
@@ -291,9 +284,6 @@ $$ LANGUAGE plpgsql;
             RETURN NULL;
         END IF;
 
-        UPDATE posts
-        SET comments_count = comments_count - 1
-        WHERE post_id = OLD.post_id;
         RETURN OLD;
     END;
     $$ LANGUAGE plpgsql;
