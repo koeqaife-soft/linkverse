@@ -10,6 +10,7 @@ from utils.reports import mark_all_reports_as, get_reports
 from utils.users import Permission, check_permission
 from utils.rate_limiting import rate_limit
 from utils.combined import get_full_comment, get_full_post
+from utils.cache import users as cache_users
 
 bp = Blueprint('moderation', __name__)
 gb = Global()
@@ -65,6 +66,10 @@ async def assigned_resource() -> tuple[Response, int]:
             (await get_reports(data["resource_id"], conn)).data
             if data else []
         )
+        for report in reports:
+            report["user"] = (await cache_users.get_user(
+                report["user_id"], conn, True
+            )).data.dict
         data["reports"] = reports
         if data["resource_type"] == "post":
             data["loaded"] = (await get_full_post(
