@@ -205,6 +205,10 @@ $$ LANGUAGE plpgsql;
         AND parent.user_id IS NULL
         AND parent.content IS NULL THEN
             DELETE FROM comments WHERE comment_id = parent.comment_id;
+
+            UPDATE posts
+            SET comments_count = comments_count - 1
+            WHERE post_id = parent.post_id;
         END IF;
 
         RETURN OLD;
