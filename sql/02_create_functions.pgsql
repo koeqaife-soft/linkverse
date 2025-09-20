@@ -98,12 +98,22 @@ $$ LANGUAGE plpgsql;
     $$ LANGUAGE plpgsql;
 
 -- (1) comments
+-- (1) func
+    CREATE OR REPLACE FUNCTION change_post_comments_count(
+        p_post_id posts.post_id%TYPE,
+        p_delta int
+    ) RETURNS void AS $$
+    BEGIN
+        UPDATE posts
+        SET comments_count = GREATEST(COALESCE(comments_count, 0) + p_delta, 0)
+        WHERE post_id = p_post_id;
+    END;
+    $$ LANGUAGE plpgsql;
+
 -- (1) increment
     CREATE OR REPLACE FUNCTION increment_comments_count() RETURNS TRIGGER AS $$
     BEGIN
-        UPDATE posts
-        SET comments_count = comments_count + 1
-        WHERE post_id = NEW.post_id;
+        PERFORM change_post_comments_count(OLD.post_id, 1);
         RETURN NEW;
     END;
     $$ LANGUAGE plpgsql;
@@ -111,9 +121,7 @@ $$ LANGUAGE plpgsql;
 -- (1) decrement
     CREATE OR REPLACE FUNCTION decrement_comments_count() RETURNS TRIGGER AS $$
     BEGIN
-        UPDATE posts
-        SET comments_count = comments_count - 1
-        WHERE post_id = OLD.post_id;
+        PERFORM change_post_comments_count(OLD.post_id, -1);
         RETURN OLD;
     END;
     $$ LANGUAGE plpgsql;
