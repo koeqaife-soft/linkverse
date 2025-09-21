@@ -50,7 +50,7 @@ async def login() -> tuple[Response, int]:
 
 @route(bp, '/auth/refresh', methods=['POST'])
 @ip_rate_limit(30, 24 * 60 * 60)
-@ip_rate_limit(1, 60)
+@ip_rate_limit(5, 60)
 async def refresh() -> tuple[Response, int]:
     data = g.data
     token = data.get("refresh_token")
