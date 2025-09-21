@@ -15,6 +15,8 @@ class User:
     user_id: str
     username: str
     role_id: int = 0
+    following_count: int | None = None
+    followers_count: int | None = None
     display_name: str | None = None
     avatar_url: str | None = None
     banner_url: str | None = None
@@ -98,6 +100,7 @@ async def get_user(
         SELECT u.user_id, u.username, p.display_name, u.role_id,
                ac.objects[1] as avatar_url
                {", bc.objects[1] as banner_url, p.bio, p.badges, p.languages"
+                ", u.following_count, u.followers_count"
                 if not minimize_info else ""}
         FROM users u
         LEFT JOIN user_profiles p ON u.user_id = p.user_id

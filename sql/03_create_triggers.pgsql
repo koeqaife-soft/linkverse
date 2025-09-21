@@ -127,3 +127,8 @@ EXECUTE FUNCTION update_updated_at_column();
     BEFORE DELETE ON comments
     FOR EACH ROW
     EXECUTE FUNCTION soft_delete_comment();
+
+-- (8) followers
+    CREATE TRIGGER trigger_follow_counts
+    AFTER INSERT OR DELETE ON followed
+    FOR EACH ROW EXECUTE FUNCTION update_follow_counts();

@@ -293,3 +293,25 @@ $$ LANGUAGE plpgsql;
         RETURN OLD;
     END;
     $$ LANGUAGE plpgsql;
+
+
+-- (8) followers
+    CREATE OR REPLACE FUNCTION update_follow_counts()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        IF TG_OP = 'INSERT' THEN
+            UPDATE users SET followers_count = followers_count + 1 
+            WHERE user_id = NEW.followed_to;
+            
+            UPDATE users SET following_count = following_count + 1 
+            WHERE user_id = NEW.user_id;
+        ELSIF TG_OP = 'DELETE' THEN
+            UPDATE users SET followers_count = followers_count - 1 
+            WHERE user_id = OLD.followed_to;
+            
+            UPDATE users SET following_count = following_count - 1 
+            WHERE user_id = OLD.user_id;
+        END IF;
+        RETURN NULL;
+    END;
+    $$ LANGUAGE plpgsql;
