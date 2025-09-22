@@ -6,7 +6,9 @@ import utils.auth as auth
 from utils.cache import auth as auth_cache
 from utils.database import AutoConnection
 from utils.realtime import RealtimeManager, SessionActions
-from utils.rate_limiting import ip_rate_limit
+from utils.rate_limiting import ip_rate_limit, rate_limit
+from utils.email import create_token, new_code, verify_token
+from utils.email import templates, send_email
 import os
 
 debug = os.getenv('DEBUG') == 'True'
@@ -92,6 +94,67 @@ async def logout() -> tuple[Response, int]:
         )
 
     return response(), 204
+
+
+@route(bp, "/auth/me", methods=["GET"])
+@rate_limit(45, 60)
+async def get_auth_me() -> tuple[Response, int]:
+    async with AutoConnection(pool) as conn:
+        user = await auth.get_user({"user_id": g.user_id}, conn)
+        user_dict = user.data.dict
+        del user_dict["password_hash"]
+
+    return response(data=user_dict, cache=True), 200
+
+
+@route(bp, "/auth/email/verify/send", methods=["POST"])
+@rate_limit(5, 24 * 60 * 60)
+@rate_limit(1, 60)
+async def send_verification() -> tuple[Response, int]:
+    async with AutoConnection(pool) as conn:
+        user = (
+            await auth.get_user({"user_id": g.user_id}, conn)
+        ).data
+
+    if user.email_verified:
+        raise FunctionError("ALREADY_VERIFIED", 400, None)
+
+    code = new_code()
+    token = create_token(code, user.email)
+    await send_email(
+        user.email,
+        templates["email_verification"]["en-US"],
+        {"name": user.username, "code": code}
+    )
+
+    return response(data={
+        "token": token
+    }), 200
+
+
+@route(bp, "/auth/email/verify/check", methods=["POST"])
+@rate_limit(5, 60)
+async def check_verification() -> tuple[Response, int]:
+    data = g.data
+    code: str = data["code"]
+    token: str = data["token"]
+    email_or_error, success = verify_token(code, token)
+
+    if success:
+        email = email_or_error
+    else:
+        error = email_or_error
+        raise FunctionError(error, 400, None)
+
+    async with AutoConnection(pool) as conn:
+        user = (
+            await auth.get_user({"user_id": g.user_id}, conn)
+        ).data
+        if user.email != email:
+            raise FunctionError("EMAIL_HAS_CHANGED", 400, None)
+        await auth.set_email_verified(g.user_id, True, conn)
+
+    return response(is_empty=True), 204
 
 
 def load(app: Quart):

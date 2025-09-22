@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     role_id INT DEFAULT 0,
     followers_count BIGINT NOT NULL DEFAULT 0,
-    following_count BIGINT NOT NULL DEFAULT 0
+    following_count BIGINT NOT NULL DEFAULT 0,
+    email_verified BOOLEAN DEFAULT FALSE
 );
 
 

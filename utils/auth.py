@@ -22,6 +22,7 @@ class AuthUser:
     user_id: str
     email: str
     password_hash: str
+    email_verified: bool
 
     @property
     def created_at(self):
@@ -116,7 +117,7 @@ async def get_user(
 
     select = (
         "user_id" if return_bool
-        else "username, user_id, email, password_hash"
+        else "username, user_id, email, password_hash, email_verified"
     )
     conditions: list[str] = []
     values = []
@@ -325,4 +326,22 @@ async def remove_secret(
             WHERE user_id = $1 AND token_secret = $2;
             """, user_id, secret
         )
+    return Status(True)
+
+
+async def set_email_verified(
+    user_id: str,
+    is_verified: bool,
+    conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+    async with db.transaction():
+        await db.execute(
+            """
+            UPDATE users
+            SET email_verified = $1
+            WHERE user_id = $2
+            """, is_verified, user_id
+        )
+
     return Status(True)

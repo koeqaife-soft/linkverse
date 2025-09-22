@@ -29,6 +29,13 @@
         },
         logout: {
             no_auth: true
+        },
+        check_verification: {
+            load_data: true,
+            data: {
+                token: { min_len: 1 },
+                code: { min_len: 5, max_len: 8 }
+            }
         }
     },
     posts: {
