@@ -6,7 +6,9 @@ CREATE TABLE IF NOT EXISTS users (
     role_id INT DEFAULT 0,
     followers_count BIGINT NOT NULL DEFAULT 0,
     following_count BIGINT NOT NULL DEFAULT 0,
-    email_verified BOOLEAN DEFAULT FALSE
+    email_verified BOOLEAN DEFAULT FALSE,
+    pending_email TEXT,
+    pending_email_until TIMESTAMPTZ
 );
 
 

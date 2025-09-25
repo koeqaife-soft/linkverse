@@ -1,3 +1,4 @@
+import time
 import asyncpg
 from quart import Blueprint, Quart, Response
 from core import response, Global, route, FunctionError
@@ -8,7 +9,7 @@ from utils.database import AutoConnection
 from utils.realtime import RealtimeManager, SessionActions
 from utils.rate_limiting import ip_rate_limit, rate_limit
 from utils.email import create_token, new_code, verify_token
-from utils.email import templates, send_email
+from utils.email import templates, send_email, TokenType
 import os
 
 debug = os.getenv('DEBUG') == 'True'
@@ -158,7 +159,7 @@ async def check_verification() -> tuple[Response, int]:
 
 
 @route(bp, "/auth/change_password", methods=["POST"])
-@rate_limit(10, 24 * 60 * 60)
+@rate_limit(10, 60 * 60)
 async def change_password() -> tuple[Response, int]:
     data = g.data
     old_password: str = data["old_password"]
@@ -178,6 +179,100 @@ async def change_password() -> tuple[Response, int]:
 
     await rt_manager.session_event(g.user_id, SessionActions.CHECK_TOKEN, None)
     await auth_cache.clear_all_tokens(g.user_id)
+
+    return response(is_empty=True), 204
+
+
+@route(bp, "/auth/change_email/send", methods=["POST"])
+@rate_limit(5, 24 * 60 * 60)
+@rate_limit(1, 60)
+async def change_email_send() -> tuple[Response, int]:
+    data = g.data
+    password: str = data["password"]
+    new_email: str = data["new_email"].strip()
+
+    async with AutoConnection(pool) as conn:
+        user = (
+            await auth.get_user({"user_id": g.user_id}, conn)
+        ).data
+        if user.email == new_email:
+            raise FunctionError("INCORRECT_DATA", 400, None)
+        if not (await auth.check_password(user.password_hash, password)):
+            raise FunctionError("INCORRECT_PASSWORD", 400, None)
+
+    code = new_code()
+    token = create_token(code, new_email, TokenType.NEW_EMAIL)
+    await send_email(
+        new_email,
+        templates["email_verification"]["en-US"],
+        {"name": user.username, "code": code}
+    )
+
+    return response(data={
+        "token": token
+    }), 200
+
+
+def calc_pending_until(user_created_at: int) -> float:
+    now = time.time()
+    account_age = now - user_created_at
+
+    min_seconds = 1 * 60 * 60
+    max_seconds = 5 * 24 * 60 * 60
+    max_age = 365 * 24 * 60 * 60
+
+    factor = min(account_age / max_age, 1.0)
+
+    extra_time = min_seconds + (max_seconds - min_seconds) * factor
+    return now + extra_time
+
+
+@route(bp, "/auth/change_email/check", methods=["POST"])
+@rate_limit(5, 60)
+async def change_email_check() -> tuple[Response, int]:
+    data = g.data
+    code: str = data["code"]
+    token: str = data["token"]
+    email_or_error, success = verify_token(code, token, TokenType.NEW_EMAIL)
+
+    if success:
+        email = email_or_error
+    else:
+        error = email_or_error
+        raise FunctionError(error, 400, None)
+
+    pending_until: int | None = None
+    async with AutoConnection(pool) as conn:
+        user = (
+            await auth.get_user({"user_id": g.user_id}, conn)
+        ).data
+        if user.email_verified:
+            pending_until = calc_pending_until(user.created_at)
+            await auth.set_pending(
+                g.user_id,
+                email,
+                pending_until,
+                conn
+            )
+        else:
+            await auth.set_email(g.user_id, email, conn)
+            await auth.set_email_verified(g.user_id, True, conn)
+
+    return response(data={
+        "pending_until": pending_until
+    }), 200
+
+
+@route(bp, "/auth/change_email/cancel", methods=["POST"])
+@rate_limit(5, 60)
+async def change_email_cancel() -> tuple[Response, int]:
+    async with AutoConnection(pool) as conn:
+        await auth.set_pending(
+            g.user_id,
+            None,
+            None,
+            conn
+        )
 
     return response(is_empty=True), 204
 

@@ -10,6 +10,7 @@ import typing as t
 from core import Status, FunctionError
 from concurrent.futures import ThreadPoolExecutor
 from utils.database import AutoConnection
+import datetime
 
 executor = ThreadPoolExecutor()
 secret_key = os.environ["SECRET_KEY"]
@@ -23,6 +24,8 @@ class AuthUser:
     email: str
     password_hash: str
     email_verified: bool
+    pending_email: str | None
+    pending_email_until: datetime.datetime
 
     @property
     def created_at(self):
@@ -36,6 +39,8 @@ class AuthUser:
     def dict(self) -> dict:
         _dict = asdict(self)
         _dict["created_at"] = self.created_at
+        if self.pending_email_until:
+            _dict["pending_email_until"] = self.pending_email_until.timestamp()
         return _dict
 
     def __dict__(self):
@@ -117,7 +122,8 @@ async def get_user(
 
     select = (
         "user_id" if return_bool
-        else "username, user_id, email, password_hash, email_verified"
+        else "username, user_id, email, password_hash, email_verified, "
+             "pending_email, pending_email_until"
     )
     conditions: list[str] = []
     values = []
@@ -361,6 +367,42 @@ async def remove_secret(
             """, user_id, secret
         )
     return Status(True)
+
+
+async def set_pending(
+    user_id: str,
+    email: str | None,
+    until: int | None,
+    conn: AutoConnection
+) -> None:
+    until_datetime = datetime.datetime.fromtimestamp(
+        until, datetime.timezone.utc
+    ) if until is not None else None
+    db = await conn.create_conn()
+    async with db.transaction():
+        await db.execute(
+            """
+            UPDATE users
+            SET pending_email = $1, pending_email_until = $2
+            WHERE user_id = $3
+            """, email, until_datetime, user_id
+        )
+
+
+async def set_email(
+    user_id: str,
+    email: str,
+    conn: AutoConnection
+) -> None:
+    db = await conn.create_conn()
+    async with db.transaction():
+        await db.execute(
+            """
+            UPDATE users
+            SET email = $1
+            WHERE user_id = $2
+            """, email, user_id
+        )
 
 
 async def set_email_verified(

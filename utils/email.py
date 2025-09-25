@@ -1,4 +1,5 @@
 import base64
+from enum import IntEnum
 import time
 import typing as t
 import secrets
@@ -8,6 +9,11 @@ from utils_cy.encryption import generate_signature, verify_signature
 
 SECRET_KEY = os.environ["SIGNATURE_KEY"].encode()
 BREVO_API_KEY = os.environ["BREVO_API_KEY"]
+
+
+class TokenType(IntEnum):
+    VERIFICATION = 0
+    NEW_EMAIL = 1
 
 
 templates = {
@@ -57,11 +63,12 @@ def new_code(length: int = 6, group: int = 3, sep: str = "-") -> str:
 
 def create_token(
     code: str,
-    email: str
+    email: str,
+    type: TokenType = TokenType.VERIFICATION
 ) -> str:
     code = code.replace("-", "")
     exp = int(time.time() + 15 * 60)
-    combined_data = f"{email}\0{exp}".encode()
+    combined_data = f"{email}\0{exp}\0{int(type)}".encode()
     encoded_data = base64.urlsafe_b64encode(combined_data).decode()
     signature = generate_signature(encoded_data + code, SECRET_KEY)
     return f"LV-E {encoded_data}.{signature}"
@@ -69,7 +76,8 @@ def create_token(
 
 def verify_token(
     code: str,
-    token: str
+    token: str,
+    type: TokenType = TokenType.VERIFICATION
 ) -> tuple[str, bool]:
     try:
         code = code.replace("-", "")
@@ -84,12 +92,15 @@ def verify_token(
         if not is_correct:
             return ("INCORRECT", False)
 
-        email, exp = base64.urlsafe_b64decode(
+        email, exp, _type = base64.urlsafe_b64decode(
             encoded_data
         ).decode().split("\0")
+        if TokenType(int(_type)) != type:
+            return ("INVALID_TOKEN", False)
         if time.time() > int(exp):
             return ("EXPIRED", False)
 
         return (email, True)
     except ValueError:
+        raise
         return ("INVALID_TOKEN", False)

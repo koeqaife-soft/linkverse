@@ -44,6 +44,20 @@
                 new_password: { min_len: 8 },
                 close_sessions: { type: "bool" }
             }
+        },
+        change_email_send: {
+            load_data: true,
+            data: {
+                password: { min_len: 1 },
+                new_email: { type: "email" }
+            }
+        },
+        change_email_check: {
+            load_data: true,
+            data: {
+                token: { min_len: 1 },
+                code: { min_len: 5, max_len: 8 }
+            }
         }
     },
     posts: {
