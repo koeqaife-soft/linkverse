@@ -36,6 +36,14 @@
                 token: { min_len: 1 },
                 code: { min_len: 5, max_len: 8 }
             }
+        },
+        change_password: {
+            load_data: true,
+            data: {
+                old_password: { min_len: 8 },
+                new_password: { min_len: 8 },
+                close_sessions: { type: "bool" }
+            }
         }
     },
     posts: {

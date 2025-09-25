@@ -262,3 +262,22 @@ class auth:
         if value is not None:
             await cache.delete(key)
         return Status(True)
+
+    @staticmethod
+    async def clear_all_tokens(
+        user_id: str,
+        _cache_instance: Cache | None = None
+    ) -> Status[None]:
+        cache = _cache_instance or cache_instance
+        redis = cache.cache
+        pattern = f"auth:{user_id}:*"
+
+        cursor = b"0"
+        while cursor:
+            cursor, keys = await redis.scan(
+                cursor=cursor, match=pattern, count=1000
+            )
+            if keys:
+                await redis.delete(*keys)
+
+        return Status(True)

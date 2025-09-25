@@ -157,5 +157,30 @@ async def check_verification() -> tuple[Response, int]:
     return response(is_empty=True), 204
 
 
+@route(bp, "/auth/change_password", methods=["POST"])
+@rate_limit(10, 24 * 60 * 60)
+async def change_password() -> tuple[Response, int]:
+    data = g.data
+    old_password: str = data["old_password"]
+    new_password: str = data["new_password"]
+    close_sessions: bool = data["close_sessions"]
+
+    async with AutoConnection(pool) as conn:
+        user = (
+            await auth.get_user({"user_id": g.user_id}, conn)
+        ).data
+        if not (await auth.check_password(user.password_hash, old_password)):
+            raise FunctionError("INCORRECT_PASSWORD", 400, None)
+
+        await auth.update_password(user.user_id, new_password, conn)
+        if close_sessions:
+            await auth.close_sessions_except(g.user_id, g.session_id, conn)
+
+    await rt_manager.session_event(g.user_id, SessionActions.CHECK_TOKEN, None)
+    await auth_cache.clear_all_tokens(g.user_id)
+
+    return response(is_empty=True), 204
+
+
 def load(app: Quart):
     app.register_blueprint(bp)

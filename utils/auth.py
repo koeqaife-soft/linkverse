@@ -160,6 +160,40 @@ async def create_user(
     return Status(True, data=new_id)
 
 
+async def update_password(
+    user_id: str,
+    password: str,
+    conn: AutoConnection
+) -> None:
+    db = await conn.create_conn()
+    password_hash = await store_password(password)
+
+    async with db.transaction():
+        await db.execute(
+            """
+            UPDATE users
+            SET password_hash = $1
+            WHERE user_id = $2
+            """, password_hash, user_id
+        )
+
+
+async def close_sessions_except(
+    user_id: str,
+    session_id: str,
+    conn: AutoConnection
+) -> None:
+    db = await conn.create_conn()
+
+    async with db.transaction():
+        await db.execute(
+            """
+            DELETE FROM auth_keys
+            WHERE user_id = $1 AND session_id != $2
+            """, user_id, session_id
+        )
+
+
 async def check_username(
     username: str, conn: AutoConnection
 ) -> Status[None]:

@@ -5,7 +5,7 @@ from core import Global, FunctionError
 import asyncpg
 import asyncio
 from quart_cors import cors_exempt
-import utils.auth as auth
+from utils.cache import auth as cache_auth
 from utils.database import AutoConnection
 import utils.realtime as realtime
 from utils.realtime import SessionActions, SessionMessage
@@ -95,7 +95,7 @@ async def ws_auth(
         return None
     try:
         async with AutoConnection(pool) as conn:
-            result = await auth.check_token(token, conn)
+            result = await cache_auth.check_token(token, conn)
             g.token = token
             g.token_result = result.data
     except FunctionError as e:
