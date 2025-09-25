@@ -122,13 +122,7 @@ EXECUTE FUNCTION update_updated_at_column();
     FOR EACH ROW
     EXECUTE FUNCTION file_refcount_trigger('banner_context_id');
 
--- (7) Soft delete for comments
-    CREATE OR REPLACE TRIGGER trg_soft_delete_comment
-    BEFORE DELETE ON comments
-    FOR EACH ROW
-    EXECUTE FUNCTION soft_delete_comment();
-
--- (8) followers
+-- (7) followers
     CREATE OR REPLACE TRIGGER trigger_follow_counts
     AFTER INSERT OR DELETE ON followed
     FOR EACH ROW EXECUTE FUNCTION update_follow_counts();

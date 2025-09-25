@@ -131,6 +131,22 @@ async def delete_comment(
     return Status(True)
 
 
+async def soft_delete_comment(
+    post_id: str, comment_id: str,
+    conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+    async with db.transaction():
+        await db.execute(
+            """
+            UPDATE comments
+            SET user_id = NULL, content = NULL
+            WHERE post_id = $1 AND comment_id = $2
+            """, post_id, comment_id
+        )
+    return Status(True)
+
+
 async def get_comments(
     post_id: str,
     cursor: str | None,

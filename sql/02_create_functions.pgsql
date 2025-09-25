@@ -272,30 +272,7 @@ $$ LANGUAGE plpgsql;
     END;
     $$ LANGUAGE plpgsql;
 
--- (7) Soft delete for comments
-    CREATE OR REPLACE FUNCTION soft_delete_comment()
-    RETURNS TRIGGER AS $$
-    BEGIN
-        IF OLD.user_id IS NULL AND OLD.content IS NULL THEN
-            RETURN OLD;
-        END IF;
-
-        IF OLD.replies_count > 0 THEN
-            UPDATE comments
-            SET 
-                user_id = NULL,
-                content = NULL
-            WHERE comment_id = OLD.comment_id;
-
-            RETURN NULL;
-        END IF;
-
-        RETURN OLD;
-    END;
-    $$ LANGUAGE plpgsql;
-
-
--- (8) followers
+-- (7) followers
     CREATE OR REPLACE FUNCTION update_follow_counts()
     RETURNS TRIGGER AS $$
     BEGIN

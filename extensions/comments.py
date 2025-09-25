@@ -57,6 +57,11 @@ async def create_comment(id: str) -> tuple[Response, int]:
 async def delete_comment(id: str, cid: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         comment = await comments.get_comment(id, cid, conn)
+        delete_func = (
+            comments.delete_comment
+            if comment.data.replies_count == 0
+            else comments.soft_delete_comment
+        )
         if comment.data.user_id != g.user_id:
             permission_available = await check_permission(
                 g.user_id, Permission.MODERATE_COMMENTS, conn
@@ -65,7 +70,7 @@ async def delete_comment(id: str, cid: str) -> tuple[Response, int]:
             if not permission_available.data or not reason:
                 raise FunctionError("FORBIDDEN", 403, None)
             else:
-                await comments.delete_comment(id, cid, conn)
+                await delete_func(id, cid, conn)
                 log_id = await create_log(
                     g.user_id, comment.data.user_id,
                     log_metadata().data, comment.data.dict,
@@ -82,7 +87,7 @@ async def delete_comment(id: str, cid: str) -> tuple[Response, int]:
                     message=reason
                 )
         else:
-            await comments.delete_comment(id, cid, conn)
+            await delete_func(id, cid, conn)
 
     return response(), 204
 
