@@ -192,6 +192,10 @@ async def change_email_send() -> tuple[Response, int]:
     new_email: str = data["new_email"].strip()
 
     async with AutoConnection(pool) as conn:
+        user = await auth.get_user({"email": new_email}, conn, True)
+        if user.data:
+            raise FunctionError("USER_ALREADY_EXISTS", 409, None)
+
         user = (
             await auth.get_user({"user_id": g.user_id}, conn)
         ).data
