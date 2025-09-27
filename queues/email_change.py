@@ -29,4 +29,5 @@ async def confirm_pending_emails(batch_size: int = 1000) -> bool:
                 """,
                 batch_size,
             )
+            print(updated_rows)
             return len(updated_rows) != 0
