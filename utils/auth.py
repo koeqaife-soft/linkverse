@@ -209,7 +209,7 @@ async def check_username(
         LIMIT 1
         """, username
     )
-    if user.data:
+    if user:
         raise FunctionError("USERNAME_EXISTS", 409, None)
     return Status(True)
 
