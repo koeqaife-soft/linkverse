@@ -31,11 +31,11 @@ async def confirm_pending_emails(batch_size: int = 1000) -> bool:
             )
             test = await db.fetch(
                 """
-                    SELECT user_id
+                    SELECT user_id, pending_email_until, NOW()
                     FROM users
                     WHERE pending_email IS NOT NULL
-                    AND pending_email_until > NOW()
-                    LIMIT $1
+                    ORDER BY pending_email_until DESC
+                    LIMIT 10;
                 """, batch_size
             )
             print(updated_rows, test)
