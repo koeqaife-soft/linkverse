@@ -101,7 +101,7 @@ async def logout() -> tuple[Response, int]:
 @rate_limit(45, 60)
 async def get_auth_me() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
-        user = await auth.get_user({"user_id": g.user_id}, conn)
+        user = await auth.get_user(g.user_id, conn)
         user_dict = user.data.dict
         del user_dict["password_hash"]
 
@@ -114,7 +114,7 @@ async def get_auth_me() -> tuple[Response, int]:
 async def send_verification() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         user = (
-            await auth.get_user({"user_id": g.user_id}, conn)
+            await auth.get_user(g.user_id, conn)
         ).data
 
     if user.email_verified:
@@ -149,7 +149,7 @@ async def check_verification() -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         user = (
-            await auth.get_user({"user_id": g.user_id}, conn)
+            await auth.get_user(g.user_id, conn)
         ).data
         if user.email != email:
             raise FunctionError("EMAIL_HAS_CHANGED", 400, None)
@@ -168,7 +168,7 @@ async def change_password() -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         user = (
-            await auth.get_user({"user_id": g.user_id}, conn)
+            await auth.get_user(g.user_id, conn)
         ).data
         if not (await auth.check_password(user.password_hash, old_password)):
             raise FunctionError("INCORRECT_PASSWORD", 400, None)
@@ -192,12 +192,10 @@ async def change_email_send() -> tuple[Response, int]:
     new_email: str = data["new_email"].strip()
 
     async with AutoConnection(pool) as conn:
-        user = await auth.get_user({"email": new_email}, conn, True)
-        if user.data:
-            raise FunctionError("USER_ALREADY_EXISTS", 409, None)
+        await auth.check_email(new_email, conn)
 
         user = (
-            await auth.get_user({"user_id": g.user_id}, conn)
+            await auth.get_user(g.user_id, conn)
         ).data
         if user.email == new_email:
             raise FunctionError("INCORRECT_DATA", 400, None)
@@ -248,7 +246,7 @@ async def change_email_check() -> tuple[Response, int]:
     pending_until: int | None = None
     async with AutoConnection(pool) as conn:
         user = (
-            await auth.get_user({"user_id": g.user_id}, conn)
+            await auth.get_user(g.user_id, conn)
         ).data
         if user.email_verified:
             pending_until = calc_pending_until(user.created_at)

@@ -89,61 +89,42 @@ async def check_password(stored: str, password: str) -> bool:
     return new_hash == stored_hash
 
 
-@t.overload
 async def get_user(
-    where: dict[str, t.Any], conn: AutoConnection,
-    return_bool: t.Literal[True]
-) -> Status[bool]:
-    ...
-
-
-@t.overload
-async def get_user(
-    where: dict[str, t.Any], conn: AutoConnection,
-    return_bool: t.Literal[False]
+    user_id: str, conn: AutoConnection
 ) -> Status[AuthUser]:
-    ...
-
-
-@t.overload
-async def get_user(
-    where: dict[str, t.Any], conn: AutoConnection
-) -> Status[AuthUser]:
-    ...
-
-
-async def get_user(
-    where: dict[str, t.Any], conn: AutoConnection,
-    return_bool: bool | None = None
-) -> Status[bool] | Status[AuthUser]:
     db = await conn.create_conn()
-    if not where:
-        raise ValueError("The 'where' dictionary must not be empty")
 
-    select = (
-        "user_id" if return_bool
-        else "username, user_id, email, password_hash, email_verified, "
-             "pending_email, pending_email_until"
-    )
-    conditions: list[str] = []
-    values = []
-    for key, value in where.items():
-        conditions.append(f"{key} = ${len(conditions) + 1}")
-        values.append(value)
-
-    query = f"""
-        SELECT {select}
+    query = """
+        SELECT *
         FROM users
-        WHERE {' AND '.join(conditions)}
+        WHERE user_id = $1
     """
-    row = await db.fetchrow(query, *values)
+    row = await db.fetchrow(query, user_id)
 
-    if return_bool:
-        return Status(True, data=(row is not None))
-    else:
-        if row is None:
-            raise FunctionError("USER_DOES_NOT_EXIST", 404, None)
-        return Status(True, data=AuthUser(**dict(row)))
+    if row is None:
+        raise FunctionError("USER_DOES_NOT_EXIST", 404, None)
+    return Status(True, data=AuthUser(**dict(row)))
+
+
+async def get_user_by_email(
+    email: str, conn: AutoConnection,
+    allow_pending: bool = False
+) -> Status[AuthUser]:
+    db = await conn.create_conn()
+
+    query = """
+        SELECT *
+        FROM users
+        WHERE email = $1
+    """
+    if allow_pending:
+        query += " OR pending_email = $1"
+
+    row = await db.fetchrow(query, email)
+
+    if row is None:
+        raise FunctionError("USER_DOES_NOT_EXIST", 404, None)
+    return Status(True, data=AuthUser(**dict(row)))
 
 
 async def create_user(
@@ -151,9 +132,7 @@ async def create_user(
     password: str, conn: AutoConnection
 ) -> Status[str]:
     db = await conn.create_conn()
-    user = await get_user({"email": email}, conn, True)
-    if user.data:
-        raise FunctionError("USER_ALREADY_EXISTS", 409, None)
+    await check_email(email, conn)
     password_hash = await store_password(password)
     new_id = str(generate_id())
     async with db.transaction():
@@ -200,12 +179,35 @@ async def close_sessions_except(
         )
 
 
+async def check_email(
+    email: str, conn: AutoConnection
+) -> Status[None]:
+    db = await conn.create_conn()
+    user = await db.fetchval(
+        """
+        SELECT 1 FROM users
+        WHERE email = $1 OR pending_email = $1
+        LIMIT 1
+        """, email
+    )
+    if user:
+        raise FunctionError("USER_ALREADY_EXISTS", 409, None)
+    return Status(True)
+
+
 async def check_username(
     username: str, conn: AutoConnection
 ) -> Status[None]:
     if len(username) < 4 or not AuthUser.validate_username(username):
         raise FunctionError("INCORRECT_FORMAT", 400, None)
-    user = await get_user({"username": username}, conn, True)
+    db = await conn.create_conn()
+    user = await db.fetchval(
+        """
+        SELECT 1 FROM users
+        WHERE username = $1
+        LIMIT 1
+        """, username
+    )
     if user.data:
         raise FunctionError("USERNAME_EXISTS", 409, None)
     return Status(True)
@@ -216,7 +218,7 @@ async def login(
     conn: AutoConnection
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
     db = await conn.create_conn()
-    user = await get_user({"email": email}, conn)
+    user = await get_user_by_email(email, conn)
 
     if not (await check_password(user.data.password_hash, password)):
         raise FunctionError("INCORRECT_PASSWORD", 401, None)
@@ -249,7 +251,7 @@ async def create_token(
     conn: AutoConnection
 ) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
     db = await conn.create_conn()
-    await get_user({"user_id": user_id}, conn)
+    await get_user(user_id, conn)
 
     new_secret = generate_key()
     session_id = str(generate_id())
