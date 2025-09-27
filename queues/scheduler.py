@@ -4,6 +4,7 @@ import time
 from queues.file_deletion import cleanup_files
 from queues.post_deletion import cleanup_posts
 from queues.web_push import push_worker
+from queues.email_change import confirm_pending_emails
 import typing as t
 from logging import getLogger
 
@@ -28,6 +29,11 @@ scheduled = (
         func=cleanup_posts,
         long_interval=60,
         short_interval=60
+    ),
+    Scheduled(
+        func=confirm_pending_emails,
+        long_interval=3600,
+        short_interval=600
     )
 )
 
