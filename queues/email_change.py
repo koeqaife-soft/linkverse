@@ -36,7 +36,7 @@ async def confirm_pending_emails(batch_size: int = 1000) -> bool:
                     WHERE pending_email IS NOT NULL
                     ORDER BY pending_email_until DESC
                     LIMIT 10;
-                """, batch_size
+                """
             )
             print(updated_rows, test)
             return len(updated_rows) != 0
