@@ -114,7 +114,8 @@ async def get_user_by_email(
     db = await conn.create_conn()
 
     query = """
-        SELECT *
+        SELECT username, user_id, email, password_hash, email_verified,
+               pending_email, pending_email_until
         FROM users
         WHERE email = $1
     """
