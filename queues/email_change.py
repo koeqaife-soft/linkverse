@@ -16,7 +16,7 @@ async def confirm_pending_emails(batch_size: int = 1000) -> bool:
                     SELECT user_id
                     FROM users
                     WHERE pending_email IS NOT NULL
-                    AND pending_email_until > NOW()
+                    AND pending_email_until <= NOW()
                     LIMIT $1
                 )
                 UPDATE users u
@@ -29,14 +29,4 @@ async def confirm_pending_emails(batch_size: int = 1000) -> bool:
                 """,
                 batch_size,
             )
-            test = await db.fetch(
-                """
-                    SELECT user_id, pending_email_until, NOW()
-                    FROM users
-                    WHERE pending_email IS NOT NULL
-                    ORDER BY pending_email_until DESC
-                    LIMIT 10;
-                """
-            )
-            print(updated_rows, test)
             return len(updated_rows) != 0
