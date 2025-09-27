@@ -185,7 +185,7 @@ async def change_password() -> tuple[Response, int]:
 
 @route(bp, "/auth/change_email/send", methods=["POST"])
 @rate_limit(5, 24 * 60 * 60)
-@rate_limit(1, 60)
+@rate_limit(1, 20)
 async def change_email_send() -> tuple[Response, int]:
     data = g.data
     password: str = data["password"]
