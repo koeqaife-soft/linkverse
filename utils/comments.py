@@ -106,7 +106,7 @@ async def get_comment_directly(
                content, likes_count, dislikes_count, type,
                replies_count
         FROM comments
-        WHERE comment_id = $2
+        WHERE comment_id = $1
     """
     row = await db.fetchrow(query, comment_id)
 
