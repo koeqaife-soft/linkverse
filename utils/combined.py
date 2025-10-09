@@ -26,7 +26,7 @@ async def get_entity(
             if entity_type == "post"
             else
             await fetch_func(post_id, comment_id, conn)  # type: ignore
-            if comment_id is not None
+            if post_id is not None
             else
             await fetch_func(comment_id, conn)
         )
