@@ -64,8 +64,11 @@ async def run_cycle() -> int:
 
 async def scheduler() -> None:
     while True:
-        to_wait = await run_cycle()
-        await asyncio.sleep(to_wait)
+        try:
+            to_wait = await run_cycle()
+            await asyncio.sleep(to_wait)
+        except asyncio.CancelledError:
+            break
 
 
 def start_scheduler() -> None:

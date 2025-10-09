@@ -13,7 +13,9 @@ from utils.notifs import subscribe
 import orjson
 import typing as t
 from queues.web_push import flush_pending, clear_pending
+from logging import getLogger
 
+logger = getLogger("linkverse.realtime")
 bp = Blueprint("realtime", __name__)
 gb = Global()
 pool: asyncpg.Pool = gb.pool
@@ -56,7 +58,7 @@ async def sending() -> None:
             break
         try:
             await websocket.send(data)
-        except Exception:
+        except asyncio.CancelledError:
             break
         finally:
             queue.task_done()
@@ -66,8 +68,9 @@ async def receiving() -> None:
     while True:
         try:
             data = await websocket.receive()
-        except Exception:
+        except asyncio.CancelledError:
             break
+
         try:
             decoded: dict = orjson.loads(data)
         except orjson.JSONDecodeError:
@@ -108,7 +111,8 @@ async def ws_auth(
     if hasattr(g, "expire_task") and g.expire_task is not None:
         try:
             g.expire_task.cancel()
-        except Exception:
+        except Exception as e:
+            logger.exception(e)
             pass
 
     g.expire_task = asyncio.create_task(expire_timeout())
@@ -132,6 +136,8 @@ async def wait_auth() -> bool | None:
         await close_connection("AUTH_DATA_INCORRECT")
     except asyncio.TimeoutError:
         await close_connection("AUTH_REQUIRED")
+    except asyncio.CancelledError:
+        pass
     finally:
         try:
             queue.task_done()
@@ -219,19 +225,20 @@ async def close_connection(reason: str = "CLOSING") -> None:
         if hasattr(g, "expire_task") and g.expire_task is not None:
             try:
                 g.expire_task.cancel()
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as e:
+                logger.exception(e)
+    except Exception as e:
+        logger.exception(e)
 
     try:
         tasks = getattr(g, "tasks", {})
         for _name, _task in list(tasks.items()):
             try:
                 _task.cancel()
-            except Exception:
-                pass
-    except Exception:
+            except Exception as e:
+                logger.exception(e)
+    except Exception as e:
+        logger.exception(e)
         tasks = {}
 
     try:
@@ -244,21 +251,21 @@ async def close_connection(reason: str = "CLOSING") -> None:
                     await q.put(None)
                 except Exception:
                     pass
-    except Exception:
-        pass
+    except Exception as e:
+        logger.exception(e)
 
     try:
         await asyncio.gather(
             *[t for t in tasks.values() if t is not None],
             return_exceptions=True
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.exception(e)
 
     try:
         await websocket.close(1000, reason)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.exception(e)
 
     try:
         if getattr(g, "user_id", None) is not None:
@@ -266,10 +273,10 @@ async def close_connection(reason: str = "CLOSING") -> None:
                 rt_manager.remove_connection(
                     g.user_id, g.queues.get("sending"), g.queues.get("session")
                 )
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as e:
+                logger.exception(e)
+    except Exception as e:
+        logger.exception(e)
 
     await rt_manager.send_offline(g.user_id, g.session_id)
     await flush_pending(g.user_id)
@@ -310,6 +317,8 @@ async def ws() -> None:
         g.tasks["actions"] = actions
         g.tasks["incoming"] = incoming
         await asyncio.gather(producer, consumer, actions, incoming)
+    except asyncio.CancelledError:
+        pass
     finally:
         await close_connection("NORMAL_CLOSE")
 
