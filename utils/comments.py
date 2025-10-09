@@ -153,7 +153,8 @@ async def get_comments(
     user_id: str,
     conn: AutoConnection,
     type: str | None = None,
-    parent_id: str | None = None
+    parent_id: str | None = None,
+    limit: int = 20
 ) -> Status[CommentList]:
     db = await conn.create_conn()
     params: list[t.Any] = [post_id, user_id]
@@ -214,16 +215,16 @@ async def get_comments(
     else:
         raise FunctionError("UNKNOWN_COMMENT_TYPE", 404, None)
 
-    main_query += """
-        LIMIT 21
+    main_query += f"""
+        LIMIT {limit + 1}
     """
 
     rows = await db.fetch(cte_query + main_query, *params)
     if not rows:
         raise FunctionError("NO_MORE_COMMENTS", 200, None)
 
-    has_more = len(rows) > 20
-    rows = rows[:20]
+    has_more = len(rows) > limit
+    rows = rows[:limit]
 
     last_row = rows[-1]
     next_cursor = (

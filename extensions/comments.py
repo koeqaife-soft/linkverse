@@ -105,6 +105,63 @@ async def get_comment(id: str, cid: str) -> tuple[Response, int]:
     return response(data=comment.data, cache=True), 200
 
 
+async def load_comment_with_replies(
+    post_id: str,
+    parent_id: str | None,
+    user_id: str,
+    conn,
+    users: dict[str, dict],
+    depth: int = 0,
+    max_depth: int = 3,
+    cursor: str | None = None,
+    type: str | None = None,
+) -> list[dict]:
+    if depth >= max_depth:
+        return []
+
+    try:
+        result = await comments.get_comments(
+            post_id,
+            cursor,
+            user_id,
+            conn,
+            type,
+            parent_id,
+            limit=3,
+        )
+    except FunctionError:
+        return []
+
+    replies: list[dict] = []
+
+    for comment in result.data["comments"]:
+        full_comment = await combined.get_full_comment(
+            user_id,
+            post_id,
+            comment.comment_id,
+            conn,
+            users,
+            comment.dict,
+        )
+
+        comment_data = full_comment.data
+        comment_data["replies"] = await load_comment_with_replies(
+            post_id=post_id,
+            parent_id=comment.comment_id,
+            user_id=user_id,
+            conn=conn,
+            users=users,
+            depth=depth + 1,
+            max_depth=max_depth,
+            cursor=cursor,
+            type=type,
+        )
+
+        replies.append(comment_data)
+
+    return replies
+
+
 @route(bp, "/posts/<id>/comments", methods=["GET"])
 @rate_limit(60, 60)
 async def get_comments(id: str) -> tuple[Response, int]:
@@ -121,15 +178,25 @@ async def get_comments(id: str) -> tuple[Response, int]:
         )
 
         users: dict[str, dict] = {}
-        _comments = []
+        _comments: list[dict] = []
 
         for comment in result.data["comments"]:
             _temp = await combined.get_full_comment(
                 g.user_id, id, comment.comment_id,
                 conn, users, comment.dict
             )
+            _temp.data["replies"] = await load_comment_with_replies(
+                post_id=id,
+                parent_id=comment.comment_id,
+                user_id=g.user_id,
+                conn=conn,
+                users=users,
+                cursor=None,
+                type=type
+            )
 
             _comments.append(_temp.data)
+        del result.data["comments"]
 
     _data = result.data | {"users": users, "comments": _comments}
     return response(data=_data, cache=True), 200
