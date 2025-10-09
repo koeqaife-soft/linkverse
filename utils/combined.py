@@ -18,7 +18,7 @@ async def get_entity(
     if loaded_entity is None:
         fetch_func = (
             cache_posts.get_post if entity_type == "post"
-            else comments.get_comment if comment_id is not None
+            else comments.get_comment if post_id is not None
             else comments.get_comment_directly
         )
         entity = (
