@@ -36,7 +36,7 @@ async def check() -> tuple[Response, int]:
 
 @route(bp, '/auth/register', methods=['POST'])
 @ip_rate_limit(20, 24 * 60 * 60)
-@ip_rate_limit(5, 60)
+@ip_rate_limit(2, 60)
 async def register() -> tuple[Response, int]:
     data = g.data
     username = data.get('username')
@@ -200,7 +200,7 @@ async def change_password() -> tuple[Response, int]:
 
 @route(bp, "/auth/change_email/send", methods=["POST"])
 @rate_limit(5, 24 * 60 * 60)
-@rate_limit(1, 20)
+@rate_limit(2, 60)
 async def change_email_send() -> tuple[Response, int]:
     data = g.data
     password: str = data["password"]
