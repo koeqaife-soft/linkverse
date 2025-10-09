@@ -3,6 +3,9 @@
         skip_checks: true
     },
     auth: {
+        check_username: {
+            no_auth: true
+        },
         register: {
             no_auth: true,
             load_data: true,
@@ -57,6 +60,13 @@
             data: {
                 token: { min_len: 1 },
                 code: { min_len: 5, max_len: 8 }
+            }
+        },
+        check: {
+            no_auth: true,
+            params: {
+                type: { values: ["username", "email"] },
+                value: { min_len: 1, max_len: 256 }
             }
         }
     },

@@ -19,6 +19,21 @@ pool: asyncpg.Pool = gb.pool
 rt_manager: RealtimeManager = gb.rt_manager
 
 
+@route(bp, '/auth/check', methods=['GET'])
+@ip_rate_limit(30, 60)
+async def check() -> tuple[Response, int]:
+    params = g.params
+    value = params.get('value')
+    type = params.get('type')
+    async with AutoConnection(pool) as conn:
+        if type == 'email':
+            await auth.check_email(value, conn)
+        elif type == 'username':
+            await auth.check_username(value, conn)
+
+    return response(is_empty=True), 204
+
+
 @route(bp, '/auth/register', methods=['POST'])
 @ip_rate_limit(20, 24 * 60 * 60)
 @ip_rate_limit(5, 60)
