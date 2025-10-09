@@ -20,7 +20,7 @@ rt_manager: RealtimeManager = gb.rt_manager
 
 
 @route(bp, "/posts/<id>/comments", methods=["POST"])
-@rate_limit(20, 60, 5, 30)
+@rate_limit(30, 60, 5, 30)
 async def create_comment(id: str) -> tuple[Response, int]:
     data = g.data
     content = data.get("content")
