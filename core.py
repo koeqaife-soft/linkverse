@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import datetime
 from typing import overload
 import typing as t
 import orjson
@@ -139,7 +140,9 @@ def response(
         response_data["error"] = error_msg
 
     response = Response(
-        orjson.dumps(response_data),
+        orjson.dumps(
+            response_data, default=json_serialize
+        ),
         content_type="application/json",
         **kwargs
     )
@@ -155,6 +158,11 @@ def response(
         response.cache_control.must_revalidate = True
 
     return response
+
+
+def json_serialize(data: t.Any) -> t.Any:
+    if isinstance(data, datetime.datetime):
+        return data.timestamp()
 
 
 def remove_none_values(d):
@@ -176,6 +184,11 @@ def generate_etag(data: dict | str) -> str:
 
 
 class Status(t.Generic[T]):
+    """
+    TODO: Deprecate this class for better performance
+    TODO: Funcs will use "-> type" instead of "-> Status[type]"
+    TODO: That happens cause I implemented FunctionError after Status
+    """
     _pool: dict[tuple, 'Status'] = {}
     success: bool
     message: str | None
