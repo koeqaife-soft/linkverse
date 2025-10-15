@@ -13,8 +13,9 @@ import typing as t
 from enum import Enum
 from schemas import NotificationType
 from queues.web_push import enqueue_push
+import logging
 
-
+logger = logging.getLogger("linkverse.realtime")
 gb = Global()
 redis: Redis = gb.redis
 pool: asyncpg.Pool = gb.pool
@@ -48,7 +49,7 @@ class RealtimeManager:
         await self.pubsub.psubscribe('session_events:*')
         async for message in self.pubsub.listen():
             if message['type'] == 'pmessage':
-                channel = message['channel'].decode()
+                channel: str = message['channel'].decode()
                 channel, user_id = channel.split(':')
                 handlers = {
                     "session_events": (orjson.loads, self.session_queues),
@@ -86,18 +87,21 @@ class RealtimeManager:
     async def _publish_to_redis(
         self, user_id: str, message: str | bytes,
         is_session_event: bool = False
-    ):
-        channel = "events" if not is_session_event else "session_events"
-        await self.redis_client.publish(f"{channel}:{user_id}", message)
-        return user_id, message
+    ) -> None:
+        try:
+            channel = "events" if not is_session_event else "session_events"
+            await self.redis_client.publish(f"{channel}:{user_id}", message)
+        except asyncio.CancelledError:
+            pass
 
-    def _handle_publish_result(self, task: asyncio.Task):
+    def _handle_publish_result(self, task: asyncio.Task) -> None:
         try:
             task.result()
         except ConnectionError:
             pass
         except Exception as e:
             # TODO: Add error exception to logs
+            logger.exception(e)
             raise e
 
     async def session_event(
@@ -115,7 +119,7 @@ class RealtimeManager:
             self._publish_to_redis(user_id, json_message, True)
         )
         task.add_done_callback(
-            lambda t: self._handle_publish_result(t)
+            self._handle_publish_result
         )
 
     async def publish_event(
@@ -133,7 +137,7 @@ class RealtimeManager:
             self._publish_to_redis(user_id, json_message)
         )
         task.add_done_callback(
-            lambda t: self._handle_publish_result(t)
+            self._handle_publish_result
         )
 
     async def publish_notification(
@@ -195,6 +199,27 @@ class RealtimeManager:
 
             await enqueue_push(to, payload)
         asyncio.create_task(_task())
+
+    async def publish_push_notification(
+        user_id: str,
+        id: str,
+        type: NotificationType | str,
+        message: str,
+        conn: AutoConnection
+    ) -> None:
+        from_user = await cache_users.get_user(user_id, conn, True)
+
+        payload = {
+            "avatar_url": from_user.data.avatar_url,
+            "id": id,
+            "message": message,
+            "type": type,
+            "username": (
+                from_user.data.display_name
+                or from_user.data.username
+            )
+        }
+        await enqueue_push(user_id, payload)
 
     async def send_online(self, user_id: str, session_id: str):
         now = time.time()
