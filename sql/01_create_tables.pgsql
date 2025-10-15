@@ -201,3 +201,67 @@ CREATE TABLE IF NOT EXISTS mod_assigned_resources (
     FOREIGN KEY (assigned_to) REFERENCES users (user_id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS channels (
+    channel_id TEXT PRIMARY KEY,
+    metadata JSONB,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    type TEXT NOT NULL
+        CHECK (type IN ('group', 'direct'))
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    message_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    content_type TEXT NOT NULL
+        CHECK (content_type IN ('plain', 'encrypted'))
+        DEFAULT 'plain',
+    file_context_id TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    edited_at TIMESTAMPTZ,
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (file_context_id) REFERENCES files(context_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS channel_members (
+    membership_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    joined_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (channel_id, user_id),
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS user_channels (
+    user_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    membership_id TEXT PRIMARY KEY,
+    last_read_message_id TEXT,
+    last_read_at TIMESTAMPTZ,
+    UNIQUE (user_id, channel_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE,
+    FOREIGN KEY (last_read_message_id) REFERENCES messages(message_id) ON DELETE SET NULL,
+    FOREIGN KEY (membership_id) REFERENCES channel_members(membership_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS friends (
+    user_id TEXT NOT NULL,
+    friend_id TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, friend_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (friend_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS friend_requests (
+    request_id TEXT PRIMARY KEY,
+    from_user_id TEXT NOT NULL,
+    to_user_id TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (from_user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (to_user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);

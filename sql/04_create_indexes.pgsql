@@ -21,6 +21,7 @@ CREATE INDEX IF NOT EXISTS notifications_id_num_idx ON user_notifications ((id::
 CREATE INDEX IF NOT EXISTS posts_id_num_idx ON posts ((post_id::bigint));
 CREATE INDEX IF NOT EXISTS comments_id_num_idx ON comments ((comment_id::bigint));
 CREATE INDEX IF NOT EXISTS tag_id_num_idx ON tags ((tag_id::bigint));
+CREATE INDEX IF NOT EXISTS message_id_num_idx ON messages ((message_id::bigint));
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON user_notifications (user_id, unread);
 
@@ -30,3 +31,6 @@ CREATE INDEX IF NOT EXISTS idx_mod_audit_user ON mod_audit(user_id);
 CREATE INDEX IF NOT EXISTS idx_mod_audit_target ON mod_audit(target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_mod_audit_action ON mod_audit(action_type);
 CREATE INDEX IF NOT EXISTS idx_mod_audit_created_at ON mod_audit(created_at);
+
+CREATE INDEX IF NOT EXISTS message_user_id_idx ON messages (user_id);
+CREATE INDEX IF NOT EXISTS channel_members_user_id_idx ON channel_members (user_id);
