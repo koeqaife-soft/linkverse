@@ -1,37 +1,93 @@
-# LinkVerse Project-Restricted License
+Elastic License 2.0
 
-Copyright (c) 2024 IdeaLight
+URL: https://www.elastic.co/licensing/elastic-license
 
-**Permission Notice**
+## Acceptance
 
-This license governs the use of the code within the LinkVerse project repository (the "Project"). By using the code, you agree to the following terms:
+By using the software, you agree to all of the terms and conditions below.
 
-1. **Non-Redistribution**:  
-   You may use, modify, and distribute the code **only within the LinkVerse Project**. You are not permitted to use or distribute the code outside of the LinkVerse Project, including but not limited to incorporation into other projects, repositories, or commercial applications.
+## Copyright License
 
-2. **Non-Commercial Use**:  
-   The code may not be used for commercial purposes outside of the LinkVerse Project. Any commercial usage requires explicit written permission from the owner.
+The licensor grants you a non-exclusive, royalty-free, worldwide,
+non-sublicensable, non-transferable license to use, copy, distribute, make
+available, and prepare derivative works of the software, in each case subject to
+the limitations and conditions below.
 
-3. **No Derivative Works**:  
-   You may modify the code for use **within the LinkVerse Project**, but you are not allowed to create derivative works for distribution or use outside the Project.
+## Limitations
 
-4. **Attribution**:  
-   If you contribute to the LinkVerse Project, you agree that your contributions will also fall under this license, and you will not have the right to request removal of your contributions at any time.
+You may not provide the software to third parties as a hosted or managed
+service, where the service provides users with access to any substantial set of
+the features or functionality of the software.
 
-5. **Owner Rights**:  
-   The owner(s) of the LinkVerse Project retain the right to use, modify, and distribute the code in any manner and for any purpose outside the LinkVerse Project.
+You may not move, change, disable, or circumvent the license key functionality
+in the software, and you may not remove or obscure any functionality in the
+software that is protected by the license key.
 
-6. **Termination**:  
-   Violation of any of the above terms will result in immediate termination of your rights under this license.
+You may not alter, remove, or obscure any licensing, copyright, or other notices
+of the licensor in the software. Any use of the licensor’s trademarks is subject
+to applicable law.
 
-**Disclaimer**
+## Patents
 
-The code is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, or non-infringement. In no event shall the authors or copyright holders be liable for any claim, damages, or other liability, whether in an action of contract, tort, or otherwise, arising from, out of, or in connection with the code or the use or other dealings in the code.
+The licensor grants you a license, under any patent claims the licensor can
+license, or becomes able to license, to make, have made, use, sell, offer for
+sale, import and have imported the software, in each case subject to the
+limitations and conditions in this license. This license does not cover any
+patent claims that you cause to be infringed by modifications or additions to
+the software. If you or your company make any written claim that the software
+infringes or contributes to infringement of any patent, your patent license for
+the software granted under these terms ends immediately. If your company makes
+such a claim, your patent license ends immediately for work on behalf of your
+company.
 
-**License Version**
+## Notices
 
-This license is provided as of 2024-09-14 and may be updated at the discretion of the copyright holder.
+You must ensure that anyone who gets a copy of any part of the software from you
+also gets a copy of these terms.
 
-**Contact**
+If you modify the software, you must include in any modified copies of the
+software prominent notices stating that you have modified the software.
 
-For questions about this license or permissions beyond those granted herein, please contact xiluevoa.oefo@gmail.com.
+## No Other Rights
+
+These terms do not imply any licenses other than those expressly granted in
+these terms.
+
+## Termination
+
+If you use the software in violation of these terms, such use is not licensed,
+and your licenses will automatically terminate. If the licensor provides you
+with a notice of your violation, and you cease all violation of this license no
+later than 30 days after you receive that notice, your licenses will be
+reinstated retroactively. However, if you violate these terms after such
+reinstatement, any additional violation of these terms will cause your licenses
+to terminate automatically and permanently.
+
+## No Liability
+
+*As far as the law allows, the software comes as is, without any warranty or
+condition, and the licensor will not be liable to you for any damages arising
+out of these terms or the use or nature of the software, under any kind of
+legal claim.*
+
+## Definitions
+
+The **licensor** is the entity offering these terms, and the **software** is the
+software the licensor makes available under these terms, including any portion
+of it.
+
+**you** refers to the individual or entity agreeing to these terms.
+
+**your company** is any legal entity, sole proprietorship, or other kind of
+organization that you work for, plus all organizations that have control over,
+are under the control of, or are under common control with that
+organization. **control** means ownership of substantially all the assets of an
+entity, or the power to direct its management and policies by vote, contract, or
+otherwise. Control can be direct or indirect.
+
+**your licenses** are all the licenses granted to you for the software under
+these terms.
+
+**use** means anything you do with the software requiring one of your licenses.
+
+**trademark** means trademarks, service marks, and similar rights.
