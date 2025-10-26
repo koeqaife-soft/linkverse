@@ -2,7 +2,7 @@ from dataclasses import dataclass, asdict
 import datetime
 import re
 import unicodedata
-from core import Status, FunctionError
+from core import FunctionError
 from utils.generation import generate_id
 import typing as t
 from utils.database import AutoConnection, condition
@@ -123,7 +123,7 @@ async def get_post(
     post_id: str,
     conn: AutoConnection,
     more_info: bool = False
-) -> Status[Post]:
+) -> Post:
     db = await conn.create_conn()
     query = post_query(
         where="WHERE p.post_id = $1 AND p.is_deleted = FALSE",
@@ -136,7 +136,7 @@ async def get_post(
 
     data = dict(row)
     data["media"] = build_post_media(data["media"])
-    return Status(True, data=Post.from_dict(data))
+    return Post.from_dict(data)
 
 
 def normalize_tag(tag: str) -> str:
@@ -154,7 +154,7 @@ async def create_post(
     tags: list[str] = [],
     file_context_id: str | None = None,
     ctags: list[str] = []
-) -> Status[dict | None]:
+) -> dict | None:
     db = await conn.create_conn()
     post_id = str(generate_id())
     ctags = list(set([normalize_tag(tag) for tag in ctags if tag]))
@@ -186,19 +186,14 @@ async def create_post(
                 [(post_id, tag) for tag in ctags]
             )
 
-        created_post = (
-            await get_post(post_id, conn, more_info=False)
-        ).data
+        created_post = await get_post(post_id, conn, more_info=False)
 
-    return Status(
-        True,
-        data=created_post.dict
-    )
+    return created_post.dict
 
 
 async def delete_post(
     post_id: str, conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
@@ -209,14 +204,12 @@ async def delete_post(
             """, True, post_id
         )
 
-    return Status(True)
-
 
 async def update_post(
     post_id: str, content: str | None,
     tags: list[str] | None,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     if content is None and tags is None:
         raise ValueError("All arguments is None!")
@@ -240,15 +233,13 @@ async def update_post(
             """, *_parameters, post_id
         )
 
-    return Status(True)
-
 
 async def add_reaction(
     user_id: str, is_like: bool,
     post_id: str | None,
     comment_id: str | None,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
 
     _condition, _params = condition(comment_id, 3)
@@ -260,7 +251,7 @@ async def add_reaction(
         """, user_id, post_id, *_params
     )
     if result == is_like:
-        return Status(True)
+        return
 
     async with db.transaction():
         if result is None:
@@ -281,7 +272,6 @@ async def add_reaction(
                 AND comment_id {_condition}
                 """, is_like, user_id, post_id, *_params
             )
-    return Status(True)
 
 
 async def get_reaction(
@@ -289,7 +279,7 @@ async def get_reaction(
     post_id: str,
     comment_id: str | None,
     conn: AutoConnection
-) -> Status[None | bool]:
+) -> None | bool:
     db = await conn.create_conn()
 
     _condition, _params = condition(comment_id, 3)
@@ -302,9 +292,9 @@ async def get_reaction(
         """, user_id, post_id, *_params
     )
     if result is not None:
-        return Status(True, data=result)
+        return result
     else:
-        return Status(True)
+        return None
 
 
 async def rem_reaction(
@@ -312,7 +302,7 @@ async def rem_reaction(
     post_id: str,
     comment_id: str | None,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
 
     _condition, _params = condition(comment_id, 3)
@@ -324,7 +314,6 @@ async def rem_reaction(
             WHERE user_id = $1 AND post_id = $2 AND comment_id {_condition}
             """, user_id, post_id, *_params
         )
-    return Status(True)
 
 
 async def get_user_posts(
@@ -332,7 +321,7 @@ async def get_user_posts(
     cursor: str | None,
     conn: AutoConnection,
     sort: t.Literal["popular", "new", "old"] | None = None
-) -> Status[PostList]:
+) -> PostList:
     sort = sort or "new"
     db = await conn.create_conn()
     query = post_query(
@@ -394,10 +383,7 @@ async def get_user_posts(
     for post in posts:
         post.media = build_post_media(post.media)
 
-    return Status(
-        success=True,
-        data={"posts": posts, "next_cursor": next_cursor, "has_more": has_more}
-    )
+    return {"posts": posts, "next_cursor": next_cursor, "has_more": has_more}
 
 
 async def get_fav_and_reaction(
@@ -405,7 +391,7 @@ async def get_fav_and_reaction(
     conn: AutoConnection,
     post_id: str,
     comment_id: str | None = None
-) -> Status[tuple[bool | None, bool | None]]:
+) -> tuple[bool | None, bool | None]:
     db = await conn.create_conn()
 
     _condition, _params = condition(comment_id, 3)
@@ -428,13 +414,13 @@ async def get_fav_and_reaction(
     result = (row["is_favorite"] if row else None,
               row["reaction"] if row else None)
 
-    return Status(True, data=result)
+    return result
 
 
 async def get_tag(
     tag_name: str,
     conn: AutoConnection
-) -> Status[Tag]:
+) -> Tag:
     db = await conn.create_conn()
     row = await db.fetchrow(
         """
@@ -445,4 +431,4 @@ async def get_tag(
     )
     if row is None:
         raise FunctionError("TAG_DOES_NOT_EXIST", 404, None)
-    return Status(True, data=Tag(**dict(row)))
+    return Tag(**dict(row))

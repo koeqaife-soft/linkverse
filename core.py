@@ -183,62 +183,6 @@ def generate_etag(data: dict | str) -> str:
         return xxhash.xxh64(data.encode()).hexdigest()
 
 
-class Status(t.Generic[T]):
-    """
-    TODO: Deprecate this class for better performance
-    TODO: Funcs will use "-> type" instead of "-> Status[type]"
-    TODO: That happens cause I implemented FunctionError after Status
-    """
-    _pool: dict[tuple, 'Status'] = {}
-    success: bool
-    message: str | None
-    data: T
-
-    def __new__(
-        cls, success: bool,
-        data: T | None = None,
-        message: str | None = None
-    ):
-        if data is None and (key := (success, message)) in cls._pool:
-            return cls._pool[key]
-
-        instance = super().__new__(cls)
-        instance.success = success
-        instance.message = message
-        instance.data = t.cast(T, data)
-
-        if data is None:
-            cls._pool[key] = instance
-        return instance
-
-    def __eq__(self, other):
-        if isinstance(other, str):
-            return self.message == other
-        elif isinstance(other, Status):
-            if self.message is not None:
-                return self.message == other.message
-            else:
-                return self.success == other.success
-        elif isinstance(other, bool):
-            return self.success == other
-        else:
-            return False
-
-    def __bool__(self):
-        return self.success
-
-    def __str__(self):
-        return str(self.message)
-
-    @property
-    def dict(self):
-        return {
-            "success": self.success,
-            "data": self.data,
-            "error": self.message
-        }
-
-
 class FunctionError(Exception):
     def __init__(
         self, message: str | None, code: int, data: dict | None, *args

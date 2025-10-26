@@ -7,7 +7,7 @@ import orjson
 import os
 import typing as t
 from utils.database import AutoConnection
-from core import Status, FunctionError, Global
+from core import FunctionError, Global
 from utils.generation import generate_id
 import aiohttp
 import logging
@@ -105,7 +105,7 @@ async def create_file_context(
     max_count: int,
     type: str,
     conn: AutoConnection
-) -> Status[str]:
+) -> str:
     db = await conn.create_conn()
     new_id = str(generate_id())
 
@@ -118,12 +118,12 @@ async def create_file_context(
             """, user_id, objects, max_count, new_id, type
         )
 
-    return Status(True, data=new_id)
+    return new_id
 
 
 async def delete_file_context(
     context_id: int, conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
 
     async with db.transaction():
@@ -137,7 +137,7 @@ async def delete_file_context(
 
 async def check_allowed_count(
     context_id: str, conn: AutoConnection
-) -> Status[int]:
+) -> int:
     db = await conn.create_conn()
 
     row = await db.fetchrow(
@@ -152,14 +152,14 @@ async def check_allowed_count(
     if not row:
         raise FunctionError("CONTEXT_NOT_FOUND", 404, None)
 
-    return Status(True, data=row["allowed_count"])
+    return row["allowed_count"]
 
 
 async def add_object_to_file(
     context_id: str,
     new_object: str,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
 
     async with db.transaction():
@@ -192,12 +192,10 @@ async def add_object_to_file(
             objects, allowed_count, context_id
         )
 
-    return Status(True)
-
 
 async def get_context(
     context_id: int, conn: AutoConnection
-) -> Status[dict]:
+) -> dict:
     db = await conn.create_conn()
     row = await db.fetchrow(
         """
@@ -211,12 +209,12 @@ async def get_context(
     if not row:
         raise FunctionError("CONTEXT_NOT_FOUND", 404, None)
 
-    return Status(True, data={
+    return {
         "user_id": row["user_id"],
         "objects": row["objects"],
         "created_at": int(row["created_at"].timestamp()),
         "type": row["type"]
-    })
+    }
 
 
 async def delete_object(

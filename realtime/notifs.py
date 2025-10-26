@@ -27,15 +27,15 @@ async def publish_notification(
     if loaded:
         message = None
 
-    notification = (await notifs.create_notification(
+    notification = await notifs.create_notification(
         to, user_id, type, conn, message,
         linked_type, linked_id, second_linked_id,
         unread
-    )).data
+    )
     notification["loaded"] = loaded  # type: ignore
-    notification = (await combined.preload_notification(
+    notification = await combined.preload_notification(
         user_id, conn, notification
-    )).data
+    )
     notification = remove_none_values(notification)
 
     from_user = await cache_users.get_user(user_id, conn, True)
@@ -59,13 +59,13 @@ async def publish_notification(
             content = message
 
         payload = {
-            "avatar_url": from_user.data.avatar_url,
+            "avatar_url": from_user.avatar_url,
             "id": notification["id"],
             "message": content,
             "type": type,
             "username": (
-                from_user.data.display_name
-                or from_user.data.username
+                from_user.display_name
+                or from_user.username
             )
         }
         if notification["loaded"].get("parent_comment_id"):

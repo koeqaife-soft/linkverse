@@ -1,4 +1,4 @@
-from core import Status, FunctionError
+from core import FunctionError
 from utils.database import AutoConnection
 from schemas import PostsList
 
@@ -9,7 +9,7 @@ async def get_popular_posts(
     limit: int = 50,
     cursor: str | None = None,
     hide_viewed: bool | None = None
-) -> Status[PostsList]:
+) -> PostsList:
     db = await conn.create_conn()
     hide_viewed = True if hide_viewed is None else hide_viewed
 
@@ -62,10 +62,10 @@ async def get_popular_posts(
 
     next_cursor = (f"{last_post["popularity_score"]},{last_post["post_id"]}"
                    if rows else None)
-    return Status(True, data={
+    return {
         "posts": posts,
         "next_cursor": next_cursor
-    })
+    }
 
 
 async def get_new_posts(
@@ -74,7 +74,7 @@ async def get_new_posts(
     limit: int = 50,
     cursor: str | None = None,
     hide_viewed: bool | None = None
-) -> Status[PostsList]:
+) -> PostsList:
     db = await conn.create_conn()
     hide_viewed = True if hide_viewed is None else hide_viewed
 
@@ -113,10 +113,10 @@ async def get_new_posts(
 
     posts = [row["post_id"] for row in rows]
     next_cursor = rows[-1]["post_id"] if rows else None
-    return Status(True, data={
+    return {
         "posts": posts,
         "next_cursor": next_cursor
-    })
+    }
 
 
 async def get_posts_by_following(
@@ -125,7 +125,7 @@ async def get_posts_by_following(
     limit: int = 50,
     cursor: str | None = None,
     hide_viewed: bool | None = None
-) -> Status[PostsList]:
+) -> PostsList:
     db = await conn.create_conn()
     hide_viewed = True if hide_viewed is None else hide_viewed
 
@@ -167,16 +167,16 @@ async def get_posts_by_following(
 
     posts = [row["post_id"] for row in rows]
     next_cursor = rows[-1]["post_id"] if rows else None
-    return Status(True, data={
+    return {
         "posts": posts,
         "next_cursor": next_cursor
-    })
+    }
 
 
 async def mark_post_as_viewed(
     user_id: str, post_id: str,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     async with db.transaction():
         query = """
@@ -185,13 +185,12 @@ async def mark_post_as_viewed(
             ON CONFLICT (user_id, post_id) DO NOTHING
         """
         await db.execute(query, user_id, str(post_id))
-    return Status(True)
 
 
 async def mark_posts_as_viewed(
     user_id: str, post_ids: list[str],
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
 
     query = """
@@ -202,7 +201,6 @@ async def mark_posts_as_viewed(
     async with db.transaction():
         for post_id in post_ids:
             await db.execute(query, user_id, str(post_id))
-    return Status(True)
 
 
 async def get_tag_posts(
@@ -210,7 +208,7 @@ async def get_tag_posts(
     conn: AutoConnection,
     limit: int = 50,
     cursor: str | None = None
-) -> Status[list[int]]:
+) -> list[int]:
     db = await conn.create_conn()
     query = """
         SELECT pt.post_id, p.popularity_score
@@ -250,8 +248,8 @@ async def get_tag_posts(
 
     next_cursor = (f"{last_post["popularity_score"]},{last_post["post_id"]}"
                    if rows else None)
-    return Status(True, data={
+    return {
         "posts": posts,
         "next_cursor": next_cursor,
         "has_more": has_more
-    })
+    }

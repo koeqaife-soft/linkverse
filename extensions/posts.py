@@ -33,7 +33,7 @@ async def posts_by_following() -> tuple[Response, int]:
             g.user_id, conn, limit, cursor, hide_viewed
         )
 
-    return response(data=result.data), 200
+    return response(data=result), 200
 
 
 @route(bp, "/posts/popular", methods=["GET"])
@@ -49,7 +49,7 @@ async def popular_posts() -> tuple[Response, int]:
             g.user_id, conn, limit, cursor, hide_viewed
         )
 
-    return response(data=result.data), 200
+    return response(data=result), 200
 
 
 @route(bp, "/posts/new", methods=["GET"])
@@ -65,7 +65,7 @@ async def new_posts() -> tuple[Response, int]:
             g.user_id, conn, limit, cursor, hide_viewed
         )
 
-    return response(data=result.data), 200
+    return response(data=result), 200
 
 
 @route(bp, "/posts/view", methods=["POST"])
@@ -98,7 +98,7 @@ async def create_post() -> tuple[Response, int]:
             g.user_id, content, conn, tags, file_context_id, ctags
         )
 
-    return response(data=result.data or {}), 201
+    return response(data=result or {}), 201
 
 
 @route(bp, "/posts/<id>", methods=["GET"])
@@ -107,7 +107,7 @@ async def get_post(id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await combined.get_full_post(g.user_id, id, conn)
 
-    return response(data=result.data, cache=True), 200
+    return response(data=result, cache=True), 200
 
 
 @route(bp, "/posts/batch", methods=["GET"])
@@ -127,7 +127,7 @@ async def get_posts_batch() -> tuple[Response, int]:
                 errors.append({"post": post, "error_msg": e.message})
                 continue
 
-            _data.append(result.data)
+            _data.append(result)
 
     if errors:
         return response(error=True, data={"errors": errors}), 400
@@ -141,28 +141,28 @@ async def delete_post(id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         post = await cache_posts.get_post(id, conn)
 
-        if post.data.user_id != g.user_id:
+        if post.user_id != g.user_id:
             permission_available = await check_permission(
                 g.user_id, Permission.MODERATE_POSTS, conn
             )
             reason = g.params.get("reason")
-            if not permission_available.data or not reason:
+            if not permission_available or not reason:
                 raise FunctionError("FORBIDDEN", 403, None)
             else:
                 await posts.delete_post(id, conn)
                 log_id = await create_log(
-                    g.user_id, post.data.user_id,
-                    log_metadata().data, post.data.dict,
-                    "post", post.data.post_id,
+                    g.user_id, post.user_id,
+                    log_metadata(), post.dict,
+                    "post", post.post_id,
                     "delete_post", reason,
                     conn
                 )
                 await publish_notification(
-                    g.user_id, post.data.user_id,
+                    g.user_id, post.user_id,
                     NotificationType.MOD_DELETED_POST,
                     conn,
                     linked_type="mod_audit",
-                    linked_id=log_id.data,
+                    linked_id=log_id,
                     message=reason
                 )
         else:
@@ -189,8 +189,8 @@ async def update_post(id: str) -> tuple[Response, int]:
         post = await posts.get_post(id, conn)
 
         if (
-            post.data.user_id != g.user_id or
-            now - post.data.created_at_unix > 86400
+            post.user_id != g.user_id or
+            now - post.created_at_unix > 86400
         ):
             raise FunctionError("FORBIDDEN", 403, None)
 
@@ -234,9 +234,7 @@ async def get_tag_posts(name: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         tag = await posts.get_tag(name, conn)
         id = tag.data.tag_id
-        _posts = (
-            await posts_list.get_tag_posts(id, conn, limit, cursor)
-        ).data
+        _posts = await posts_list.get_tag_posts(id, conn, limit, cursor)
 
     return response(data=_posts), 200
 

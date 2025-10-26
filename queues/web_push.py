@@ -95,7 +95,7 @@ async def send_pushes(
     aiohttp_session: aiohttp.ClientSession,
     conn: AutoConnection
 ) -> None:
-    subscriptions = (await get_subscriptions(user_id, conn)).data
+    subscriptions = await get_subscriptions(user_id, conn)
     for sub in subscriptions:
         try:
             await send_push(

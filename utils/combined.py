@@ -4,7 +4,7 @@ from utils.cache import posts as cache_posts
 from utils.cache import users as cache_users
 import utils.posts as posts
 import utils.comments as comments
-from core import Status, FunctionError
+from core import FunctionError
 from schemas import Notification
 import typing as t
 
@@ -14,7 +14,7 @@ async def get_entity(
     comment_id: str | None = None,
     users_list: dict[str, dict] | None = None,
     loaded_entity: dict | None = None
-) -> Status[dict]:
+) -> dict:
     if loaded_entity is None:
         fetch_func = (
             cache_posts.get_post if entity_type == "post"
@@ -36,13 +36,13 @@ async def get_entity(
             or loaded_entity.get("is_fav") is not None
             or loaded_entity.get("is_like") is not None
         ):
-            return Status(True, loaded_entity)
+            return loaded_entity
 
-    fav, reaction = (
-        await posts.get_fav_and_reaction(user_id, conn, post_id, comment_id)
-    ).data
+    fav, reaction = await posts.get_fav_and_reaction(
+        user_id, conn, post_id, comment_id
+    )
 
-    data = entity.data.dict if loaded_entity is None else loaded_entity
+    data = entity.dict if loaded_entity is None else loaded_entity
 
     async def get_user():
         try:
@@ -55,18 +55,18 @@ async def get_entity(
     if users_list is None:
         user = await get_user()
         if user:
-            data["user"] = user.data.dict
+            data["user"] = user.dict
     elif users_list.get(data["user_id"]) is None:
         user = await get_user()
         if user:
-            users_list[data["user_id"]] = user.data.dict
+            users_list[data["user_id"]] = user.dict
 
     if reaction is not None:
         data["is_like"] = reaction
     if fav:
         data["is_fav"] = fav
 
-    return Status(True, data)
+    return data
 
 
 async def get_full_post(
@@ -111,13 +111,13 @@ async def preload_items(
                     conn
                 )
 
-                comments_data.append(comment.data)
+                comments_data.append(comment)
             else:
                 post = await get_full_post(
                     user_id, item["post_id"], conn
                 )
 
-                posts_data.append(post.data)
+                posts_data.append(post)
         except FunctionError as e:
             errors.append((item["post_id"], item["comment_id"], e.message))
 
@@ -127,7 +127,7 @@ async def preload_items(
 async def preload_notification(
     user_id: str, conn: AutoConnection,
     notification: Notification
-) -> Status[Notification]:
+) -> Notification:
     types_actions: dict = {
         "post": lambda post, _: get_full_post(
             user_id, post, conn,
@@ -144,11 +144,9 @@ async def preload_notification(
 
     data = None
     try:
-        data = (
-            await types_actions[notification["linked_type"]](
-                notification["linked_id"], notification["second_linked_id"]
-            )
-        ).data
+        data = await types_actions[notification["linked_type"]](
+            notification["linked_id"], notification["second_linked_id"]
+        )
         notification["loaded"] = data  # type: ignore
     except (FunctionError, KeyError):
         pass
@@ -157,6 +155,6 @@ async def preload_notification(
 
     if not notification["loaded"].get("user"):
         user = await cache_users.get_user(notification["from_id"], conn, True)
-        notification["loaded"]["user"] = user.data.dict
+        notification["loaded"]["user"] = user.dict
 
-    return Status(True, notification)
+    return notification

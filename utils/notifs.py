@@ -1,6 +1,6 @@
 import orjson
 from utils.generation import snowflake
-from core import Status, FunctionError
+from core import FunctionError
 from utils.database import AutoConnection
 import typing as t
 from schemas import NotificationType, NotificationList, Notification
@@ -17,9 +17,9 @@ async def create_notification(
     linked_id: str | None = None,
     second_linked_id: str | None = None,
     unread: bool = True
-) -> Status[Notification]:
+) -> Notification | None:
     if user_id == from_id:
-        return Status(True)
+        return None
 
     db = await conn.create_conn()
 
@@ -51,7 +51,7 @@ async def create_notification(
         "unread": unread
     })
 
-    return Status(True, data=notification)
+    return notification
 
 
 async def get_notifications(
@@ -59,7 +59,7 @@ async def get_notifications(
     conn: AutoConnection,
     cursor: str | None = None,
     limit: int = 20
-) -> Status[NotificationList]:
+) -> NotificationList:
     db = await conn.create_conn()
     query = """
         SELECT n.id,
@@ -123,20 +123,17 @@ async def get_notifications(
 
     next_cursor = last_row["id"]
 
-    return Status(
-        True,
-        data={
-            "notifications": notifications,
-            "next_cursor": next_cursor,
-            "has_more": has_more
-        }
-    )
+    return {
+        "notifications": notifications,
+        "next_cursor": next_cursor,
+        "has_more": has_more
+    }
 
 
 async def mark_notification_read(
     user_id: str, notification_id: str,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
@@ -146,13 +143,12 @@ async def mark_notification_read(
             WHERE user_id = $1 AND id = $2
             """, user_id, notification_id
         )
-    return Status(True)
 
 
 async def mark_all_notifications_read(
     user_id: str,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
@@ -162,12 +158,11 @@ async def mark_all_notifications_read(
             WHERE user_id = $1 AND unread = TRUE
             """, user_id
         )
-    return Status(True)
 
 
 async def get_unread_notifications_count(
     user_id: str, conn: AutoConnection
-) -> Status[int]:
+) -> int:
     db = await conn.create_conn()
     value = await db.fetchval(
         """
@@ -177,7 +172,7 @@ async def get_unread_notifications_count(
         """,
         user_id
     )
-    return Status(True, value)
+    return value
 
 
 async def subscribe(
@@ -185,7 +180,7 @@ async def subscribe(
     session_id: str,
     subscription: dict,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
 
     async with db.transaction():
@@ -207,13 +202,11 @@ async def subscribe(
             orjson.dumps(subscription).decode()
         )
 
-    return Status(True)
-
 
 async def get_subscriptions(
     user_id: str,
     conn: AutoConnection
-) -> Status[list[dict[str, object]]]:
+) -> list[dict[str, object]]:
     db = await conn.create_conn()
 
     async with db.transaction():
@@ -236,13 +229,13 @@ async def get_subscriptions(
             }
         )
 
-    return Status(True, data=subscriptions)
+    return subscriptions
 
 
 async def delete_subscription(
     session_id: str,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
 
     async with db.transaction():
@@ -253,5 +246,3 @@ async def delete_subscription(
             """,
             session_id
         )
-
-    return Status(True)

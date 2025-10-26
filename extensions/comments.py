@@ -24,17 +24,17 @@ async def create_comment(id: str) -> tuple[Response, int]:
     data = g.data
     content = data.get("content")
     type = data.get("type")
-    parent_id = data.get("parent_id")
+    parent_id: str = data.get("parent_id")
 
     async with AutoConnection(pool) as conn:
         post = await cache_posts.get_post(id, conn)
-        notif_to = post.data.user_id
-        if type == "update" and post.data.user_id != g.user_id:
+        notif_to = post.user_id
+        if type == "update" and post.user_id != g.user_id:
             raise FunctionError("FORBIDDEN", 403, None)
 
         if parent_id:
             comment = await comments.get_comment(id, parent_id, conn)
-            notif_to = comment.data.user_id
+            notif_to = comment.user_id
 
         result = await comments.create_comment(
             g.user_id, id, content, conn, type, parent_id
@@ -43,12 +43,12 @@ async def create_comment(id: str) -> tuple[Response, int]:
             await publish_notification(
                 g.user_id, notif_to, NotificationType.NEW_COMMENT,
                 conn, None, "comment",
-                result.data.comment_id,
-                result.data.post_id,
-                result.data.dict
+                result.comment_id,
+                result.post_id,
+                result.dict
             )
 
-    return response(data=result.data.dict), 201
+    return response(data=result.dict), 201
 
 
 @route(bp, "/posts/<id>/comments/<cid>", methods=["DELETE"])
@@ -58,31 +58,31 @@ async def delete_comment(id: str, cid: str) -> tuple[Response, int]:
         comment = await comments.get_comment(id, cid, conn)
         delete_func = (
             comments.delete_comment
-            if comment.data.replies_count == 0
+            if comment.replies_count == 0
             else comments.soft_delete_comment
         )
-        if comment.data.user_id != g.user_id:
+        if comment.user_id != g.user_id:
             permission_available = await check_permission(
                 g.user_id, Permission.MODERATE_COMMENTS, conn
             )
             reason = g.params.get("reason")
-            if not permission_available.data or not reason:
+            if not permission_available or not reason:
                 raise FunctionError("FORBIDDEN", 403, None)
             else:
                 await delete_func(id, cid, conn)
                 log_id = await create_log(
-                    g.user_id, comment.data.user_id,
-                    log_metadata().data, comment.data.dict,
-                    "comment", comment.data.comment_id,
+                    g.user_id, comment.user_id,
+                    log_metadata(), comment.dict,
+                    "comment", comment.comment_id,
                     "delete_comment", reason,
                     conn
                 )
                 await publish_notification(
-                    g.user_id, comment.data.user_id,
+                    g.user_id, comment.user_id,
                     NotificationType.MOD_DELETED_COMMENT,
                     conn,
                     linked_type="mod_audit",
-                    linked_id=log_id.data,
+                    linked_id=log_id,
                     message=reason
                 )
         else:
@@ -101,7 +101,7 @@ async def get_comment(id: str, cid: str) -> tuple[Response, int]:
             g.user_id, id, cid, conn
         )
 
-    return response(data=comment.data, cache=True), 200
+    return response(data=comment, cache=True), 200
 
 
 async def load_comment_with_replies(
@@ -133,7 +133,7 @@ async def load_comment_with_replies(
 
     replies: list[dict] = []
 
-    for comment in result.data["comments"]:
+    for comment in result["comments"]:
         full_comment = await combined.get_full_comment(
             user_id,
             post_id,
@@ -143,7 +143,7 @@ async def load_comment_with_replies(
             comment.dict,
         )
 
-        comment_data = full_comment.data
+        comment_data = full_comment
         comment_data["replies"] = await load_comment_with_replies(
             post_id=post_id,
             parent_id=comment.comment_id,
@@ -179,12 +179,12 @@ async def get_comments(id: str) -> tuple[Response, int]:
         users: dict[str, dict] = {}
         _comments: list[dict] = []
 
-        for comment in result.data["comments"]:
+        for comment in result["comments"]:
             _temp = await combined.get_full_comment(
                 g.user_id, id, comment.comment_id,
                 conn, users, comment.dict
             )
-            _temp.data["replies"] = await load_comment_with_replies(
+            _temp["replies"] = await load_comment_with_replies(
                 post_id=id,
                 parent_id=comment.comment_id,
                 user_id=g.user_id,
@@ -194,10 +194,10 @@ async def get_comments(id: str) -> tuple[Response, int]:
                 type=type
             )
 
-            _comments.append(_temp.data)
-        del result.data["comments"]
+            _comments.append(_temp)
+        del result["comments"]
 
-    _data = result.data | {"users": users, "comments": _comments}
+    _data = result | {"users": users, "comments": _comments}
     return response(data=_data, cache=True), 200
 
 

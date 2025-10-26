@@ -23,7 +23,7 @@ async def send_appellation(id: str) -> tuple[Response, int]:
     user_id = g.user_id
 
     async with AutoConnection(pool) as conn:
-        audit = (await get_audit_data(id, False, conn)).data
+        audit = await get_audit_data(id, False, conn)
         if audit.get("towards_to") != user_id:
             raise FunctionError("FORBIDDEN", 403, None)
         if audit.get("appellation_status") == "none":
@@ -41,14 +41,14 @@ async def assigned_resource() -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         has_perm = {
-            "post": (await check_permission(
+            "post": await check_permission(
                 user_id, Permission.MODERATE_POSTS,
                 conn
-            )).data,
-            "comment": (await check_permission(
+            ),
+            "comment": await check_permission(
                 user_id, Permission.MODERATE_COMMENTS,
                 conn
-            )).data,
+            ),
         }
         perms = tuple([
             name
@@ -58,27 +58,27 @@ async def assigned_resource() -> tuple[Response, int]:
         if not perms:
             return FunctionError(403, "FORBIDDEN", None)
         assigned = await assign_next_resource(user_id, perms, conn)
-        if assigned.data is None:
+        if assigned is None:
             return response(data={}), 200
 
-        data = dict(assigned.data)
+        data = dict(assigned)
         reports = (
-            (await get_reports(data["resource_id"], conn)).data
+            await get_reports(data["resource_id"], conn)
             if data else []
         )
         for report in reports:
-            report["user"] = (await cache_users.get_user(
+            report["user"] = await cache_users.get_user(
                 report["user_id"], conn, True
-            )).data.dict
+            ).dict
         data["reports"] = reports
         if data["resource_type"] == "post":
-            data["loaded"] = (await get_full_post(
+            data["loaded"] = await get_full_post(
                 user_id, data["resource_id"], conn
-            )).data
+            )
         elif data["resource_type"] == "comment":
-            data["loaded"] = (await get_full_comment(
+            data["loaded"] = await get_full_comment(
                 user_id, None, data["resource_id"], conn
-            )).data
+            )
 
     return response(data=data or {}), 200
 
@@ -92,10 +92,10 @@ async def assigned_resource_action(
 
     async with AutoConnection(pool) as conn:
         assigned = await get_assigned_resource(user_id, conn)
-        if assigned.data["resource_id"] != id:
+        if assigned["resource_id"] != id:
             raise FunctionError(400, "INVALID_STATE", None)
         await mark_all_reports_as(
-            "reviewed", assigned.data["resource_id"], conn
+            "reviewed", assigned["resource_id"], conn
         )
         await remove_assignation(user_id, conn)
 

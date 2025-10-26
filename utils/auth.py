@@ -7,7 +7,7 @@ from utils.generation import parse_id, generate_id
 from utils.generation import generate_token, decode_token
 import hashlib
 import typing as t
-from core import Status, FunctionError
+from core import FunctionError
 from concurrent.futures import ThreadPoolExecutor
 from utils.database import AutoConnection
 import datetime
@@ -91,7 +91,7 @@ async def check_password(stored: str, password: str) -> bool:
 
 async def get_user(
     user_id: str, conn: AutoConnection
-) -> Status[AuthUser]:
+) -> AuthUser:
     db = await conn.create_conn()
 
     query = """
@@ -104,13 +104,13 @@ async def get_user(
 
     if row is None:
         raise FunctionError("USER_DOES_NOT_EXIST", 404, None)
-    return Status(True, data=AuthUser(**dict(row)))
+    return AuthUser(**dict(row))
 
 
 async def get_user_by_email(
     email: str, conn: AutoConnection,
     allow_pending: bool = False
-) -> Status[AuthUser]:
+) -> AuthUser:
     db = await conn.create_conn()
 
     query = """
@@ -126,13 +126,13 @@ async def get_user_by_email(
 
     if row is None:
         raise FunctionError("USER_DOES_NOT_EXIST", 404, None)
-    return Status(True, data=AuthUser(**dict(row)))
+    return AuthUser(**dict(row))
 
 
 async def create_user(
     username: str, email: str,
     password: str, conn: AutoConnection
-) -> Status[str]:
+) -> str:
     db = await conn.create_conn()
     await check_email(email, conn)
     password_hash = await store_password(password)
@@ -144,7 +144,7 @@ async def create_user(
             VALUES ($1, $2, $3, $4)
             """, new_id, username, email, password_hash
         )
-    return Status(True, data=new_id)
+    return new_id
 
 
 async def update_password(
@@ -183,7 +183,7 @@ async def close_sessions_except(
 
 async def check_email(
     email: str, conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     user = await db.fetchval(
         """
@@ -194,12 +194,11 @@ async def check_email(
     )
     if user:
         raise FunctionError("USER_ALREADY_EXISTS", 409, None)
-    return Status(True)
 
 
 async def check_username(
     username: str, conn: AutoConnection
-) -> Status[None]:
+) -> None:
     if len(username) < 4 or not AuthUser.validate_username(username):
         raise FunctionError("INCORRECT_FORMAT", 400, None)
     db = await conn.create_conn()
@@ -212,27 +211,26 @@ async def check_username(
     )
     if user:
         raise FunctionError("USERNAME_EXISTS", 409, None)
-    return Status(True)
 
 
 async def login(
     email: str, password: str,
     conn: AutoConnection
-) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
+) -> dict[t.Literal["access"] | t.Literal["refresh"], str]:
     db = await conn.create_conn()
     user = await get_user_by_email(email, conn)
 
-    if not (await check_password(user.data.password_hash, password)):
+    if not (await check_password(user.password_hash, password)):
         raise FunctionError("INCORRECT_PASSWORD", 401, None)
 
     new_secret = generate_key()
     session_id = str(generate_id())
     access = await generate_token(
-        user.data.user_id, secret_key, False,
+        user.user_id, secret_key, False,
         new_secret, session_id
     )
     refresh = await generate_token(
-        user.data.user_id, secret_refresh_key, True,
+        user.user_id, secret_refresh_key, True,
         new_secret, session_id
     )
     async with db.transaction():
@@ -240,18 +238,18 @@ async def login(
             """
             INSERT INTO auth_keys (user_id, token_secret, session_id)
             VALUES ($1, $2, $3)
-            """, user.data.user_id, new_secret, session_id
+            """, user.user_id, new_secret, session_id
         )
-    return Status(True, {
+    return {
         "access": access,
         "refresh": refresh
-    })
+    }
 
 
 async def create_token(
     user_id: str,
     conn: AutoConnection
-) -> Status[dict[t.Literal["access"] | t.Literal["refresh"], str]]:
+) -> dict[t.Literal["access"] | t.Literal["refresh"], str]:
     db = await conn.create_conn()
     await get_user(user_id, conn)
 
@@ -272,15 +270,15 @@ async def create_token(
             VALUES ($1, $2, $3)
             """, user_id, new_secret, session_id
         )
-    return Status(True, {
+    return {
         "access": access,
         "refresh": refresh
-    })
+    }
 
 
 async def refresh(
     refresh_token: str, conn: AutoConnection
-) -> Status[dict[t.Literal["tokens"] | t.Literal["decoded"], dict]]:
+) -> dict[t.Literal["tokens"] | t.Literal["decoded"], dict]:
     db = await conn.create_conn()
     decoded = await decode_token(refresh_token, secret_refresh_key)
     if not decoded["success"]:
@@ -323,19 +321,19 @@ async def refresh(
             """, session_id, new_secret
         )
 
-    return Status(True, {
+    return {
         "tokens": {
             "access": access,
             "refresh": refresh
         },
         "decoded": decoded
-    })
+    }
 
 
 async def check_token(
     token: str, conn: AutoConnection,
     decoded: dict | None = None
-) -> Status[dict]:
+) -> dict:
     db = await conn.create_conn()
     decoded = decoded or await decode_token(token, secret_key)
     if not decoded["success"]:
@@ -355,13 +353,13 @@ async def check_token(
     if result is None:
         raise FunctionError("INVALID_TOKEN", 401, None)
 
-    return Status(True, data=decoded)
+    return decoded
 
 
 async def remove_secret(
     secret: str, user_id: str,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
@@ -370,7 +368,6 @@ async def remove_secret(
             WHERE user_id = $1 AND token_secret = $2;
             """, user_id, secret
         )
-    return Status(True)
 
 
 async def set_pending(
@@ -413,7 +410,7 @@ async def set_email_verified(
     user_id: str,
     is_verified: bool,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
@@ -423,5 +420,3 @@ async def set_email_verified(
             WHERE user_id = $2
             """, is_verified, user_id
         )
-
-    return Status(True)

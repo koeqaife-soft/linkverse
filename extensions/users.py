@@ -23,9 +23,9 @@ async def get_profile_me() -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         user = await users.get_user(user_id, conn)
-        user_dict = user.data.dict
+        user_dict = user.dict
         user_dict["permissions"] = users.permissions_to_list(
-            users.ROLES[user.data.role_id]
+            users.ROLES[user.role_id]
         )
 
     return response(data=user_dict, cache=True), 200
@@ -98,8 +98,8 @@ async def get_favorites() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await users.get_favorites(g.user_id, conn, cursor, type)
 
-        favorites = result.data.get("favorites", [])
-        response_data = {key: val for key, val in result.data.items()
+        favorites = result.get("favorites", [])
+        response_data = {key: val for key, val in result.items()
                          if key != "favorites"}
 
         if preload:
@@ -133,8 +133,8 @@ async def get_reactions() -> tuple[Response, int]:
             g.user_id, conn, cursor, type, is_like
         )
 
-        reactions = result.data.get("reactions", [])
-        response_data = {key: val for key, val in result.data.items()
+        reactions = result.get("reactions", [])
+        response_data = {key: val for key, val in result.items()
                          if key != "reactions"}
 
         if preload:
@@ -164,8 +164,8 @@ async def get_following() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await users.get_followed(g.user_id, conn, cursor)
 
-        followed = result.data.get("followed", [])
-        response_data = {key: val for key, val in result.data.items()
+        followed = result.get("followed", [])
+        response_data = {key: val for key, val in result.items()
                          if key != "followed"}
 
         if preload:
@@ -173,9 +173,9 @@ async def get_following() -> tuple[Response, int]:
             errors: list[tuple] = []
             for item in followed:
                 try:
-                    user = (
-                        await cache_users.get_user(item["followed_to"], conn)
-                    ).data
+                    user = await cache_users.get_user(
+                        item["followed_to"], conn
+                    )
                     followed_list.append(user.dict)
                 except FunctionError as e:
                     errors.append((item["followed_to"], e.message))
@@ -215,8 +215,8 @@ async def get_profile(user_id: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         user = await cache_users.get_user(user_id, conn)
         followed = await users.is_followed(g.user_id, user_id, conn)
-        data = user.data.dict
-        if followed.data:
+        data = user.dict
+        if followed:
             data["followed"] = True
 
     return response(data=data, cache=True), 200
@@ -231,16 +231,14 @@ async def get_user_posts(user_id: str) -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         await cache_users.get_user(user_id, conn, True)
-        user_posts = (
-            await posts.get_user_posts(user_id, cursor, conn, sort)
-        ).data
+        user_posts = await posts.get_user_posts(user_id, cursor, conn, sort)
         _posts = []
         for post in user_posts["posts"]:
             _temp = await combined.get_full_post(
                 g.user_id, post.post_id, conn,
                 loaded=post.dict
             )
-            _posts.append(_temp.data)
+            _posts.append(_temp)
 
         result = t.cast(dict, user_posts)
         result["posts"] = _posts

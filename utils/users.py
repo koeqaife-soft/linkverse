@@ -1,7 +1,7 @@
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from utils.generation import parse_id
-from core import Status, FunctionError
+from core import FunctionError
 from utils.database import AutoConnection
 import typing as t
 from schemas import FollowedList, FavoriteList, ReactionList
@@ -94,7 +94,7 @@ def permissions_to_list(perms: Permission) -> list[str]:
 async def get_user(
     user_id: str, conn: AutoConnection,
     minimize_info: bool = False
-) -> Status[User]:
+) -> User:
     db = await conn.create_conn()
     query = f"""
         SELECT u.user_id, u.username, p.display_name, u.role_id,
@@ -119,14 +119,14 @@ async def get_user(
         if _dict.get(name) and "://" not in str(_dict[name]):
             _dict[name] = f"{storage.PUBLIC_PATH}/{_dict[name]}"
 
-    return Status(True, data=User.from_dict(_dict))
+    return User.from_dict(_dict)
 
 
 async def check_permission(
     user_id: str,
     perm: Permission,
     conn: AutoConnection
-) -> Status[bool]:
+) -> bool:
     db = await conn.create_conn()
     value = await db.fetchval(
         """
@@ -137,15 +137,15 @@ async def check_permission(
     )
 
     if value not in ROLES:
-        return Status(True, False)
+        return False
 
-    return Status(True, bool(ROLES[value] & perm))
+    return bool(ROLES[value] & perm)
 
 
 async def update_user(
     user_id: str, values: dict[str, str],
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     allowed_values = {
         "display_name",
@@ -177,13 +177,12 @@ async def update_user(
         await db.execute(
             query, user_id, *new_values.values()
         )
-    return Status(True)
 
 
 async def change_username(
     user_id: str, username: str,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
@@ -193,13 +192,12 @@ async def change_username(
             WHERE user_id = $2
             """, username, user_id
         )
-    return Status(True)
 
 
 async def add_badge(
     user_id: str, badge: int,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     query = """
         INSERT INTO user_profiles (user_id, badges)
@@ -211,13 +209,12 @@ async def add_badge(
         await db.execute(
             query, user_id, badge
         )
-    return Status(True)
 
 
 async def rem_badge(
     user_id: str, badge: int,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     query = """
         UPDATE user_profiles
@@ -228,12 +225,11 @@ async def rem_badge(
         await db.execute(
             query, user_id, badge
         )
-    return Status(True)
 
 
 async def clear_badges(
     user_id: str, conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
@@ -243,7 +239,6 @@ async def clear_badges(
             WHERE user_id = $1
             """, user_id
         )
-    return Status(True)
 
 
 async def add_to_favorites(
@@ -251,7 +246,7 @@ async def add_to_favorites(
     conn: AutoConnection,
     post_id: str | None = None,
     comment_id: str | None = None
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
@@ -262,15 +257,13 @@ async def add_to_favorites(
             """, user_id, comment_id, post_id
         )
 
-    return Status(True)
-
 
 async def rem_from_favorites(
     user_id: str,
     conn: AutoConnection,
     post_id: str | None = None,
     comment_id: str | None = None
-) -> Status[None]:
+) -> None:
     key = "comment_id" if comment_id else "post_id"
     db = await conn.create_conn()
     async with db.transaction():
@@ -281,14 +274,12 @@ async def rem_from_favorites(
             """, user_id, comment_id or post_id
         )
 
-    return Status(True)
-
 
 async def is_favorite(
     user_id: str, conn: AutoConnection,
     post_id: str | None = None,
     comment_id: str | None = None
-) -> Status[bool]:
+) -> bool:
     key = "comment_id" if comment_id else "post_id"
     db = await conn.create_conn()
     row = await db.fetchrow(
@@ -299,13 +290,13 @@ async def is_favorite(
         """, user_id, comment_id or post_id
     )
 
-    return Status(True, data=row is not None)
+    return row is not None
 
 
 async def follow(
     user_id: str, target_id: str,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
@@ -316,13 +307,11 @@ async def follow(
             """, user_id, target_id
         )
 
-    return Status(True)
-
 
 async def unfollow(
     user_id: str, target_id: str,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
@@ -332,13 +321,11 @@ async def unfollow(
             """, user_id, target_id
         )
 
-    return Status(True)
-
 
 async def is_followed(
     user_id: str, target_id: str,
     conn: AutoConnection
-) -> Status[bool]:
+) -> bool:
     db = await conn.create_conn()
     row = await db.fetchrow(
         """
@@ -348,13 +335,13 @@ async def is_followed(
         """, user_id, target_id
     )
 
-    return Status(True, data=row is not None)
+    return row is not None
 
 
 async def get_followed(
     user_id: str, conn: AutoConnection,
     cursor: str | None = None
-) -> Status[FollowedList]:
+) -> FollowedList:
     db = await conn.create_conn()
     query = """
         SELECT followed_to, created_at
@@ -394,21 +381,18 @@ async def get_followed(
         if rows else None
     )
 
-    return Status(
-        True,
-        data={
-            "followed": followed,
-            "next_cursor": next_cursor,
-            "has_more": has_more
-        }
-    )
+    return {
+        "followed": followed,
+        "next_cursor": next_cursor,
+        "has_more": has_more
+    }
 
 
 async def get_favorites(
     user_id: str, conn: AutoConnection,
     cursor: str | None = None,
     type: t.Literal["posts", "comments"] | None = None
-) -> Status[FavoriteList]:
+) -> FavoriteList:
     db = await conn.create_conn()
     query = """
         SELECT post_id, comment_id, created_at
@@ -452,14 +436,11 @@ async def get_favorites(
         if rows else None
     )
 
-    return Status(
-        True,
-        data={
-            "favorites": favorites,
-            "next_cursor": next_cursor,
-            "has_more": has_more
-        }
-    )
+    return {
+        "favorites": favorites,
+        "next_cursor": next_cursor,
+        "has_more": has_more
+    }
 
 
 async def get_reactions(
@@ -467,7 +448,7 @@ async def get_reactions(
     cursor: str | None = None,
     type: t.Literal["posts", "comments"] | None = None,
     is_like: bool | None = None
-) -> Status[ReactionList]:
+) -> ReactionList:
     db = await conn.create_conn()
     query = """
         SELECT post_id, comment_id, created_at, is_like
@@ -516,11 +497,8 @@ async def get_reactions(
         if rows else None
     )
 
-    return Status(
-        True,
-        data={
-            "reactions": reactions,
-            "next_cursor": next_cursor,
-            "has_more": has_more
-        }
-    )
+    return {
+        "reactions": reactions,
+        "next_cursor": next_cursor,
+        "has_more": has_more
+    }

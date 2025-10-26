@@ -24,8 +24,8 @@ async def get_notifications() -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         result = await notifs.get_notifications(g.user_id, conn, cursor, limit)
-        notifications = result.data.get("notifications", [])
-        response_data = {key: val for key, val in result.data.items()
+        notifications = result.get("notifications", [])
+        response_data = {key: val for key, val in result.items()
                          if key != "notifications"}
         if preload:
             preloaded = []
@@ -33,7 +33,7 @@ async def get_notifications() -> tuple[Response, int]:
                 _result = await combined.preload_notification(
                     g.user_id, conn, object
                 )
-                preloaded.append(_result.data)
+                preloaded.append(_result)
             response_data.update({"notifications": preloaded})
         else:
             response_data.update({"notifications": notifications})
@@ -44,8 +44,8 @@ async def get_notifications() -> tuple[Response, int]:
 @rate_limit(300, 60)
 async def get_unread_notifications_count() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
-        result = await notifs.get_unread_notifications_count(g.user_id, conn)
-        count = result.data
+        count = await notifs.get_unread_notifications_count(g.user_id, conn)
+
     return response(data={"count": count}, cache=True), 200
 
 
@@ -63,7 +63,7 @@ async def read_notification(id: str) -> tuple[Response, int]:
         {
             "type": "user",
             "event": "notification_read",
-            "data": {"id": id, "unread": unread_count.data}
+            "data": {"id": id, "unread": unread_count}
         }
     )
     return response(is_empty=True), 204

@@ -1,6 +1,6 @@
 import orjson
 from utils.database import AutoConnection
-from core import FunctionError, Status
+from core import FunctionError
 from utils.generation import generate_id
 from quart import request
 import typing as t
@@ -18,7 +18,7 @@ async def create_log(
     action_type: str,
     reason: str,
     conn: AutoConnection
-) -> Status[str]:
+) -> str:
     db = await conn.create_conn()
     new_id = str(generate_id())
 
@@ -39,10 +39,10 @@ async def create_log(
             target_type, target_id, action_type, reason
         )
 
-    return Status(True, data=new_id)
+    return new_id
 
 
-def log_metadata() -> Status[dict]:
+def log_metadata() -> dict:
     metadata = {
         "headers": dict(request.headers),
         "args": request.args,
@@ -51,14 +51,14 @@ def log_metadata() -> Status[dict]:
         "remote_addr": request.remote_addr
     }
     metadata["headers"]["Authorization"] = "LV ..."
-    return Status(True, metadata)
+    return metadata
 
 
 async def get_audit_data(
     audit_id: str,
     full: bool,
     conn: AutoConnection
-) -> Status[dict]:
+) -> dict:
     db = await conn.create_conn()
 
     row = await db.fetchrow(
@@ -79,14 +79,14 @@ async def get_audit_data(
             row_dict[key] = orjson.loads(row_dict[key])
     row_dict["created_at"] = row_dict["created_at"].timestamp()
 
-    return Status(True, row_dict)
+    return row_dict
 
 
 async def update_appellation_status(
     audit_id: str,
     new_status: AppellationStatus,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
 
     async with db.transaction():
@@ -98,14 +98,14 @@ async def update_appellation_status(
             """, new_status, audit_id
         )
 
-    return Status[None]
+    return None
 
 
 async def assign_next_resource(
     moderator_id: str,
     allowed_types: tuple[str, ...],
     conn: AutoConnection
-) -> Status[dict | None]:
+) -> dict | None:
     db = await conn.create_conn()
 
     row = await db.fetchrow("""
@@ -116,10 +116,10 @@ async def assign_next_resource(
     """, moderator_id)
 
     if row is not None:
-        return Status(True, {
+        return {
             "resource_id": row["resource_id"],
             "resource_type": row["resource_type"]
-        })
+        }
 
     async with db.transaction():
         row = await db.fetchrow(
@@ -156,18 +156,18 @@ async def assign_next_resource(
             """, moderator_id, allowed_types
         )
         if row is None:
-            return Status(True, None)
+            return None
 
-    return Status(True, {
+    return {
         "resource_id": row["resource_id"],
         "resource_type": row["resource_type"]
-    })
+    }
 
 
 async def get_assigned_resource(
     moderator_id: str,
     conn: AutoConnection
-) -> Status[dict]:
+) -> dict:
     db = await conn.create_conn()
 
     row = await db.fetchrow("""
@@ -180,16 +180,16 @@ async def get_assigned_resource(
     if row is None:
         raise FunctionError(400, "NOT_ASSIGNED_ANYTHING")
 
-    return Status(True, {
+    return {
         "resource_id": row["resource_id"],
         "resource_type": row["resource_type"]
-    })
+    }
 
 
 async def remove_assignation(
     moderator_id: str,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
 
     async with db.transaction():
@@ -199,5 +199,3 @@ async def remove_assignation(
             WHERE assigned_to = $1
             """, moderator_id
         )
-
-    return Status(True)

@@ -21,7 +21,7 @@ async def ws_token(
                 callback = cache_auth.check_token
             else:
                 callback = auth.check_token
-            result = (await callback(token, conn)).data
+            result = await callback(token, conn)
     except FunctionError:
         return False
 

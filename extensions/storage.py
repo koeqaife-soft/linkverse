@@ -40,9 +40,9 @@ async def create_context() -> tuple[Response, int]:
     type: str = data["type"]
 
     async with AutoConnection(pool) as conn:
-        context_id = (await create_file_context(
+        context_id = await create_file_context(
             g.user_id, [], 5, type, conn
-        )).data
+        )
     return response(data={
         "context_id": context_id,
         "max_size": LIMITS[type],
@@ -64,7 +64,7 @@ async def upload_file() -> tuple[Response, int]:
             if not context_id:
                 raise FunctionError("INCORRECT_DATA", 400, None)
 
-            context = (await get_context(context_id, conn)).data
+            context = await get_context(context_id, conn)
             if (
                 context["user_id"] != g.user_id
                 or time.time() - 60 * 60 > context["created_at"]
@@ -76,9 +76,9 @@ async def upload_file() -> tuple[Response, int]:
             await add_object_to_file(context_id, file_name, conn)
         else:
             subfolder = "avatars" if _type == "avatar" else "banners"
-            context_id = (await create_file_context(
+            context_id = await create_file_context(
                 g.user_id, [], 1, _type, conn
-            )).data
+            )
             file_name = f"public/{subfolder}/{g.user_id}/{context_id}.webp"
             await add_object_to_file(context_id, file_name, conn)
 

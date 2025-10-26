@@ -1,5 +1,5 @@
 from dataclasses import dataclass, asdict
-from core import Status, FunctionError
+from core import FunctionError
 from utils.generation import generate_id, parse_id
 import typing as t
 from utils.database import AutoConnection, condition
@@ -45,7 +45,7 @@ async def create_comment(
     conn: AutoConnection,
     type: str | None = None,
     parent_id: str | None = None
-) -> Status[Comment]:
+) -> Comment:
     db = await conn.create_conn()
     comment_id = str(generate_id())
     async with db.transaction():
@@ -70,13 +70,13 @@ async def create_comment(
             """, post_id, comment_id
         )
 
-    return Status(True, data=Comment.from_dict(comment))
+    return Comment.from_dict(comment)
 
 
 async def get_comment(
     post_id: str, comment_id: str,
     conn: AutoConnection
-) -> Status[Comment]:
+) -> Comment:
     db = await conn.create_conn()
     query = """
         SELECT c.comment_id, c.parent_comment_id, c.post_id, c.user_id,
@@ -93,13 +93,13 @@ async def get_comment(
     if row is None:
         raise FunctionError("COMMENT_DOES_NOT_EXIST", 404, None)
 
-    return Status(True, data=Comment.from_dict(row))
+    return Comment.from_dict(row)
 
 
 async def get_comment_directly(
     comment_id: str,
     conn: AutoConnection
-) -> Status[Comment]:
+) -> Comment:
     db = await conn.create_conn()
     query = """
         SELECT comment_id, parent_comment_id, post_id, user_id,
@@ -113,13 +113,13 @@ async def get_comment_directly(
     if row is None:
         raise FunctionError("COMMENT_DOES_NOT_EXIST", 404, None)
 
-    return Status(True, data=Comment.from_dict(row))
+    return Comment.from_dict(row)
 
 
 async def delete_comment(
     post_id: str, comment_id: str,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
@@ -128,13 +128,12 @@ async def delete_comment(
             WHERE post_id = $1 AND comment_id = $2
             """, post_id, comment_id
         )
-    return Status(True)
 
 
 async def soft_delete_comment(
     post_id: str, comment_id: str,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
     async with db.transaction():
         await db.execute(
@@ -144,7 +143,6 @@ async def soft_delete_comment(
             WHERE post_id = $1 AND comment_id = $2
             """, post_id, comment_id
         )
-    return Status(True)
 
 
 async def get_comments(
@@ -155,7 +153,7 @@ async def get_comments(
     type: str | None = None,
     parent_id: str | None = None,
     limit: int = 20
-) -> Status[CommentList]:
+) -> CommentList:
     db = await conn.create_conn()
     params: list[t.Any] = [post_id, user_id]
 
@@ -240,8 +238,5 @@ async def get_comments(
         for row in rows
     ]
 
-    return Status(
-        success=True,
-        data={"comments": comments, "next_cursor": next_cursor,
-              "has_more": has_more}
-    )
+    return {"comments": comments, "next_cursor": next_cursor,
+            "has_more": has_more}

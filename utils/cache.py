@@ -1,5 +1,4 @@
 import asyncio
-from core import Status
 from dataclasses import asdict
 import time
 from typing import Any, TypeVar
@@ -166,7 +165,7 @@ class users:
         user_id: str, conn: AutoConnection,
         minimize_info: bool = False,
         _cache_instance: Cache | None = None
-    ) -> Status[User]:
+    ) -> User:
         cache = _cache_instance or cache_instance
         key = f"user_profile:{user_id}{":min" if minimize_info else ""}"
 
@@ -174,18 +173,18 @@ class users:
 
         if value is None:
             result = await utils.users.get_user(user_id, conn, minimize_info)
-            data = asdict(result.data)
+            data = asdict(result)
 
             await cache.set(key, data, 600, conn)
 
-            return Status(True, result.data)
+            return result
         else:
-            return Status(True, User.from_dict(value))
+            return User.from_dict(value)
 
     @staticmethod
     async def delete_user_cache(
         user_id: str, _cache_instance: Cache | None = None
-    ) -> Status[None]:
+    ) -> None:
         cache = _cache_instance or cache_instance
         key = f"user_profile:{user_id}"
         key2 = f"user_profile:{user_id}:min"
@@ -195,7 +194,6 @@ class users:
             await cache.delete(key)
         if value2 is not None:
             await cache.delete(key2)
-        return Status(True)
 
 
 class posts:
@@ -203,7 +201,7 @@ class posts:
     async def get_post(
         post_id: str, conn: AutoConnection,
         _cache_instance: Cache | None = None
-    ) -> Status[Post]:
+    ) -> Post:
         cache = _cache_instance or cache_instance
         key = f"posts:{post_id}"
 
@@ -211,24 +209,23 @@ class posts:
 
         if value is None:
             result = await utils.posts.get_post(post_id, conn)
-            data = asdict(result.data)
+            data = asdict(result)
 
             await cache.set(key, data, 15, conn)
 
-            return Status(True, result.data)
+            return result
         else:
-            return Status(True, Post.from_dict(value))
+            return Post.from_dict(value)
 
     @staticmethod
     async def remove_post_cache(
         post_id: str, _cache_instance: Cache | None = None
-    ) -> Status[None]:
+    ) -> None:
         cache = _cache_instance or cache_instance
         key = f"posts:{post_id}"
         value = await cache.get(key)
         if value is not None:
             await cache.delete(key)
-        return Status(True)
 
 
 class auth:
@@ -236,7 +233,7 @@ class auth:
     async def check_token(
         token: str, conn: AutoConnection,
         _cache_instance: Cache | None = None
-    ) -> Status[dict]:
+    ) -> dict:
 
         cache = _cache_instance or cache_instance
         decoded = await decode_token(token, secret_key)
@@ -251,25 +248,24 @@ class auth:
             await check_token(token, conn, decoded)
             ttl = decoded["expiration_timestamp"] - int(time.time())
             await cache.set(key, "1", min(max(0, ttl), 60), conn)
-        return Status(True, decoded)
+        return decoded
 
     @staticmethod
     async def clear_token_cache(
         decoded: dict,
         _cache_instance: Cache | None = None
-    ) -> Status[None]:
+    ) -> None:
         cache = _cache_instance or cache_instance
         key = f"auth:{decoded["user_id"]}:{decoded["secret"]}"
         value = await cache.get(key)
         if value is not None:
             await cache.delete(key)
-        return Status(True)
 
     @staticmethod
     async def clear_all_tokens(
         user_id: str,
         _cache_instance: Cache | None = None
-    ) -> Status[None]:
+    ) -> None:
         cache = _cache_instance or cache_instance
         pattern = f"auth:{user_id}:*"
 
@@ -282,5 +278,3 @@ class auth:
                 await redis.delete(*keys)
                 for key in keys:
                     await cache.ttl_cache.delete(key)
-
-        return Status(True)

@@ -1,5 +1,4 @@
 from utils.database import AutoConnection
-from core import Status
 from utils.generation import generate_id
 
 
@@ -9,7 +8,7 @@ async def create_report(
     target_type: str,
     reason: str,
     conn: AutoConnection
-) -> Status[str]:
+) -> str:
     db = await conn.create_conn()
     new_id = str(generate_id())
 
@@ -22,14 +21,14 @@ async def create_report(
             """, new_id, user_id, target_id, target_type, reason
         )
 
-    return Status(True, data=new_id)
+    return new_id
 
 
 async def mark_all_reports_as(
     status: str,
     target_id: str,
     conn: AutoConnection
-) -> Status[None]:
+) -> None:
     db = await conn.create_conn()
 
     async with db.transaction():
@@ -41,8 +40,6 @@ async def mark_all_reports_as(
             """, status, target_id
         )
 
-    return Status(True)
-
 
 async def get_reports(
     target_id: str,
@@ -50,7 +47,7 @@ async def get_reports(
     limit: int = 100,
     offset: int = 0,
     with_status: str = "pending"
-) -> Status[list[dict]]:
+) -> list[dict]:
     db = await conn.create_conn()
 
     rows = await db.fetch(
@@ -63,10 +60,10 @@ async def get_reports(
         """, target_id, with_status, offset, limit
     )
     if not rows:
-        return Status(True, [])
+        return []
 
-    return Status(True, [
+    return [
         dict(row)
         for row in rows
         if row
-    ])
+    ]

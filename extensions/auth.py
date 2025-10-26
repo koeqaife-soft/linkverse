@@ -46,9 +46,9 @@ async def register() -> tuple[Response, int]:
         await auth.check_username(username, conn)
 
         result2 = await auth.create_user(username, email, password, conn)
-        result3 = await auth.create_token(result2.data, conn)
+        result3 = await auth.create_token(result2, conn)
 
-    return response(data=result3.data), 201
+    return response(data=result3), 201
 
 
 @route(bp, '/auth/login', methods=['POST'])
@@ -62,7 +62,7 @@ async def login() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await auth.login(email, password, conn)
 
-    return response(data=result.data), 200
+    return response(data=result), 200
 
 
 @route(bp, '/auth/refresh', methods=['POST'])
@@ -77,14 +77,14 @@ async def refresh() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         result = await auth.refresh(token, conn)
 
-    decoded = result.data["decoded"]
+    decoded = result["decoded"]
 
     await publish_event(
         f"session:{decoded["session_id"]}",
         {"type": "check_token"}
     )
 
-    return response(data=result.data["tokens"]), 200
+    return response(data=result["tokens"]), 200
 
 
 @route(bp, '/auth/logout', methods=['POST'])
@@ -96,9 +96,8 @@ async def logout() -> tuple[Response, int]:
         raise FunctionError("UNAUTHORIZED", 401, None)
 
     async with AutoConnection(pool) as conn:
-        result = await auth.check_token(token, conn)
+        data = await auth.check_token(token, conn)
 
-        data = result.data
         await auth.remove_secret(
             data["secret"], data["user_id"], conn
         )
@@ -117,7 +116,7 @@ async def logout() -> tuple[Response, int]:
 async def get_auth_me() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         user = await auth.get_user(g.user_id, conn)
-        user_dict = user.data.dict
+        user_dict = user.dict
         del user_dict["password_hash"]
 
     return response(data=user_dict, cache=True), 200
@@ -128,9 +127,7 @@ async def get_auth_me() -> tuple[Response, int]:
 @rate_limit(1, 60)
 async def send_verification() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
-        user = (
-            await auth.get_user(g.user_id, conn)
-        ).data
+        user = await auth.get_user(g.user_id, conn)
 
     if user.email_verified:
         raise FunctionError("ALREADY_VERIFIED", 400, None)
@@ -163,9 +160,8 @@ async def check_verification() -> tuple[Response, int]:
         raise FunctionError(error, 400, None)
 
     async with AutoConnection(pool) as conn:
-        user = (
-            await auth.get_user(g.user_id, conn)
-        ).data
+        user = await auth.get_user(g.user_id, conn)
+
         if user.email != email:
             raise FunctionError("EMAIL_HAS_CHANGED", 400, None)
         await auth.set_email_verified(g.user_id, True, conn)
@@ -182,9 +178,7 @@ async def change_password() -> tuple[Response, int]:
     close_sessions: bool = data["close_sessions"]
 
     async with AutoConnection(pool) as conn:
-        user = (
-            await auth.get_user(g.user_id, conn)
-        ).data
+        user = await auth.get_user(g.user_id, conn)
         if not (await auth.check_password(user.password_hash, old_password)):
             raise FunctionError("INCORRECT_PASSWORD", 400, None)
 
@@ -213,9 +207,7 @@ async def change_email_send() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         await auth.check_email(new_email, conn)
 
-        user = (
-            await auth.get_user(g.user_id, conn)
-        ).data
+        user = await auth.get_user(g.user_id, conn)
         if user.email == new_email:
             raise FunctionError("INCORRECT_DATA", 400, None)
         if not (await auth.check_password(user.password_hash, password)):
@@ -264,9 +256,7 @@ async def change_email_check() -> tuple[Response, int]:
 
     pending_until: int | None = None
     async with AutoConnection(pool) as conn:
-        user = (
-            await auth.get_user(g.user_id, conn)
-        ).data
+        user = await auth.get_user(g.user_id, conn)
         if user.email_verified:
             pending_until = calc_pending_until(user.created_at)
             await auth.set_pending(

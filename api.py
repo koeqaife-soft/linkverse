@@ -7,7 +7,6 @@ from core import compress_config, flatten_dict
 import traceback
 from quart import request, g, websocket
 import os
-from utils.database import create_pool
 import aiofiles
 from datetime import datetime, timezone
 import asyncio
@@ -15,7 +14,7 @@ import werkzeug.exceptions
 import core
 import json5
 import utils.cache as cache
-from utils.database import AutoConnection
+from utils.database import AutoConnection, create_pool
 from utils.cache import auth as cache_auth
 from redis.asyncio import Redis
 from queues.scheduler import start_scheduler
@@ -178,8 +177,8 @@ async def before():
             error_msg = result.message or "UNAUTHORIZED"
             return response(error=True, error_msg=error_msg), 401
 
-        g.user_id = result.data["user_id"]
-        g.session_id = result.data["session_id"]
+        g.user_id = result["user_id"]
+        g.session_id = result["session_id"]
 
 
 compress_conditions = [
