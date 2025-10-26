@@ -86,5 +86,15 @@ async def read_all_notifications() -> tuple[Response, int]:
     return response(is_empty=True), 204
 
 
+@route(bp, "/users/me/notifications/web_push", methods=["POST"])
+async def web_push() -> None:
+    data: dict = g.data
+    sub = data["sub"]
+
+    async with AutoConnection(pool) as conn:
+        await notifs.subscribe(g.user_id, g.session_id, sub, conn)
+    return response(is_empty=True), 204
+
+
 def load(app: Quart):
     app.register_blueprint(bp)

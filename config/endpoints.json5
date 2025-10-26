@@ -191,6 +191,12 @@
                 preload: { type: "bool" },
                 limit: { type: "int", min: 1, max: 50 }
             }
+        },
+        web_push: {
+            load_data: true,
+            data: {
+                sub: { type: "dict" }
+            }
         }
     },
     users: {
