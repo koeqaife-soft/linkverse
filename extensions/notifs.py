@@ -3,16 +3,15 @@ import asyncpg
 from quart import Blueprint, Quart, Response
 from core import response, Global, route
 from quart import g
+from realtime.broker import publish_event
 import utils.notifs as notifs
 from utils.database import AutoConnection
-from utils.realtime import RealtimeManager
 import utils.combined as combined
 from utils.rate_limiting import rate_limit
 
 bp = Blueprint('notifs', __name__)
 gb = Global()
 pool: asyncpg.Pool = gb.pool
-rt_manager: RealtimeManager = gb.rt_manager
 
 
 @route(bp, "/users/me/notifications", methods=["GET"])
@@ -59,9 +58,13 @@ async def read_notification(id: str) -> tuple[Response, int]:
             g.user_id, conn
         )
 
-    await rt_manager.publish_event(
-        g.user_id, "notification_read",
-        {"id": id, "unread": unread_count.data}
+    await publish_event(
+        f"user:{g.user_id}",
+        {
+            "type": "user",
+            "event": "notification_read",
+            "data": {"id": id, "unread": unread_count.data}
+        }
     )
     return response(is_empty=True), 204
 
@@ -72,8 +75,13 @@ async def read_all_notifications() -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         await notifs.mark_all_notifications_read(g.user_id, conn)
 
-    await rt_manager.publish_event(
-        g.user_id, "notification_read", {}
+    await publish_event(
+        f"user:{g.user_id}",
+        {
+            "type": "user",
+            "event": "notification_read",
+            "data": {}
+        }
     )
     return response(is_empty=True), 204
 

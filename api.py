@@ -17,16 +17,15 @@ import json5
 import utils.cache as cache
 from utils.database import AutoConnection
 from utils.cache import auth as cache_auth
-from utils.realtime import RealtimeManager
 from redis.asyncio import Redis
 from queues.scheduler import start_scheduler
+from realtime.websocket import bp as ws_bp
 
 debug = os.getenv('DEBUG') == 'True'
 gb = Global()
 
 pool: asyncpg.Pool = gb.pool
 redis: Redis = gb.redis
-rt_manager: RealtimeManager = gb.rt_manager
 
 logger = setup_logger()
 with open("config/endpoints.json5", 'r') as f:
@@ -275,10 +274,6 @@ async def startup():
     redis = Redis(host=redis_host, port=redis_port)
     gb.redis = redis
 
-    rt_manager = RealtimeManager(redis)
-    asyncio.create_task(rt_manager.start())
-    gb.rt_manager = rt_manager
-
     start_scheduler()
 
     logger.info("Worker started!")
@@ -295,6 +290,7 @@ async def shutdown():
 
 
 load_all(app)
+app.register_blueprint(ws_bp)
 
 
 if __name__ == '__main__':

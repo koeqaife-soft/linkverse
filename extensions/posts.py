@@ -3,11 +3,11 @@ import asyncpg
 from quart import Blueprint, Quart, Response
 from core import response, Global, route, FunctionError
 from quart import g
+from realtime.notifs import publish_notification
 import utils.posts as posts
 from utils.cache import posts as cache_posts
 from utils.database import AutoConnection
 import utils.posts_list as posts_list
-from utils.realtime import RealtimeManager
 import utils.combined as combined
 from utils.storage import get_context
 from utils.rate_limiting import rate_limit
@@ -18,7 +18,6 @@ from schemas import NotificationType
 bp = Blueprint('posts', __name__)
 gb = Global()
 pool: asyncpg.Pool = gb.pool
-rt_manager: RealtimeManager = gb.rt_manager
 
 
 @route(bp, "/posts/following", methods=["GET"])
@@ -158,7 +157,7 @@ async def delete_post(id: str) -> tuple[Response, int]:
                     "delete_post", reason,
                     conn
                 )
-                await rt_manager.publish_notification(
+                await publish_notification(
                     g.user_id, post.data.user_id,
                     NotificationType.MOD_DELETED_POST,
                     conn,

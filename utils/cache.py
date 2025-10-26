@@ -16,11 +16,13 @@ from utils.database import AutoConnection
 from utils.generation import decode_token
 from utils.auth import secret_key, check_token
 from collections import OrderedDict
+from redis.asyncio import Redis
 import heapq
 
 R = TypeVar('R')
 
 gb = Global()
+redis: Redis = gb.redis
 
 
 class TTLCache:
@@ -269,7 +271,6 @@ class auth:
         _cache_instance: Cache | None = None
     ) -> Status[None]:
         cache = _cache_instance or cache_instance
-        redis = cache.cache
         pattern = f"auth:{user_id}:*"
 
         cursor = b"0"
@@ -279,5 +280,7 @@ class auth:
             )
             if keys:
                 await redis.delete(*keys)
+                for key in keys:
+                    await cache.ttl_cache.delete(key)
 
         return Status(True)

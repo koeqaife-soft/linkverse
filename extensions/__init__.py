@@ -2,7 +2,6 @@ from extensions.auth import load as load_auth
 from extensions.comments import load as load_comments
 from extensions.notifs import load as load_notifs
 from extensions.posts import load as load_posts
-from extensions.realtime import load as load_realtime
 from extensions.storage import load as load_storage
 from extensions.users import load as load_users
 from extensions.reports import load as load_reports
@@ -16,7 +15,7 @@ _logger = getLogger("linkverse.extensions")
 __all__ = [
     "load_auth", "load_comments",
     "load_notifs", "load_posts",
-    "load_realtime", "load_storage",
+    "load_storage",
     "load_users", "load_reports",
     "load_moderation"
 ]

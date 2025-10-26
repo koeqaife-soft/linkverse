@@ -7,7 +7,6 @@ import utils.posts as posts
 import utils.comments as comments
 from utils.cache import users as cache_users
 from utils.database import AutoConnection
-from utils.realtime import RealtimeManager
 import utils.combined as combined
 import typing as t
 from utils.rate_limiting import rate_limit
@@ -15,7 +14,6 @@ from utils.rate_limiting import rate_limit
 bp = Blueprint('users', __name__)
 gb = Global()
 pool: asyncpg.Pool = gb.pool
-rt_manager: RealtimeManager = gb.rt_manager
 
 
 @route(bp, "/users/me", methods=["GET"])

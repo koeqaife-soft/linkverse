@@ -14,14 +14,12 @@ import os
 import typing as t
 from utils.database import AutoConnection
 from utils.notifs import delete_subscription, get_subscriptions
-if t.TYPE_CHECKING:
-    from utils.realtime import RealtimeManager
 from asyncpg import Pool
+from realtime.online import is_online
 
 logger = getLogger("linkverse.web_push")
 gb = Global()
 redis: Redis = gb.redis
-rt_manager: "RealtimeManager" = gb.rt_manager
 pool: Pool = gb.pool
 
 STREAM_NAME = "webpush_stream"
@@ -115,7 +113,7 @@ async def enqueue_pending(
     aiohttp_session: aiohttp.ClientSession,
     conn: AutoConnection
 ) -> None:
-    if await rt_manager.is_online(user_id):
+    if await is_online(user_id):
         _dict = {
             "user_id": user_id,
             "payload": payload
@@ -127,7 +125,7 @@ async def enqueue_pending(
 
 
 async def flush_pending(user_id: str):
-    if await rt_manager.is_online(user_id):
+    if await is_online(user_id):
         return
 
     key = f"pending:{user_id}"

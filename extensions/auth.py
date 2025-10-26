@@ -6,17 +6,16 @@ from quart import g, request
 import utils.auth as auth
 from utils.cache import auth as auth_cache
 from utils.database import AutoConnection
-from utils.realtime import RealtimeManager, SessionActions
 from utils.rate_limiting import ip_rate_limit, rate_limit
 from utils.email import create_token, new_code, verify_token
 from utils.email import templates, send_email, TokenType
+from realtime.broker import publish_event
 import os
 
 debug = os.getenv('DEBUG') == 'True'
 bp = Blueprint('auth', __name__)
 gb = Global()
 pool: asyncpg.Pool = gb.pool
-rt_manager: RealtimeManager = gb.rt_manager
 
 
 @route(bp, '/auth/check', methods=['GET'])
@@ -80,9 +79,9 @@ async def refresh() -> tuple[Response, int]:
 
     decoded = result.data["decoded"]
 
-    await rt_manager.session_event(
-        decoded["user_id"], SessionActions.CHECK_TOKEN,
-        decoded["session_id"]
+    await publish_event(
+        f"session:{decoded["session_id"]}",
+        {"type": "check_token"}
     )
 
     return response(data=result.data["tokens"]), 200
@@ -104,10 +103,11 @@ async def logout() -> tuple[Response, int]:
             data["secret"], data["user_id"], conn
         )
         await auth_cache.clear_token_cache(data)
-        await rt_manager.session_event(
-            result.data["user_id"], SessionActions.SESSION_LOGOUT,
-            result.data["session_id"]
-        )
+
+    await publish_event(
+        f"session:{data["session_id"]}",
+        {"type": "session_logout"}
+    )
 
     return response(), 204
 
@@ -192,7 +192,11 @@ async def change_password() -> tuple[Response, int]:
         if close_sessions:
             await auth.close_sessions_except(g.user_id, g.session_id, conn)
 
-    await rt_manager.session_event(g.user_id, SessionActions.CHECK_TOKEN, None)
+    await publish_event(
+        f"session:{g.user_id}",
+        {"type": "check_token"}
+    )
+
     await auth_cache.clear_all_tokens(g.user_id)
 
     return response(is_empty=True), 204

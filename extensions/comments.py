@@ -2,11 +2,11 @@ import asyncpg
 from quart import Blueprint, Quart, Response
 from core import response, Global, route, FunctionError
 from quart import g
+from realtime.notifs import publish_notification
 import utils.posts as posts
 import utils.comments as comments
 from utils.cache import posts as cache_posts
 from utils.database import AutoConnection
-from utils.realtime import RealtimeManager
 import utils.combined as combined
 from schemas import NotificationType
 from utils.rate_limiting import rate_limit
@@ -16,7 +16,6 @@ from utils.moderation import create_log, log_metadata
 bp = Blueprint('comments', __name__)
 gb = Global()
 pool: asyncpg.Pool = gb.pool
-rt_manager: RealtimeManager = gb.rt_manager
 
 
 @route(bp, "/posts/<id>/comments", methods=["POST"])
@@ -41,7 +40,7 @@ async def create_comment(id: str) -> tuple[Response, int]:
             g.user_id, id, content, conn, type, parent_id
         )
         if notif_to:
-            await rt_manager.publish_notification(
+            await publish_notification(
                 g.user_id, notif_to, NotificationType.NEW_COMMENT,
                 conn, None, "comment",
                 result.data.comment_id,
@@ -78,7 +77,7 @@ async def delete_comment(id: str, cid: str) -> tuple[Response, int]:
                     "delete_comment", reason,
                     conn
                 )
-                await rt_manager.publish_notification(
+                await publish_notification(
                     g.user_id, comment.data.user_id,
                     NotificationType.MOD_DELETED_COMMENT,
                     conn,
