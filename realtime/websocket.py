@@ -41,6 +41,8 @@ async def close_connection(
     if not state.closed:
         await websocket.close(1000, reason)
         state.closed = True
+        for task in state.tasks:
+            task.cancel()
 
 
 async def receiving(state: WebSocketState) -> None:
@@ -265,3 +267,6 @@ async def ws() -> None:
         if state.is_auth.is_set():
             await send_offline(state.user_id, state.session_id)
             await flush_pending(state.user_id)
+        await state.broker.pubsub.aclose()
+        del state.broker
+        del state
