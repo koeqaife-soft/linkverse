@@ -173,9 +173,6 @@ async def before():
             return response(error=True, error_msg="UNAUTHORIZED"), 401
         async with AutoConnection(pool) as conn:
             result = await cache_auth.check_token(token, conn)
-        if not result.success:
-            error_msg = result.message or "UNAUTHORIZED"
-            return response(error=True, error_msg=error_msg), 401
 
         g.user_id = result["user_id"]
         g.session_id = result["session_id"]
