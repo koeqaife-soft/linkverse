@@ -261,7 +261,7 @@ async def ws() -> None:
         await create_task(state, state.broker.start())
 
         await asyncio.gather(*state.tasks, return_exceptions=True)
-    except asyncio.CancelledError:
+    except* asyncio.CancelledError:
         pass
     finally:
         if state.is_auth.is_set():
