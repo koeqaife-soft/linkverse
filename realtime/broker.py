@@ -29,7 +29,7 @@ class WebSocketBroker:
         self,
         channel: str
     ) -> None:
-        if "channel" not in self.subs.keys():
+        if channel not in self.subs.keys():
             return
         del self.subs[channel]
         await self.pubsub.punsubscribe(channel)
@@ -47,7 +47,7 @@ class WebSocketBroker:
 
                 result = await callback(data, *user_data)
                 if result is False:
-                    await self.unsubscribe(result)
+                    await self.unsubscribe(channel)
 
 
 async def publish_event(channel: str, data: dict) -> None:
