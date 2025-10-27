@@ -154,7 +154,7 @@ async def sending_task(
 ) -> None:
     while True:
         try:
-            message = state.sending.get()
+            message = await state.sending.get()
         except asyncio.CancelledError:
             break
         await state.is_auth.wait()
@@ -195,7 +195,7 @@ async def user_event(
     state: WebSocketState
 ) -> None:
     if data["type"] == "user":
-        await websocket_send({
+        state.sending.put({
             "event": data["event"],
             "data": data["data"]
         })
