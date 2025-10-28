@@ -11,7 +11,9 @@ from realtime.auth import ws_token
 from realtime.online import send_offline, send_online
 from queues.web_push import flush_pending, clear_pending
 import typing as t
+import logging
 
+logger = logging.getLogger("linkverse.websocket")
 bp = Blueprint("websocket", __name__)
 
 
@@ -146,7 +148,7 @@ async def expire_task(
                     await asyncio.sleep(1)
                     await ws_auth(state)
         except asyncio.CancelledError:
-            break
+            return
 
 
 async def sending_task(
@@ -155,10 +157,10 @@ async def sending_task(
     while True:
         try:
             message = await state.sending.get()
+            await state.is_auth.wait()
+            await websocket_send(message)
         except asyncio.CancelledError:
-            break
-        await state.is_auth.wait()
-        await websocket_send(message)
+            return
 
 
 async def create_task(
@@ -185,6 +187,8 @@ async def ws_auth(
     except asyncio.TimeoutError:
         await close_connection(state, "AUTH_TIMEOUT")
         state.is_auth.clear()
+        return False
+    except asyncio.CancelledError:
         return False
     finally:
         state.auth_event.clear()
@@ -263,7 +267,12 @@ async def ws() -> None:
         await asyncio.gather(*state.tasks, return_exceptions=True)
     except* asyncio.CancelledError:
         pass
+    except* Exception as e:
+        logger.exception(e)
+        await close_connection(state, "INTERNAL_ERROR")
     finally:
+        if not state.closed:
+            await close_connection(state, "ABNORMAL_CLOSE")
         if state.is_auth.is_set():
             await send_offline(state.user_id, state.session_id)
             await flush_pending(state.user_id)
