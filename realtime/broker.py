@@ -35,6 +35,7 @@ class WebSocketBroker:
         await self.pubsub.punsubscribe(channel)
 
     async def start(self) -> None:
+        await self.pubsub.connect()
         async for message in self.pubsub.listen():
             if message['type'] == 'pmessage':
                 channel: str = message['channel'].decode()
