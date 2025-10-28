@@ -17,7 +17,7 @@ def create_weak_wrapper(
     if hasattr(func, '__self__'):
         weak_func = weakref.WeakMethod(func)
     else:
-        weak_func = func
+        weak_func = weakref.ref(func)
 
     async def wrapper(
         *args: t.Any
