@@ -297,8 +297,11 @@ async def memory_watchdog() -> None:
         snapshot = tracemalloc.take_snapshot()
         top_stats = snapshot.statistics("lineno")
 
+        print("-- TRACEMALLOC STAT --")
+        print(f">> WORKER PID: {os.getpid()}")
         for stat in top_stats[:5]:
-            logger.info(stat)
+            print(stat)
+        print("-- END OF STAT --")
 
         await asyncio.sleep(60)
 
