@@ -299,7 +299,7 @@ async def memory_watchdog() -> None:
 
         print("-- TRACEMALLOC STAT --")
         print(f">> WORKER PID: {os.getpid()}")
-        for stat in top_stats[:5]:
+        for stat in top_stats[:15]:
             print(stat)
         print("-- END OF STAT --")
 
