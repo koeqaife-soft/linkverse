@@ -156,9 +156,7 @@ async def sending_task(
     try:
         while True:
             message = await state.sending.get()
-            print("Got message:", message)
             await state.is_auth.wait()
-            print("Sending message:", message)
             await websocket_send(message)
     except asyncio.CancelledError:
         return
@@ -168,7 +166,6 @@ async def create_task(
     state: WebSocketState,
     coroutine: t.Coroutine
 ) -> None:
-    print("Creating task:", coroutine)
     task = asyncio.create_task(coroutine)
     state.tasks.append(task)
 
@@ -176,7 +173,6 @@ async def create_task(
 async def ws_auth(
     state: WebSocketState
 ) -> bool:
-    print("Starting auth process")
     state.auth_event.clear()
     await websocket_send({
         "event": "please_token"
@@ -201,14 +197,11 @@ async def user_event(
     data: UserEvent,
     state: WebSocketState
 ) -> None:
-    print("User event received:", data)
     if data["type"] == "user":
-        print("Processing user event:", data)
         await state.sending.put({
             "event": data["event"],
             "data": data["data"]
         })
-        print("User event processed")
 
 
 async def session_event(
@@ -229,15 +222,12 @@ def pubsub_event_wrapper(
     callback: SubCallback,
     state: WebSocketState
 ) -> SubCallback:
-    print("Creating pubsub event wrapper")
     weak_state = weakref.ref(state)
 
     async def wrapper(data: dict) -> bool | None:
-        print("Pubsub event received:", data)
         state = weak_state()
         if state is None:
             return False
-        print("Calling callback with data:", data)
         return await callback(data, state)
 
     return wrapper
@@ -246,7 +236,6 @@ def pubsub_event_wrapper(
 @bp.websocket("/ws")
 @cors_exempt
 async def ws() -> None:
-    print("WebSocket connection attempt")
     state = WebSocketState(
         tasks=[],
         incoming=asyncio.Queue(128),
