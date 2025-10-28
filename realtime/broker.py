@@ -14,7 +14,6 @@ class WebSocketBroker:
         self
     ) -> None:
         self.subs: dict[str, SubCallback] = {}
-        self.pubsub = redis.pubsub()
 
     async def subscribe(
         self,
@@ -34,8 +33,13 @@ class WebSocketBroker:
         del self.subs[channel]
         await self.pubsub.punsubscribe(channel)
 
-    async def start(self) -> None:
+    async def init(self) -> None:
+        self.pubsub = redis.pubsub()
         await self.pubsub.connect()
+
+    async def start(self) -> None:
+        if not hasattr(self, 'pubsub'):
+            raise RuntimeError("WebSocketBroker not initialized")
         async for message in self.pubsub.listen():
             if message['type'] == 'pmessage':
                 channel: str = message['channel'].decode()
@@ -50,6 +54,8 @@ class WebSocketBroker:
                     await self.unsubscribe(channel)
 
     async def cleanup(self) -> None:
+        if not hasattr(self, 'pubsub'):
+            return
         await self.pubsub.aclose()
         self.subs.clear()
 

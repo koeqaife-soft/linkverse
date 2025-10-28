@@ -260,6 +260,8 @@ async def ws() -> None:
         await create_task(state, heartbeat_task(state))
         await create_task(state, sending_task(state))
 
+        await state.broker.init()
+
         await state.broker.subscribe(
             f"user:{state.user_id}",
             pubsub_event_wrapper(user_event, state)
