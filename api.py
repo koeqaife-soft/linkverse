@@ -1,3 +1,4 @@
+import tracemalloc
 import asyncpg
 import quart
 from extensions import load_all
@@ -258,6 +259,11 @@ async def ping():
 
 @app.before_serving
 async def startup():
+    if os.getenv("TRACE_DEBUG") == "True":
+        tracemalloc.start(25)
+        logger.info("Tracemalloc started for debug purposes")
+        asyncio.create_task(memory_watchdog())
+
     with open("config/postgres.json") as f:
         config = json5.load(f)
     config["password"] = os.environ["POSTGRES_PASSWORD"]
@@ -284,6 +290,17 @@ async def shutdown():
     worker_id = get_proc_identity()
     if worker_id != 0:
         logger.warning("Stopping worker")
+
+
+async def memory_watchdog() -> None:
+    while True:
+        snapshot = tracemalloc.take_snapshot()
+        top_stats = snapshot.statistics("lineno")
+
+        for stat in top_stats[:5]:
+            logger.info(stat)
+
+        await asyncio.sleep(60)
 
 
 load_all(app)
