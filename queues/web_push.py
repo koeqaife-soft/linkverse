@@ -130,12 +130,16 @@ async def flush_pending(user_id: str):
 
     key = f"pending:{user_id}"
 
+    BATCH_SIZE = 50
     while True:
-        item = await redis.lpop(key)
-        if not item:
+        items = await redis.lrange(key, 0, BATCH_SIZE-1)
+        if not items:
             break
-        payload = orjson.loads(item)
-        await enqueue_push(payload["user_id"], payload["payload"])
+        for item in items:
+            payload = orjson.loads(item)
+            await enqueue_push(payload["user_id"], payload["payload"])
+        await redis.ltrim(key, len(items), -1)
+        await asyncio.sleep(0)
     await redis.delete(key)
 
 

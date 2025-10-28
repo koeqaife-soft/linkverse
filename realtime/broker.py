@@ -56,8 +56,9 @@ class WebSocketBroker:
     async def cleanup(self) -> None:
         if not hasattr(self, 'pubsub'):
             return
+        for channel in list(self.subs.keys()):
+            await self.unsubscribe(channel)
         await self.pubsub.aclose()
-        self.subs.clear()
 
 
 async def publish_event(channel: str, data: dict) -> None:

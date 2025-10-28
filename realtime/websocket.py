@@ -50,7 +50,7 @@ async def close_connection(
 
 async def receiving(state: WebSocketState) -> None:
     try:
-        while True:
+        while not state.closed:
             data = await websocket.receive()
             try:
                 decoded = orjson.loads(data)
@@ -69,7 +69,7 @@ async def auth_task(
     state: WebSocketState
 ) -> None:
     try:
-        while True:
+        while not state.closed:
             received = await state.auth.get()
             result = await ws_token(received["token"], state)
             if result:
@@ -87,7 +87,7 @@ async def incoming_task(
     state: WebSocketState
 ) -> None:
     try:
-        while True:
+        while not state.closed:
             received = await state.incoming.get()
 
             if received["type"] == "heartbeat":
@@ -109,7 +109,7 @@ async def incoming_task(
 async def heartbeat_task(
     state: WebSocketState
 ) -> None:
-    while True:
+    while not state.closed:
         try:
             coroutine = state.heartbeat_event.wait()
             await asyncio.wait_for(coroutine, 60)
@@ -124,7 +124,7 @@ async def expire_task(
     state: WebSocketState
 ) -> None:
     try:
-        while True:
+        while not state.closed:
             expiration = int(state.token_result["expiration_timestamp"])
             wait_time = max(0, expiration - time.time() - 120)
             if wait_time > 0:
@@ -154,7 +154,7 @@ async def sending_task(
     state: WebSocketState
 ) -> None:
     try:
-        while True:
+        while not state.closed:
             message = await state.sending.get()
             await state.is_auth.wait()
             await websocket_send(message)
@@ -246,7 +246,6 @@ async def ws() -> None:
         is_auth=asyncio.Event(),
         broker=WebSocketBroker()
     )
-    weakref.finalize(state, lambda: print("WebSocketState finalized"))
     await websocket.accept()
 
     try:
