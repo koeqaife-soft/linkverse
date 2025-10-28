@@ -260,6 +260,7 @@ async def ping():
 async def startup():
     with open("config/postgres.json") as f:
         config = json5.load(f)
+    config["password"] = os.environ["POSTGRES_PASSWORD"]
     pool = await create_pool(**config)
     gb.pool = pool
 
