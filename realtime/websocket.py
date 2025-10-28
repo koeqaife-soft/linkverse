@@ -43,8 +43,11 @@ async def close_connection(
 ) -> None:
     if not state.closed:
         state.closed = True
-        for task in state.tasks:
-            task.cancel()
+
+        state.incoming.shutdown()
+        state.auth.shutdown()
+        state.sending.shutdown()
+
         await websocket.close(1000, reason)
 
 
@@ -114,6 +117,7 @@ async def heartbeat_task(
             coroutine = state.heartbeat_event.wait()
             await asyncio.wait_for(coroutine, 60)
             state.heartbeat_event.clear()
+            await asyncio.sleep(1)
         except asyncio.TimeoutError:
             await close_connection(state, "HEARTBEAT_TIMEOUT")
         except asyncio.CancelledError:
@@ -126,20 +130,18 @@ async def expire_task(
     try:
         while not state.closed:
             expiration = int(state.token_result["expiration_timestamp"])
-            wait_time = max(0, expiration - time.time() - 120)
+            wait_time = max(1, expiration - time.time() - 120)
             if wait_time > 0:
-                coroutine = state.auth_event.wait()
                 try:
-                    await asyncio.wait_for(coroutine, wait_time)
+                    await asyncio.wait_for(state.auth_event.wait(), wait_time)
                     continue
                 except asyncio.TimeoutError:
                     pass
 
                 for _ in range(3):
                     await websocket_send({"event": "refresh_recommended"})
-                    coroutine = state.auth_event.wait()
                     try:
-                        await asyncio.wait_for(coroutine, 40)
+                        await asyncio.wait_for(state.auth_event.wait(), 40)
                         break
                     except asyncio.TimeoutError:
                         pass
@@ -280,6 +282,8 @@ async def ws() -> None:
         await asyncio.gather(*state.tasks, return_exceptions=True)
     except* asyncio.CancelledError:
         pass
+    except* asyncio.QueueShutDown:
+        pass
     except* Exception as e:
         logger.exception(e)
         await close_connection(state, "INTERNAL_ERROR")
@@ -289,6 +293,17 @@ async def ws() -> None:
         if state.is_auth.is_set():
             await send_offline(state.user_id, state.session_id)
             await flush_pending(state.user_id)
+
+        state.incoming.shutdown()
+        state.auth.shutdown()
+        state.sending.shutdown()
+        state.auth_event.clear()
+        state.heartbeat_event.clear()
+        state.is_auth.clear()
+        for task in state.tasks:
+            if not task.done():
+                task.cancel()
+
         await state.broker.cleanup()
         del state.broker
         del state
