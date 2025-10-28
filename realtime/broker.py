@@ -2,32 +2,11 @@ from core import Global
 from redis.asyncio import Redis
 import typing as t
 import orjson
-import weakref
 
 gb = Global()
 redis: Redis = gb.redis
 
 type SubCallback = t.Callable[..., t.Awaitable[bool | None]]
-
-
-def create_weak_wrapper(
-    func: SubCallback,
-    *call_args: t.Any
-) -> SubCallback:
-    if hasattr(func, '__self__'):
-        weak_func = weakref.WeakMethod(func)
-    else:
-        weak_func = weakref.ref(func)
-
-    async def wrapper(
-        *args: t.Any
-    ) -> bool | None:
-        strong_func = weak_func()
-        if strong_func is None:
-            return False
-        return await strong_func(*args, *call_args)
-
-    return wrapper
 
 
 class WebSocketBroker:
@@ -43,7 +22,7 @@ class WebSocketBroker:
         callback: SubCallback,
         *args: t.Any
     ) -> None:
-        self.subs[channel] = create_weak_wrapper(callback, *args)
+        self.subs[channel] = callback
         await self.pubsub.psubscribe(channel)
 
     async def unsubscribe(

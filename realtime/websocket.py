@@ -1,12 +1,13 @@
 
 import asyncio
 import time
+import weakref
 
 import orjson
 from quart import websocket, Blueprint
 from quart_cors import cors_exempt
 from realtime.base import WebSocketState
-from realtime.broker import WebSocketBroker
+from realtime.broker import WebSocketBroker, SubCallback
 from realtime.auth import ws_token
 from realtime.online import send_offline, send_online
 from queues.web_push import flush_pending, clear_pending
@@ -217,6 +218,21 @@ async def session_event(
         await close_connection(state, "SESSION_CLOSED")
 
 
+def pubsub_event_wrapper(
+    callback: SubCallback,
+    state: WebSocketState
+) -> SubCallback:
+    weak_state = weakref.ref(state)
+
+    async def wrapper(data: dict) -> bool | None:
+        state = weak_state()
+        if state is None:
+            return False
+        return await callback(data, state)
+
+    return wrapper
+
+
 @bp.websocket("/ws")
 @cors_exempt
 async def ws() -> None:
@@ -245,18 +261,15 @@ async def ws() -> None:
 
         await state.broker.subscribe(
             f"user:{state.user_id}",
-            user_event,
-            state
+            pubsub_event_wrapper(user_event, state)
         )
         await state.broker.subscribe(
             f"session:{state.session_id}",
-            session_event,
-            state
+            pubsub_event_wrapper(session_event, state)
         )
         await state.broker.subscribe(
             f"session:{state.user_id}",
-            session_event,
-            state
+            pubsub_event_wrapper(session_event, state)
         )
 
         await create_task(state, state.broker.start())
