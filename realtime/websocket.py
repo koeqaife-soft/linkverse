@@ -198,7 +198,7 @@ async def user_event(
     state: WebSocketState
 ) -> None:
     if data["type"] == "user":
-        state.sending.put({
+        await state.sending.put({
             "event": data["event"],
             "data": data["data"]
         })
