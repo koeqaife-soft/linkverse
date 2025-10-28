@@ -246,6 +246,7 @@ async def ws() -> None:
         is_auth=asyncio.Event(),
         broker=WebSocketBroker()
     )
+    weakref.finalize(state, lambda: print("WebSocketState finalized"))
     await websocket.accept()
 
     try:
