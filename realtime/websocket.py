@@ -201,11 +201,14 @@ async def user_event(
     data: UserEvent,
     state: WebSocketState
 ) -> None:
+    print("User event received:", data)
     if data["type"] == "user":
+        print("Processing user event:", data)
         await state.sending.put({
             "event": data["event"],
             "data": data["data"]
         })
+        print("User event processed")
 
 
 async def session_event(
@@ -266,6 +269,7 @@ async def ws() -> None:
         await create_task(state, incoming_task(state))
         await create_task(state, expire_task(state))
         await create_task(state, heartbeat_task(state))
+        await create_task(state, sending_task(state))
 
         await state.broker.subscribe(
             f"user:{state.user_id}",
