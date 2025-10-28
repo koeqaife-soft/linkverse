@@ -2,6 +2,7 @@ from core import Global
 from redis.asyncio import Redis
 import typing as t
 import orjson
+import weakref
 
 gb = Global()
 redis: Redis = gb.redis
@@ -9,20 +10,40 @@ redis: Redis = gb.redis
 type SubCallback = t.Callable[..., t.Awaitable[bool | None]]
 
 
+def create_weak_wrapper(
+    func: SubCallback,
+    *call_args: t.Any
+) -> SubCallback:
+    if hasattr(func, '__self__'):
+        weak_func = weakref.WeakMethod(func)
+    else:
+        weak_func = func
+
+    async def wrapper(
+        *args: t.Any
+    ) -> bool | None:
+        strong_func = weak_func()
+        if strong_func is None:
+            return False
+        return await strong_func(*args, *call_args)
+
+    return wrapper
+
+
 class WebSocketBroker:
     def __init__(
         self
     ) -> None:
-        self.subs: dict[str, tuple[SubCallback, tuple[t.Any, ...]]] = {}
+        self.subs: dict[str, SubCallback] = {}
         self.pubsub = redis.pubsub()
 
     async def subscribe(
         self,
         channel: str,
         callback: SubCallback,
-        user_data: tuple[t.Any, ...] = ()
+        *args: t.Any
     ) -> None:
-        self.subs[channel] = (callback, user_data)
+        self.subs[channel] = create_weak_wrapper(callback, *args)
         await self.pubsub.psubscribe(channel)
 
     async def unsubscribe(
@@ -43,11 +64,14 @@ class WebSocketBroker:
                 sub = self.subs.get(channel)
                 if not sub:
                     continue
-                callback, user_data = sub
 
-                result = await callback(data, *user_data)
+                result = await sub(data)
                 if result is False:
                     await self.unsubscribe(channel)
+
+    async def cleanup(self) -> None:
+        await self.pubsub.aclose()
+        self.subs.clear()
 
 
 async def publish_event(channel: str, data: dict) -> None:

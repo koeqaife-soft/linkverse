@@ -41,70 +41,68 @@ async def close_connection(
     reason: str = "CLOSED"
 ) -> None:
     if not state.closed:
-        await websocket.close(1000, reason)
         state.closed = True
         for task in state.tasks:
             task.cancel()
+        await websocket.close(1000, reason)
 
 
 async def receiving(state: WebSocketState) -> None:
-    while True:
-        try:
+    try:
+        while True:
             data = await websocket.receive()
-        except asyncio.CancelledError:
-            break
+            try:
+                decoded = orjson.loads(data)
+            except orjson.JSONDecodeError:
+                continue
 
-        try:
-            decoded = orjson.loads(data)
-        except orjson.JSONDecodeError:
-            continue
-
-        if decoded["type"] == "auth":
-            await state.auth.put(decoded)
-        else:
-            await state.incoming.put(decoded)
+            if decoded["type"] == "auth":
+                await state.auth.put(decoded)
+            else:
+                await state.incoming.put(decoded)
+    except asyncio.CancelledError:
+        return
 
 
 async def auth_task(
     state: WebSocketState
 ) -> None:
-    while True:
-        try:
+    try:
+        while True:
             received = await state.auth.get()
-        except asyncio.CancelledError:
-            break
-
-        result = await ws_token(received["token"], state)
-        if result:
-            await websocket_send({
-                "event": "success_auth"
-            })
-            state.auth_event.set()
-            continue
-        await close_connection(state, "INVALID_TOKEN")
+            result = await ws_token(received["token"], state)
+            if result:
+                await websocket_send({
+                    "event": "success_auth"
+                })
+                state.auth_event.set()
+                continue
+            await close_connection(state, "INVALID_TOKEN")
+    except asyncio.CancelledError:
+        return
 
 
 async def incoming_task(
     state: WebSocketState
 ) -> None:
-    while True:
-        try:
+    try:
+        while True:
             received = await state.incoming.get()
-        except asyncio.CancelledError:
-            break
 
-        if received["type"] == "heartbeat":
-            state.heartbeat_event.set()
-            data = received.get("data")
-            if isinstance(data, dict):
-                last_active = float(data["last_active"])
-                if last_active != state.last_active:
-                    await send_online(state.user_id, state.session_id)
-                    state.last_active = last_active
-                    await clear_pending(state.user_id)
-                if state.last_active < time.time() - 120:
-                    await send_offline(state.user_id, state.session_id)
-                    await flush_pending(state.user_id)
+            if received["type"] == "heartbeat":
+                state.heartbeat_event.set()
+                data = received.get("data")
+                if isinstance(data, dict):
+                    last_active = float(data["last_active"])
+                    if last_active != state.last_active:
+                        await send_online(state.user_id, state.session_id)
+                        state.last_active = last_active
+                        await clear_pending(state.user_id)
+                    if state.last_active < time.time() - 120:
+                        await send_offline(state.user_id, state.session_id)
+                        await flush_pending(state.user_id)
+    except asyncio.CancelledError:
+        return
 
 
 async def heartbeat_task(
@@ -118,14 +116,14 @@ async def heartbeat_task(
         except asyncio.TimeoutError:
             await close_connection(state, "HEARTBEAT_TIMEOUT")
         except asyncio.CancelledError:
-            break
+            return
 
 
 async def expire_task(
     state: WebSocketState
 ) -> None:
-    while True:
-        try:
+    try:
+        while True:
             expiration = int(state.token_result["expiration_timestamp"])
             wait_time = max(0, expiration - time.time() - 120)
             if wait_time > 0:
@@ -147,20 +145,20 @@ async def expire_task(
                 else:
                     await asyncio.sleep(1)
                     await ws_auth(state)
-        except asyncio.CancelledError:
-            return
+    except asyncio.CancelledError:
+        return
 
 
 async def sending_task(
     state: WebSocketState
 ) -> None:
-    while True:
-        try:
+    try:
+        while True:
             message = await state.sending.get()
             await state.is_auth.wait()
             await websocket_send(message)
-        except asyncio.CancelledError:
-            return
+    except asyncio.CancelledError:
+        return
 
 
 async def create_task(
@@ -224,9 +222,9 @@ async def session_event(
 async def ws() -> None:
     state = WebSocketState(
         tasks=[],
-        incoming=asyncio.Queue(),
-        auth=asyncio.Queue(),
-        sending=asyncio.Queue(),
+        incoming=asyncio.Queue(128),
+        auth=asyncio.Queue(128),
+        sending=asyncio.Queue(128),
         auth_event=asyncio.Event(),
         heartbeat_event=asyncio.Event(),
         is_auth=asyncio.Event(),
@@ -245,21 +243,20 @@ async def ws() -> None:
         await create_task(state, expire_task(state))
         await create_task(state, heartbeat_task(state))
 
-        user_data = (state,)
         await state.broker.subscribe(
             f"user:{state.user_id}",
             user_event,
-            user_data
+            state
         )
         await state.broker.subscribe(
             f"session:{state.session_id}",
             session_event,
-            user_data
+            state
         )
         await state.broker.subscribe(
             f"session:{state.user_id}",
             session_event,
-            user_data
+            state
         )
 
         await create_task(state, state.broker.start())
@@ -276,6 +273,6 @@ async def ws() -> None:
         if state.is_auth.is_set():
             await send_offline(state.user_id, state.session_id)
             await flush_pending(state.user_id)
-        await state.broker.pubsub.aclose()
+        await state.broker.cleanup()
         del state.broker
         del state
