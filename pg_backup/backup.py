@@ -11,8 +11,7 @@ TEMP_FILE = os.path.join(BACKUP_FOLDER, "backup.tmp")
 TEMP_FILE_ZIP = os.path.join(BACKUP_FOLDER, "backup.tmp.zip")
 
 
-def dump(user: str, database: str, password: str, output_file: str) -> None:
-    os.environ["PGPASSWORD"] = password
+def dump(user: str, database: str, output_file: str) -> None:
     process = subprocess.run(
         ["pg_dump", "-U", user, "-d", database, "-f", output_file]
     )
@@ -65,9 +64,8 @@ if __name__ == "__main__":
         config: dict[str, str] = json.load(f)
     user = config["user"]
     database = config["database"]
-    password = config["password"]
 
-    dump(user, database, password, TEMP_FILE)
+    dump(user, database, TEMP_FILE)
     compress(TEMP_FILE, TEMP_FILE_ZIP)
 
     try:
