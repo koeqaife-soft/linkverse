@@ -193,6 +193,8 @@ async def expire_task(
                     await asyncio.sleep(1)
                     await ws_auth(state)
     except asyncio.CancelledError:
+        if __debug__:
+            logger.debug("Expire task in WS was canceled")
         return
     except Exception as e:
         logger.exception(e)
