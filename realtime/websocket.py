@@ -331,7 +331,7 @@ async def ws() -> None:
     await websocket.accept()
 
     if __debug__:
-        logger.debug("Accepted WS connection, time main tasks")
+        logger.debug("Accepted WS connection, time for main tasks")
 
     try:
         await create_task(state, receiving(state))
