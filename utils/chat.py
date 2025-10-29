@@ -6,6 +6,7 @@ from utils.database import AutoConnection
 import orjson
 from utils.generation import generate_id
 from core import FunctionError
+from utils.storage import build_get_link
 
 
 class UserChannel(t.TypedDict):
@@ -29,6 +30,7 @@ class Message(t.TypedDict):
     file_context_id: str | None
     created_at: datetime.datetime
     edited_at: datetime.datetime | None
+    media: list[str]
 
 
 async def get_user_channels(
@@ -113,3 +115,70 @@ async def ensure_membership(
         return row['membership_id']
     else:
         raise FunctionError("FORBIDDEN", 403)
+
+
+def build_message_media(media: list | None) -> list:
+    if media is None:
+        return []
+
+    new_media = []
+    for file in media:
+        new_media.append(build_get_link(file))
+
+    return new_media
+
+
+async def get_message(
+    message_id: str,
+    conn: AutoConnection
+) -> Message | None:
+    db = await conn.create_conn()
+    query = """
+        SELECT m.user_id, m.channel_id, m.content,
+               m.content_type, m.file_context_id,
+               m.message_id, m.created_at, m.edited_at,
+               f.objects as media
+        FROM messages m
+        LEFT JOIN files f ON f.context_id = m.file_context_id
+        WHERE message_id = $1
+    """
+    row = await db.fetchrow(query, message_id)
+    if row:
+        message = t.cast(Message, dict(row))
+    else:
+        raise FunctionError("MESSAGE_NOT_FOUND", 404)
+
+    message['media'] = build_message_media(message.get('media'))
+
+    return message
+
+
+async def create_message(
+    channel_id: str,
+    user_id: str,
+    content: str,
+    content_type: t.Literal['plain', 'encrypted'],
+    conn: AutoConnection,
+    file_context_id: str | None = None
+) -> Message:
+    db = await conn.create_conn()
+
+    async with db.transaction():
+        new_message_id = str(generate_id())
+        await db.execute(
+            """
+                INSERT INTO messages (
+                    channel_id, user_id, content,
+                    content_type, file_context_id, message_id
+                )
+                VALUES ($1, $2, $3, $4, $5, $6)
+            """,
+            channel_id,
+            user_id,
+            content,
+            content_type,
+            file_context_id,
+            new_message_id
+        )
+        message = await get_message(new_message_id, conn)
+        return message
