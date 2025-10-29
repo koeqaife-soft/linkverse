@@ -2,6 +2,9 @@ from core import Global
 from redis.asyncio import Redis
 import typing as t
 import orjson
+import logging
+
+logger = logging.getLogger("linkverse.broker")
 
 gb = Global()
 redis: Redis = gb.redis
@@ -40,7 +43,11 @@ class WebSocketBroker:
     async def start(self) -> None:
         if not hasattr(self, 'pubsub'):
             raise RuntimeError("WebSocketBroker not initialized")
+
         async for message in self.pubsub.listen():
+            if __debug__:
+                logger.debug("WS broker got message from pub/sub")
+
             if message['type'] == 'pmessage':
                 channel: str = message['channel'].decode()
                 data: dict = orjson.loads(message['data'])

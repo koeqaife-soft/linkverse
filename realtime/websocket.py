@@ -41,6 +41,9 @@ async def close_connection(
     state: WebSocketState,
     reason: str = "CLOSED"
 ) -> None:
+    if __debug__:
+        logger.debug("Closing WS connection")
+
     if not state.closed:
         state.closed = True
 
@@ -50,15 +53,25 @@ async def close_connection(
 
         await websocket.close(1000, reason)
 
+        if __debug__:
+            logger.debug("WS connection closed")
+
 
 async def receiving(state: WebSocketState) -> None:
     try:
         while not state.closed:
             data = await websocket.receive()
+
+            if __debug__:
+                logger.debug("WS received message, decoding it...")
+
             try:
                 decoded = orjson.loads(data)
             except orjson.JSONDecodeError:
                 continue
+
+            if __debug__:
+                logger.debug("WS decoded message, putting it in queue...")
 
             if decoded["type"] == "auth":
                 await state.auth.put(decoded)
@@ -66,6 +79,9 @@ async def receiving(state: WebSocketState) -> None:
                 await state.incoming.put(decoded)
     except asyncio.CancelledError:
         return
+    except Exception as e:
+        logger.exception(e)
+        await close_connection(state, "INTERNAL_ERROR")
 
 
 async def auth_task(
@@ -74,8 +90,16 @@ async def auth_task(
     try:
         while not state.closed:
             received = await state.auth.get()
+
+            if __debug__:
+                logger.debug("WS got auth message")
+
             result = await ws_token(received["token"], state)
             if result:
+
+                if __debug__:
+                    logger.debug("WS was authenticated")
+
                 await websocket_send({
                     "event": "success_auth"
                 })
@@ -84,6 +108,9 @@ async def auth_task(
             await close_connection(state, "INVALID_TOKEN")
     except asyncio.CancelledError:
         return
+    except Exception as e:
+        logger.exception(e)
+        await close_connection(state, "INTERNAL_ERROR")
 
 
 async def incoming_task(
@@ -93,6 +120,8 @@ async def incoming_task(
         while not state.closed:
             received = await state.incoming.get()
 
+            if __debug__:
+                logger.debug("WS got message with type %s", received["type"])
             if received["type"] == "heartbeat":
                 state.heartbeat_event.set()
                 data = received.get("data")
@@ -107,21 +136,29 @@ async def incoming_task(
                         await flush_pending(state.user_id)
     except asyncio.CancelledError:
         return
+    except Exception as e:
+        logger.exception(e)
+        await close_connection(state, "INTERNAL_ERROR")
 
 
 async def heartbeat_task(
     state: WebSocketState
 ) -> None:
-    while not state.closed:
-        try:
+    try:
+        while not state.closed:
             coroutine = state.heartbeat_event.wait()
             await asyncio.wait_for(coroutine, 60)
+            if __debug__:
+                logger.debug("WS successfully got heartbeat")
             state.heartbeat_event.clear()
             await asyncio.sleep(1)
-        except asyncio.TimeoutError:
-            await close_connection(state, "HEARTBEAT_TIMEOUT")
-        except asyncio.CancelledError:
-            return
+    except asyncio.TimeoutError:
+        await close_connection(state, "HEARTBEAT_TIMEOUT")
+    except asyncio.CancelledError:
+        return
+    except Exception as e:
+        logger.exception(e)
+        await close_connection(state, "INTERNAL_ERROR")
 
 
 async def expire_task(
@@ -130,8 +167,15 @@ async def expire_task(
     try:
         while not state.closed:
             expiration = int(state.token_result["expiration_timestamp"])
-            wait_time = max(1, expiration - time.time() - 120)
+            wait_time = max(15, expiration - time.time() - 120)
             if wait_time > 0:
+                if __debug__:
+                    logger.debug(
+                        "WS will wait %s "
+                        "for token to send refresh_recommended",
+                        str(wait_time)
+                    )
+
                 try:
                     await asyncio.wait_for(state.auth_event.wait(), wait_time)
                     continue
@@ -150,6 +194,9 @@ async def expire_task(
                     await ws_auth(state)
     except asyncio.CancelledError:
         return
+    except Exception as e:
+        logger.exception(e)
+        await close_connection(state, "INTERNAL_ERROR")
 
 
 async def sending_task(
@@ -158,16 +205,30 @@ async def sending_task(
     try:
         while not state.closed:
             message = await state.sending.get()
+
+            if __debug__:
+                logger.debug("WS is ready to send message to client")
+
             await state.is_auth.wait()
+
+            if __debug__:
+                logger.debug("WS is sending message to client")
+
             await websocket_send(message)
     except asyncio.CancelledError:
         return
+    except Exception as e:
+        logger.exception(e)
+        await close_connection(state, "INTERNAL_ERROR")
 
 
 async def create_task(
     state: WebSocketState,
     coroutine: t.Coroutine
 ) -> None:
+    if __debug__:
+        logger.debug("WS is creating task %s", repr(coroutine))
+
     task = asyncio.create_task(coroutine)
     state.tasks.append(task)
 
@@ -175,6 +236,9 @@ async def create_task(
 async def ws_auth(
     state: WebSocketState
 ) -> bool:
+    if __debug__:
+        logger.debug("WS acquires auth token")
+
     state.auth_event.clear()
     await websocket_send({
         "event": "please_token"
@@ -184,6 +248,10 @@ async def ws_auth(
         wait_coroutine = state.auth_event.wait()
         await asyncio.wait_for(wait_coroutine, 15)
         state.is_auth.set()
+
+        if __debug__:
+            logger.debug("WS got correct auth token")
+
         return True
     except asyncio.TimeoutError:
         await close_connection(state, "AUTH_TIMEOUT")
@@ -191,6 +259,9 @@ async def ws_auth(
         return False
     except asyncio.CancelledError:
         return False
+    except Exception as e:
+        logger.exception(e)
+        await close_connection(state, "INTERNAL_ERROR")
     finally:
         state.auth_event.clear()
 
@@ -199,6 +270,9 @@ async def user_event(
     data: UserEvent,
     state: WebSocketState
 ) -> None:
+    if __debug__:
+        logger.debug("WS got user event with type %s", data["type"])
+
     if data["type"] == "user":
         await state.sending.put({
             "event": data["event"],
@@ -210,6 +284,9 @@ async def session_event(
     data: SessionEvent,
     state: WebSocketState
 ) -> None:
+    if __debug__:
+        logger.debug("WS got session event with type %s", data["type"])
+
     type = data["type"]
     if type == "check_token":
         result = await ws_token(state.token, state, False)
@@ -288,6 +365,8 @@ async def ws() -> None:
         logger.exception(e)
         await close_connection(state, "INTERNAL_ERROR")
     finally:
+        if __debug__:
+            logger.debug("WS is cleaning up")
         if not state.closed:
             await close_connection(state, "ABNORMAL_CLOSE")
         if state.is_auth.is_set():
@@ -305,5 +384,11 @@ async def ws() -> None:
                 task.cancel()
 
         await state.broker.cleanup()
+
+        await asyncio.gather(*state.tasks, return_exceptions=True)
+
         del state.broker
         del state
+
+        if __debug__:
+            logger.debug("WS cleaned up, letting GC to do its work")
