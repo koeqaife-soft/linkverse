@@ -280,6 +280,8 @@ async def startup():
     start_scheduler()
 
     logger.info("Worker started!")
+    if __debug__:
+        logger.info("__debug__ is True")
 
 
 @app.after_serving
