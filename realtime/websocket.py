@@ -315,6 +315,9 @@ def pubsub_event_wrapper(
 @bp.websocket("/ws")
 @cors_exempt
 async def ws() -> None:
+    if __debug__:
+        logger.debug("Got new WS connection")
+
     state = WebSocketState(
         tasks=[],
         incoming=asyncio.Queue(128),
@@ -327,9 +330,15 @@ async def ws() -> None:
     )
     await websocket.accept()
 
+    if __debug__:
+        logger.debug("Accepted WS connection, time main tasks")
+
     try:
         await create_task(state, receiving(state))
         await create_task(state, auth_task(state))
+
+        if __debug__:
+            logger.debug("WS starts auth")
 
         if not (await ws_auth(state)):
             return
