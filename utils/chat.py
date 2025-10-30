@@ -17,8 +17,9 @@ class UserChannel(t.TypedDict):
     last_read_at: datetime.datetime
     joined_at: datetime.datetime
     metadata: str | None  # JSONB
-    type: t.Literal['private', 'group']
+    type: t.Literal['direct', 'group']
     created_at: datetime.datetime
+    members: list[str]
 
 
 class Message(t.TypedDict):
