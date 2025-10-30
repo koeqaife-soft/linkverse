@@ -131,6 +131,7 @@ def response(
 
     if not keep_none:
         data = remove_none_values(data)
+    data = convert_datetime_to_timestamp(data)
 
     response_data = {
         "success": not error,
@@ -140,9 +141,7 @@ def response(
         response_data["error"] = error_msg
 
     response = Response(
-        orjson.dumps(
-            response_data, default=json_serialize
-        ),
+        orjson.dumps(response_data),
         content_type="application/json",
         **kwargs
     )
@@ -160,9 +159,15 @@ def response(
     return response
 
 
-def json_serialize(data: t.Any) -> t.Any:
-    if isinstance(data, datetime.datetime):
-        return data.timestamp()
+def convert_datetime_to_timestamp(d):
+    if isinstance(d, dict):
+        return {k: convert_datetime_to_timestamp(v) for k, v in d.items()}
+    elif isinstance(d, list):
+        return [convert_datetime_to_timestamp(v) for v in d]
+    elif isinstance(d, datetime.datetime):
+        return int(d.timestamp())
+    else:
+        return d
 
 
 def remove_none_values(d):
