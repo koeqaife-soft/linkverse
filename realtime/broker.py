@@ -1,3 +1,4 @@
+import asyncio
 from core import Global
 from redis.asyncio import Redis
 import typing as t
@@ -44,21 +45,32 @@ class WebSocketBroker:
         if not hasattr(self, 'pubsub'):
             raise RuntimeError("WebSocketBroker not initialized")
 
-        async for message in self.pubsub.listen():
-            if __debug__:
-                logger.debug("WS broker got message from pub/sub")
+        try:
+            async for message in self.pubsub.listen():
+                if __debug__:
+                    logger.debug("WS broker got message from pub/sub")
 
-            if message['type'] == 'pmessage':
-                channel: str = message['channel'].decode()
-                data: dict = orjson.loads(message['data'])
-
-                sub = self.subs.get(channel)
-                if not sub:
+                if not message or not isinstance(message, dict):
+                    await asyncio.sleep(0.1)
                     continue
 
-                result = await sub(data)
-                if result is False:
-                    await self.unsubscribe(channel)
+                if message['type'] == 'pmessage':
+                    channel: str = message['channel'].decode()
+                    try:
+                        data: dict = orjson.loads(message['data'])
+
+                        sub = self.subs.get(channel)
+                        if sub:
+                            result = await sub(data)
+                            if result is False:
+                                await self.unsubscribe(channel)
+
+                    except Exception as e:
+                        logger.exception(e)
+
+                await asyncio.sleep(0)
+        except asyncio.CancelledError:
+            pass
 
     async def cleanup(self) -> None:
         if not hasattr(self, 'pubsub'):
