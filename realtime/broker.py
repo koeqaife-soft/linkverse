@@ -48,7 +48,7 @@ class WebSocketBroker:
         try:
             async for message in self.pubsub.listen():
                 if __debug__:
-                    logger.debug("WS broker got message from pub/sub")
+                    logger.debug("Broker got message from pub/sub")
 
                 if not message or not isinstance(message, dict):
                     await asyncio.sleep(0.1)

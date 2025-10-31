@@ -213,6 +213,10 @@ def get_proc_identity() -> int:
         return 0
 
 
+def is_systemd() -> bool:
+    return os.getenv("INVOCATION_ID") is not None
+
+
 class ColoredFormatter(logging.Formatter):
     COLORS = {
         logging.DEBUG: Fore.WHITE,
@@ -225,10 +229,14 @@ class ColoredFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         log_color = self.COLORS.get(record.levelno, Fore.WHITE)
         levelname = record.levelname[0]
+
+        record_name = record.name.removeprefix("linkverse.")
+
         formatted_message = super().format(record)
+
         return (
             log_color +
-            f"{levelname}{Style.BRIGHT} " +
+            f"{levelname}{Style.BRIGHT} [{record_name}] " +
             formatted_message +
             Style.RESET_ALL
         )
@@ -242,10 +250,12 @@ def setup_logger(logger: logging.Logger | None = None):
 
     id = f"[{get_proc_identity()}/{worker_count}|" \
          f"{server_id + 1}/{total_servers}]"
-    formatter = ColoredFormatter(
-        f'%(asctime)s [%(process)d] {id}: %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
+    if is_systemd():
+        fmt = f'{id}: %(message)s'
+    else:
+        fmt = f'%(asctime)s [%(process)d] {id}: %(message)s'
+
+    formatter = ColoredFormatter(fmt, datefmt='%Y-%m-%d %H:%M:%S')
     handler.setFormatter(formatter)
 
     logger.setLevel(logging.DEBUG)

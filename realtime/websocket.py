@@ -42,7 +42,7 @@ async def close_connection(
     reason: str = "CLOSED"
 ) -> None:
     if __debug__:
-        logger.debug("Closing WS connection")
+        logger.debug("Closing connection")
 
     if not state.closed:
         state.closed = True
@@ -54,7 +54,7 @@ async def close_connection(
         await websocket.close(1000, reason)
 
         if __debug__:
-            logger.debug("WS connection closed")
+            logger.debug("Connection closed")
 
 
 async def receiving(state: WebSocketState) -> None:
@@ -63,7 +63,7 @@ async def receiving(state: WebSocketState) -> None:
             data = await websocket.receive()
 
             if __debug__:
-                logger.debug("WS received message, decoding it...")
+                logger.debug("Received message, decoding it...")
 
             try:
                 decoded = orjson.loads(data)
@@ -71,7 +71,7 @@ async def receiving(state: WebSocketState) -> None:
                 continue
 
             if __debug__:
-                logger.debug("WS decoded message, putting it in queue...")
+                logger.debug("Decoded message, putting it in queue...")
 
             if decoded["type"] == "auth":
                 await state.auth.put(decoded)
@@ -92,13 +92,13 @@ async def auth_task(
             received = await state.auth.get()
 
             if __debug__:
-                logger.debug("WS got auth message")
+                logger.debug("Got auth message")
 
             result = await ws_token(received["token"], state)
             if result:
 
                 if __debug__:
-                    logger.debug("WS was authenticated")
+                    logger.debug("User was authenticated")
 
                 await websocket_send({
                     "event": "success_auth"
@@ -122,7 +122,7 @@ async def incoming_task(
             received = await state.incoming.get()
 
             if __debug__:
-                logger.debug("WS got message with type %s", received["type"])
+                logger.debug("Got message with type %s", received["type"])
             if received["type"] == "heartbeat":
                 state.heartbeat_event.set()
                 data = received.get("data")
@@ -173,7 +173,7 @@ async def expire_task(
             if wait_time > 0:
                 if __debug__:
                     logger.debug(
-                        "WS will wait %s "
+                        "Expire task will wait %s "
                         "for token to send refresh_recommended",
                         str(wait_time)
                     )
@@ -199,7 +199,7 @@ async def expire_task(
             await asyncio.sleep(5)
     except asyncio.CancelledError:
         if __debug__:
-            logger.debug("Expire task in WS was canceled")
+            logger.debug("Expire task was canceled")
         return
     except Exception as e:
         logger.exception(e)
@@ -214,12 +214,12 @@ async def sending_task(
             message = await state.sending.get()
 
             if __debug__:
-                logger.debug("WS is ready to send message to client")
+                logger.debug("Message is ready to send")
 
             await state.is_auth.wait()
 
             if __debug__:
-                logger.debug("WS is sending message to client")
+                logger.debug("Sending the message")
 
             await websocket_send(message)
             state.sending.task_done()
@@ -235,7 +235,7 @@ async def create_task(
     coroutine: t.Coroutine
 ) -> None:
     if __debug__:
-        logger.debug("WS is creating task %s", repr(coroutine))
+        logger.debug("Creating task %s", repr(coroutine))
 
     task = asyncio.create_task(coroutine)
     state.tasks.append(task)
@@ -245,7 +245,7 @@ async def ws_auth(
     state: WebSocketState
 ) -> bool:
     if __debug__:
-        logger.debug("WS acquires auth token")
+        logger.debug("Acquiring auth token")
 
     state.auth_event.clear()
     await websocket_send({
@@ -258,7 +258,7 @@ async def ws_auth(
         state.is_auth.set()
 
         if __debug__:
-            logger.debug("WS got correct auth token")
+            logger.debug("Got correct auth token")
 
         return True
     except asyncio.TimeoutError:
@@ -279,7 +279,7 @@ async def user_event(
     state: WebSocketState
 ) -> None:
     if __debug__:
-        logger.debug("WS got user event with type %s", data["type"])
+        logger.debug("Got user event with type %s", data["type"])
 
     if data["type"] == "user":
         await state.sending.put({
@@ -293,7 +293,7 @@ async def session_event(
     state: WebSocketState
 ) -> None:
     if __debug__:
-        logger.debug("WS got session event with type %s", data["type"])
+        logger.debug("Got session event with type %s", data["type"])
 
     type = data["type"]
     if type == "check_token":
@@ -324,7 +324,7 @@ def pubsub_event_wrapper(
 @cors_exempt
 async def ws() -> None:
     if __debug__:
-        logger.debug("Got new WS connection")
+        logger.debug("New connection")
 
     state = WebSocketState(
         tasks=[],
@@ -339,14 +339,14 @@ async def ws() -> None:
     await websocket.accept()
 
     if __debug__:
-        logger.debug("Accepted WS connection, time for main tasks")
+        logger.debug("Accepted connection, time for main tasks")
 
     try:
         await create_task(state, receiving(state))
         await create_task(state, auth_task(state))
 
         if __debug__:
-            logger.debug("WS starts auth")
+            logger.debug("Starting auth process")
 
         if not (await ws_auth(state)):
             return
@@ -383,7 +383,7 @@ async def ws() -> None:
         await close_connection(state, "INTERNAL_ERROR")
     finally:
         if __debug__:
-            logger.debug("WS is cleaning up")
+            logger.debug("Cleaning up resources")
         if not state.closed:
             await close_connection(state, "ABNORMAL_CLOSE")
         if state.is_auth.is_set():
@@ -404,8 +404,18 @@ async def ws() -> None:
 
         await asyncio.gather(*state.tasks, return_exceptions=True)
 
+        if __debug__:
+            logger.debug("Cleaned up, letting GC to do its work")
+            to_finalize = [
+                (state, "State"),
+                (state.broker, "Broker"),
+                (state.incoming, "Incoming queue"),
+                (state.sending, "Sending queue"),
+                (state.auth, "Auth queue"),
+            ]
+            for var, desc in to_finalize:
+                weakref.finalize(var, lambda desc=desc: logger.debug(desc))
+            del to_finalize
+
         del state.broker
         del state
-
-        if __debug__:
-            logger.debug("WS cleaned up, letting GC to do its work")
