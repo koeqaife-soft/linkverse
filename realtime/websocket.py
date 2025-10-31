@@ -414,7 +414,13 @@ async def ws() -> None:
                 (state.auth, "Auth queue"),
             ]
             for var, desc in to_finalize:
-                weakref.finalize(var, lambda desc=desc: logger.debug(desc))
+                weakref.finalize(
+                    var,
+                    lambda desc=desc: logger.debug(
+                        "%s was finalized",
+                        desc
+                    )
+                )
             del to_finalize
 
         del state.broker
