@@ -106,6 +106,7 @@ async def auth_task(
                 state.auth_event.set()
                 continue
             await close_connection(state, "INVALID_TOKEN")
+            state.auth.task_done()
     except asyncio.CancelledError:
         return
     except Exception as e:
@@ -134,6 +135,7 @@ async def incoming_task(
                     if state.last_active < time.time() - 120:
                         await send_offline(state.user_id, state.session_id)
                         await flush_pending(state.user_id)
+            state.auth.task_done()
     except asyncio.CancelledError:
         return
     except Exception as e:
@@ -192,6 +194,9 @@ async def expire_task(
                 else:
                     await asyncio.sleep(1)
                     await ws_auth(state)
+            else:
+                await ws_auth(state)
+            await asyncio.sleep(5)
     except asyncio.CancelledError:
         if __debug__:
             logger.debug("Expire task in WS was canceled")
@@ -217,6 +222,7 @@ async def sending_task(
                 logger.debug("WS is sending message to client")
 
             await websocket_send(message)
+            state.auth.task_done()
     except asyncio.CancelledError:
         return
     except Exception as e:
