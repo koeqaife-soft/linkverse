@@ -408,6 +408,7 @@ async def ws() -> None:
             logger.debug("Cleaned up, letting GC to do its work")
             to_finalize = [
                 (state, "State"),
+                (state.broker.pubsub, "PubSub"),
                 (state.broker, "Broker"),
                 (state.incoming, "Incoming queue"),
                 (state.sending, "Sending queue"),
@@ -418,7 +419,7 @@ async def ws() -> None:
                     var,
                     lambda desc=desc: logger.debug(
                         "%s was finalized",
-                        desc
+                        repr(desc)
                     )
                 )
             del to_finalize
