@@ -135,7 +135,7 @@ async def incoming_task(
                     if state.last_active < time.time() - 120:
                         await send_offline(state.user_id, state.session_id)
                         await flush_pending(state.user_id)
-            state.auth.task_done()
+            state.incoming.task_done()
     except asyncio.CancelledError:
         return
     except Exception as e:
@@ -222,7 +222,7 @@ async def sending_task(
                 logger.debug("WS is sending message to client")
 
             await websocket_send(message)
-            state.auth.task_done()
+            state.sending.task_done()
     except asyncio.CancelledError:
         return
     except Exception as e:
