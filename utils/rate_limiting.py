@@ -7,6 +7,7 @@ from typing import Any, Awaitable, Callable
 from core import Global, response
 from quart import g, request
 from redis.asyncio import Redis
+from redis.exceptions import NoScriptError
 
 gb: Global = Global()
 redis: Redis = gb.redis
@@ -86,9 +87,19 @@ def rate_limit(
                     str(uuid.uuid4())
                 ])
 
-            sha = await _ensure_lua_loaded(redis)
-            res = await redis.evalsha(sha, len(keys), *keys, *argv)
-            ok, info = await _parse_lua_response(res)
+            for _ in range(3):
+                sha = await _ensure_lua_loaded(redis)
+                try:
+                    res = await redis.evalsha(sha, len(keys), *keys, *argv)
+                    ok, info = await _parse_lua_response(res)
+                    break
+                except NoScriptError:
+                    async with _lua_lock:
+                        global _lua_sha
+                        _lua_sha = None
+            else:
+                raise RuntimeError("Couldn't use redis rate limit script")
+
             if not ok:
                 return response(
                     error=True,
@@ -127,9 +138,18 @@ def ip_rate_limit(
             keys = [key]
             argv = [str(now), str(limit), str(window), str(uuid.uuid4())]
 
-            sha = await _ensure_lua_loaded(redis)
-            res = await redis.evalsha(sha, len(keys), *keys, *argv)
-            ok, info = await _parse_lua_response(res)
+            for _ in range(3):
+                sha = await _ensure_lua_loaded(redis)
+                try:
+                    res = await redis.evalsha(sha, len(keys), *keys, *argv)
+                    ok, info = await _parse_lua_response(res)
+                    break
+                except NoScriptError:
+                    async with _lua_lock:
+                        global _lua_sha
+                        _lua_sha = None
+            else:
+                raise RuntimeError("Couldn't use redis rate limit script")
 
             if not ok:
                 return response(
