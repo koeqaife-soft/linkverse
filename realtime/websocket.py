@@ -109,6 +109,8 @@ async def auth_task(
             state.auth.task_done()
     except asyncio.CancelledError:
         return
+    except asyncio.QueueShutDown:
+        return
     except Exception as e:
         logger.exception(e)
         await close_connection(state, "INTERNAL_ERROR")
@@ -137,6 +139,8 @@ async def incoming_task(
                         await flush_pending(state.user_id)
             state.incoming.task_done()
     except asyncio.CancelledError:
+        return
+    except asyncio.QueueShutDown:
         return
     except Exception as e:
         logger.exception(e)
@@ -224,6 +228,8 @@ async def sending_task(
             await websocket_send(message)
             state.sending.task_done()
     except asyncio.CancelledError:
+        return
+    except asyncio.QueueShutDown:
         return
     except Exception as e:
         logger.exception(e)
