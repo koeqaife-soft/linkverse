@@ -6,6 +6,7 @@ from extensions.storage import load as load_storage
 from extensions.users import load as load_users
 from extensions.reports import load as load_reports
 from extensions.moderation import load as load_moderation
+from extensions.chat import load as load_chat
 import typing as t
 from logging import getLogger
 
@@ -17,7 +18,7 @@ __all__ = [
     "load_notifs", "load_posts",
     "load_storage",
     "load_users", "load_reports",
-    "load_moderation"
+    "load_moderation", "load_chat"
 ]
 
 

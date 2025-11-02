@@ -239,8 +239,6 @@ CREATE TABLE IF NOT EXISTS user_channels (
     user_id TEXT NOT NULL,
     channel_id TEXT NOT NULL,
     membership_id TEXT PRIMARY KEY,
-    last_read_message_id TEXT,
-    last_read_at TIMESTAMPTZ,
     UNIQUE (user_id, channel_id),
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE,

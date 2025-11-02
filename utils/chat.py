@@ -50,9 +50,27 @@ async def get_user_channels(
     ]
 
 
+async def get_user_channel(
+    user_id: str,
+    channel_id: str,
+    conn: AutoConnection
+) -> UserChannel:
+    db = await conn.create_conn()
+    query = """
+        SELECT *
+        FROM user_channel_view
+        WHERE user_id = $1 AND channel_id = $2
+    """
+    rows = await db.fetch(query, user_id, channel_id)
+    return [
+        t.cast(UserChannel, dict(row))
+        for row in rows
+    ]
+
+
 async def create_channel(
     user_ids: list[str],
-    type: t.Literal['private', 'group'],
+    type: t.Literal['direct', 'group'],
     conn: AutoConnection,
     metadata: dict[str, t.Any] = {}
 ) -> str:
@@ -65,7 +83,7 @@ async def create_channel(
         """
         new_channel_id = str(generate_id())
         row = await db.fetchrow(
-            query, type, orjson.dumps(metadata), new_channel_id
+            query, type, orjson.dumps(metadata).decode(), new_channel_id
         )
         channel_id = row['channel_id']
 
@@ -116,6 +134,25 @@ async def ensure_membership(
         return row['membership_id']
     else:
         raise FunctionError("FORBIDDEN", 403)
+
+
+async def get_chat_channel_id(
+    user_id: str,
+    recipient_id: str,
+    conn: AutoConnection
+) -> str | None:
+    db = await conn.create_conn()
+    something = await db.fetch(
+        """
+        SELECT cm.channel_id FROM channel_members cm
+
+        LEFT JOIN channel_members cm2
+        ON cm.user_id = $1 AND cm2.channel_id = cm.channel_id
+
+        WHERE cm2.user_id = $2
+        """, user_id, recipient_id
+    )
+    print(something)
 
 
 def build_message_media(media: list | None) -> list:

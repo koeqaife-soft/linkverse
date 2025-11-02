@@ -286,5 +286,14 @@
                 reason: { min_len: 1, max_len: 512 }
             }
         }
+    },
+    chat: {
+        create_channel_and_message: {
+            load_data: true,
+            optional_data: {
+                content: { min_len: 0, max_len: 4096 },
+                file_context_id: { min_len: 1, max_len: 32 }
+            }
+        }
     }
 }
