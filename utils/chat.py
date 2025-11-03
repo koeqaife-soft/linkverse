@@ -142,17 +142,21 @@ async def get_chat_channel_id(
     conn: AutoConnection
 ) -> str | None:
     db = await conn.create_conn()
-    something = await db.fetch(
+    return await db.fetchval(
         """
-        SELECT cm.channel_id FROM channel_members cm
-
-        LEFT JOIN channel_members cm2
-        ON cm.user_id = $1 AND cm2.channel_id = cm.channel_id
-
-        WHERE cm2.user_id = $2
-        """, user_id, recipient_id
+        SELECT cm1.channel_id
+        FROM channel_members cm1
+        JOIN channel_members cm2
+             ON cm1.channel_id = cm2.channel_id
+        JOIN channels c
+             ON c.channel_id = cm1.channel_id
+        WHERE cm1.user_id = $1
+              AND cm2.user_id = $2
+              AND c.type = 'direct'
+        LIMIT 1
+        """,
+        user_id, recipient_id
     )
-    print(something)
 
 
 def build_message_media(media: list | None) -> list:
