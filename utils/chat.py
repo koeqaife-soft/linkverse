@@ -105,18 +105,20 @@ async def add_channel_to_user_channels(
     user_id: str,
     channel_id: str,
     conn: AutoConnection
-) -> None:
+) -> bool:
     db = await conn.create_conn()
+
     async with db.transaction():
-        membership_id = await ensure_membership(
-            user_id, channel_id, conn
-        )
+        membership_id = await ensure_membership(user_id, channel_id, conn)
+
         query = """
             INSERT INTO user_channels (user_id, channel_id, membership_id)
             VALUES ($1, $2, $3)
             ON CONFLICT (user_id, channel_id) DO NOTHING
+            RETURNING 1
         """
-        await db.execute(query, user_id, channel_id, membership_id)
+        inserted = await db.fetchval(query, user_id, channel_id, membership_id)
+        return inserted is not None
 
 
 async def ensure_membership(
