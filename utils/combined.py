@@ -41,8 +41,8 @@ async def get_entity(
         ):
             return loaded_entity
 
-    if loaded_entity is None:
-        raise RuntimeError("Loaded entity is None")
+    if entity is None or loaded_entity is None:
+        raise RuntimeError("Entity is None")
 
     if post_id is None:
         post_id = t.cast(str, loaded_entity["post_id"])
