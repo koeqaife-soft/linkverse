@@ -41,7 +41,7 @@ async def get_entity(
         ):
             return loaded_entity
 
-    if not loaded_entity:
+    if loaded_entity is None:
         raise RuntimeError("Loaded entity is None")
 
     if post_id is None:
