@@ -1,9 +1,5 @@
-from core import Global
 from utils.database import AutoConnection
-from asyncpg import Pool
-
-gb = Global()
-pool: Pool = gb.pool
+from state import pool
 
 
 async def confirm_pending_emails(batch_size: int = 1000) -> bool:

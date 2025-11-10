@@ -1,6 +1,5 @@
-import asyncpg
 from quart import Blueprint, Quart, Response
-from core import response, route, FunctionError, Global
+from core import response, route, FunctionError
 from quart import g
 from utils.database import AutoConnection
 from utils.storage import generate_signed_token, PUBLIC_PATH
@@ -10,10 +9,9 @@ import os
 from urllib.parse import quote
 import time
 from utils.rate_limiting import rate_limit
+from state import pool
 
 bp = Blueprint('storage', __name__)
-gb = Global()
-pool: asyncpg.Pool = gb.pool
 
 LIMITS = {
     "avatar": 2,

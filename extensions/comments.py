@@ -1,6 +1,5 @@
-import asyncpg
 from quart import Blueprint, Quart, Response
-from core import response, route, FunctionError, Global
+from core import response, route, FunctionError
 from quart import g
 from realtime.notifs import publish_notification
 import utils.posts as posts
@@ -12,10 +11,10 @@ from schemas import NotificationType
 from utils.rate_limiting import rate_limit
 from utils.users import Permission, check_permission
 from utils.moderation import create_log, log_metadata
+from state import pool
+
 
 bp = Blueprint('comments', __name__)
-gb = Global()
-pool: asyncpg.Pool = gb.pool
 
 
 @route(bp, "/posts/<id>/comments", methods=["POST"])

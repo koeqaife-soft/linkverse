@@ -1,14 +1,10 @@
 import asyncio
-from core import Global
-from redis.asyncio import Redis
 import typing as t
 import orjson
 import logging
+from state import redis
 
 logger = logging.getLogger("linkverse.broker")
-
-gb = Global()
-redis: Redis = gb.redis
 
 type SubCallback = t.Callable[..., t.Awaitable[bool | None]]
 

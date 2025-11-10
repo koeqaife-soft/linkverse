@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 import datetime
 from typing import overload
 import typing as t
@@ -271,60 +270,6 @@ def setup_logger(logger: logging.Logger | None = None):
     logger.addHandler(handler)
 
     return logger
-
-
-class VarProxy(ABC):
-    @abstractmethod
-    def __getattr__(self, name) -> t.Any:
-        ...
-
-    def __setattr__(self, name, value):
-        setattr(self._obj, name, value)
-
-    def __call__(self, *args, **kwargs):
-        return self._obj(*args, **kwargs)
-
-    def __repr__(self):
-        return repr(self._obj)
-
-    def __str__(self):
-        return str(self._obj)
-
-    def __delattr__(self, name):
-        delattr(self._obj, name)
-
-    def __contains__(self, item):
-        return item in self._obj
-
-    def __len__(self):
-        return len(self._obj)
-
-    def __iter__(self):
-        return iter(self._obj)
-
-
-class _GlobalVars:
-    attrs: dict[str, t.Any] = {}
-
-
-class Global:
-    _instance: t.Optional["Global"] = None
-
-    def __new__(cls) -> "Global":
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __getattr__(self, name: str) -> t.Any:
-        class _proxy(VarProxy):
-            def __getattr__(self, _name) -> t.Any:
-                if _name == "_obj":
-                    return _GlobalVars.attrs.get(name)
-                return getattr(self._obj, _name)
-        return _proxy()
-
-    def __setattr__(self, name: str, value: t.Any) -> None:
-        _GlobalVars.attrs[name] = value
 
 
 def get_module_name(file_path: str) -> str:

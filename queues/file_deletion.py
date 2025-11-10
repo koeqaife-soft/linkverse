@@ -1,13 +1,10 @@
 import asyncio
 from utils.storage import delete_object
 from utils.database import AutoConnection
-from core import Global, get_proc_identity
+from core import get_proc_identity
 from core import total_servers, server_id, worker_count
 import aiohttp
-from asyncpg import Pool
-
-gb = Global()
-pool: Pool = gb.pool
+from state import pool
 
 BATCH_SIZE = 10000
 MAX_CONCURRENCY = 100

@@ -1,7 +1,6 @@
 import time
-import asyncpg
 from quart import Blueprint, Quart, Response
-from core import response, route, FunctionError, Global
+from core import response, route, FunctionError
 from quart import g, request
 import utils.auth as auth
 from utils.cache import auth as auth_cache
@@ -10,12 +9,11 @@ from utils.rate_limiting import ip_rate_limit, rate_limit
 from utils.email import create_token, new_code, verify_token
 from utils.email import templates, send_email, TokenType
 from realtime.broker import publish_event
+from state import pool
 import os
 
 debug = os.getenv('DEBUG') == 'True'
 bp = Blueprint('auth', __name__)
-gb = Global()
-pool: asyncpg.Pool = gb.pool
 
 
 @route(bp, '/auth/check', methods=['GET'])

@@ -1,6 +1,5 @@
-import asyncpg
 from quart import Blueprint, Quart, Response
-from core import response, route, Global
+from core import response, route
 from quart import g
 from utils.database import AutoConnection
 from utils.reports import create_report
@@ -8,10 +7,9 @@ from utils.rate_limiting import rate_limit
 from utils.cache import posts as cache_posts
 from utils.cache import users as cache_users
 from utils import comments
+from state import pool
 
 bp = Blueprint('reports', __name__)
-gb = Global()
-pool: asyncpg.Pool = gb.pool
 
 
 @route(bp, "/reports", methods=["POST"])

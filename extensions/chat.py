@@ -1,17 +1,15 @@
 
-import asyncpg
 from quart import Blueprint, Quart, Response, g
 
-from core import Global, response, route, FunctionError
+from core import response, route, FunctionError
 from utils.database import AutoConnection
 from utils.rate_limiting import rate_limit
 import utils.chat as chat
 from utils.cache import users as cache_users
+from state import pool
 
 
 bp = Blueprint('chat', __name__)
-gb = Global()
-pool: asyncpg.Pool = gb.pool
 
 
 """
@@ -112,5 +110,5 @@ async def create_channel_and_message(id: str) -> tuple[Response, int]:
     }), 200
 
 
-def load(app: Quart) -> None:
+def load(app: Quart):
     app.register_blueprint(bp)

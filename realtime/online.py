@@ -1,13 +1,8 @@
 import asyncio
-from core import Global
-from redis.asyncio import Redis
-import asyncpg
 import time
 import typing as t
+from state import redis
 
-gb = Global()
-redis: Redis = gb.redis
-pool: asyncpg.Pool = gb.pool
 SESSION_TTL = 60
 ONLINE_THRESHOLD = 120
 

@@ -10,19 +10,16 @@ import utils.users
 import utils.posts
 from utils.users import User
 from utils.posts import Post
-from core import Global, FunctionError
+from core import FunctionError
 from utils.database import AutoConnection
 from utils.generation import decode_token
 from utils.auth import secret_key, check_token
 from collections import OrderedDict
-from redis.asyncio import Redis
 import heapq
 import typing as t
+from state import redis
 
 R = TypeVar('R')
-
-gb = Global()
-redis: Redis = gb.redis
 
 
 class TTLCache:
@@ -85,6 +82,7 @@ class TTLCache:
 
 class Cache:
     def __init__(self, url: str = "redis://localhost:6379") -> None:
+        global cache_instance
         self.url = url
         self.cache = t.cast(RedisCache, AioCache.from_url(url))
 
@@ -93,7 +91,7 @@ class Cache:
 
         self.cache.serializer = PickleSerializer()
         self.ttl_cache = TTLCache()
-        gb._cache = self
+        cache_instance = self
 
     async def init(self) -> None:
         asyncio.create_task(self.clear_ttl_timer())
@@ -157,7 +155,21 @@ class Cache:
             pass
 
 
-cache_instance: Cache = gb._cache
+class UninitializedCache(Cache):
+    def __init__(self, url: ... = ...) -> None:
+        return
+
+    async def get(self, *args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("Cache was not initialized")
+
+    async def set(self, *args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("Cache was not initialized")
+
+    async def delete(self, *args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("Cache was not initialized")
+
+
+cache_instance: Cache = UninitializedCache()
 
 
 class users:

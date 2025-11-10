@@ -7,15 +7,13 @@ import orjson
 import os
 import typing as t
 from utils.database import AutoConnection
-from core import FunctionError, Global
+from core import FunctionError
 from utils.generation import generate_id
 import aiohttp
 import logging
 
 logger = logging.getLogger("linkverse.storage")
 
-gb = Global()
-pool = gb.pool
 
 PUBLIC_PATH = "https://storage.sharinflame.com"
 SECRET_KEY = os.environ["CDN_SECRET_KEY"].encode()

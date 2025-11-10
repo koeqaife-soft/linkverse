@@ -1,17 +1,15 @@
 
-import asyncpg
 from quart import Blueprint, Quart, Response
-from core import response, route, Global
+from core import response, route
 from quart import g
 from realtime.broker import publish_event
 import utils.notifs as notifs
 from utils.database import AutoConnection
 import utils.combined as combined
 from utils.rate_limiting import rate_limit
+from state import pool
 
 bp = Blueprint('notifs', __name__)
-gb = Global()
-pool: asyncpg.Pool = gb.pool
 
 
 @route(bp, "/users/me/notifications", methods=["GET"])

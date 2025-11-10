@@ -1,12 +1,9 @@
-import asyncpg
 from utils.cache import auth as cache_auth
 import utils.auth as auth
 from utils.database import AutoConnection
 from realtime.base import WebSocketState
-from core import Global, FunctionError
-
-gb = Global()
-pool: asyncpg.Pool = gb.pool
+from core import FunctionError
+from state import pool
 
 
 async def ws_token(

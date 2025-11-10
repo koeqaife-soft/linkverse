@@ -4,8 +4,7 @@ import time
 from urllib.parse import urlparse
 
 import aiohttp
-from core import Global, await_if_cor
-from redis.asyncio import Redis
+from core import await_if_cor
 from core import get_proc_identity, server_id
 import orjson
 from pywebpush import WebPusher, Vapid01
@@ -14,13 +13,10 @@ import os
 import typing as t
 from utils.database import AutoConnection
 from utils.notifs import delete_subscription, get_subscriptions
-from asyncpg import Pool
 from realtime.online import is_online
+from state import pool, redis
 
 logger = getLogger("linkverse.web_push")
-gb = Global()
-redis: Redis = gb.redis
-pool: Pool = gb.pool
 
 STREAM_NAME = "webpush_stream"
 GROUP_NAME = "webpush_group"

@@ -1,6 +1,5 @@
-import asyncpg
 from quart import Blueprint, Quart, Response
-from core import FunctionError, response, route, Global
+from core import FunctionError, response, route
 from quart import g
 import utils.users as users
 import utils.posts as posts
@@ -10,10 +9,9 @@ from utils.database import AutoConnection
 import utils.combined as combined
 import typing as t
 from utils.rate_limiting import rate_limit
+from state import pool
 
 bp = Blueprint('users', __name__)
-gb = Global()
-pool: asyncpg.Pool = gb.pool
 
 
 @route(bp, "/users/me", methods=["GET"])

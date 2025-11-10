@@ -1,6 +1,5 @@
-import asyncpg
 from quart import Blueprint, Quart, Response
-from core import response, route, FunctionError, Global
+from core import response, route, FunctionError
 from quart import g
 from utils.database import AutoConnection
 from utils.moderation import update_appellation_status, get_audit_data
@@ -11,10 +10,9 @@ from utils.users import Permission, check_permission
 from utils.rate_limiting import rate_limit
 from utils.combined import get_full_comment, get_full_post
 from utils.cache import users as cache_users
+from state import pool
 
 bp = Blueprint('moderation', __name__)
-gb = Global()
-pool: asyncpg.Pool = gb.pool
 
 
 @route(bp, "/appellation/<id>", methods=["POST"])

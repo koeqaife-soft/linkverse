@@ -1,8 +1,6 @@
 import tracemalloc
-import asyncpg
 import quart
-from extensions import load_all
-from core import app, response, route, setup_logger, Global, FunctionError
+from core import app, response, route, setup_logger, FunctionError
 from core import get_proc_identity, compress
 from core import compress_config, flatten_dict
 import traceback
@@ -14,19 +12,13 @@ import asyncio
 import werkzeug.exceptions
 import core
 import json5
-import utils.cache as cache
-from utils.database import AutoConnection, create_pool
-from utils.cache import auth as cache_auth
-from redis.asyncio import Redis
-from queues.scheduler import start_scheduler
-from realtime.websocket import bp as ws_bp
+from state import load_state
 import typing as t
+from redis.asyncio import Redis
+from utils.database import AutoConnection, create_pool
+
 
 debug = os.getenv('DEBUG') == 'True'
-gb = Global()
-
-pool: asyncpg.Pool = gb.pool
-redis: Redis = gb.redis
 
 logger = setup_logger()
 with open("config/endpoints.json5", 'r') as f:
@@ -264,6 +256,7 @@ async def ping():
 
 @app.before_serving
 async def startup():
+    global pool, redis
     if os.getenv("TRACE_DEBUG") == "True":
         tracemalloc.start(25)
         logger.info("Tracemalloc started for debug purposes")
@@ -273,15 +266,16 @@ async def startup():
         config = json5.load(f)
     config["password"] = os.environ["POSTGRES_PASSWORD"]
     pool = await create_pool(**config)
-    gb.pool = pool
 
     redis_host = os.environ["REDIS_HOST"]
     redis_port = os.environ["REDIS_PORT"]
     url = f"redis://{redis_host}:{redis_port}"
-    await cache.Cache(url).init()
     redis = Redis(host=redis_host, port=int(redis_port))
-    gb.redis = redis
 
+    load_state(pool, redis)
+    load()
+
+    await cache.Cache(url).init()
     start_scheduler()
 
     logger.info("Worker started!")
@@ -313,8 +307,18 @@ async def memory_watchdog() -> None:
         await asyncio.sleep(60)
 
 
-load_all(app)
-app.register_blueprint(ws_bp)
+def load() -> None:
+    global cache, cache_auth
+    global start_scheduler
+
+    import utils.cache as cache
+    from extensions import load_all
+    from utils.cache import auth as cache_auth
+    from queues.scheduler import start_scheduler
+    from realtime.websocket import bp as ws_bp
+
+    load_all(app)
+    app.register_blueprint(ws_bp)
 
 
 if __name__ == '__main__':

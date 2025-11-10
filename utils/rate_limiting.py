@@ -4,13 +4,11 @@ import uuid
 from functools import wraps
 from typing import Any, Awaitable, Callable
 
-from core import Global, response
+from core import response
 from quart import g, request
 from redis.asyncio import Redis
 from redis.exceptions import NoScriptError
-
-gb: Global = Global()
-redis: Redis = gb.redis
+from state import redis
 
 with open("redis/rate_limit.lua") as f:
     _LUA_SCRIPT = f.read()
