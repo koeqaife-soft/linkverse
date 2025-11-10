@@ -29,6 +29,10 @@ async def _ensure_lua_loaded(r: Redis) -> str:
         if _lua_sha:
             return _lua_sha
         _lua_sha = await r.script_load(_LUA_SCRIPT)
+
+        if _lua_sha is None:
+            raise RuntimeError("Lua sha is None")
+
         return _lua_sha
 
 
@@ -90,7 +94,13 @@ def rate_limit(
             for _ in range(3):
                 sha = await _ensure_lua_loaded(redis)
                 try:
-                    res = await redis.evalsha(sha, len(keys), *keys, *argv)
+                    res_cor = redis.evalsha(sha, len(keys), *keys, *argv)
+                    res = (
+                        await res_cor
+                        if asyncio.iscoroutine(res_cor)
+                        else res_cor
+                    )
+
                     ok, info = await _parse_lua_response(res)
                     break
                 except NoScriptError:
@@ -141,7 +151,12 @@ def ip_rate_limit(
             for _ in range(3):
                 sha = await _ensure_lua_loaded(redis)
                 try:
-                    res = await redis.evalsha(sha, len(keys), *keys, *argv)
+                    res_cor = redis.evalsha(sha, len(keys), *keys, *argv)
+                    res = (
+                        await res_cor
+                        if asyncio.iscoroutine(res_cor)
+                        else res_cor
+                    )
                     ok, info = await _parse_lua_response(res)
                     break
                 except NoScriptError:

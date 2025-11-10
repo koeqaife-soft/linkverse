@@ -36,7 +36,7 @@ class Comment:
         return Comment(**dict(object))
 
 
-class CommentList(t.TypedDict, ListsDefault):
+class CommentList(ListsDefault, t.TypedDict):
     comments: list[Comment]
 
 
@@ -60,7 +60,7 @@ async def create_comment(
             comment_id, post_id, user_id, content,
             type or "comment", parent_id
         )
-        comment = await db.fetchrow(
+        comment: t.Any = await db.fetchrow(
             """
                 SELECT comment_id, parent_comment_id, post_id, user_id,
                        content, likes_count, dislikes_count,

@@ -33,14 +33,11 @@ class User:
             return self._created_at
 
     @property
-    def dict(self) -> dict:
+    def dict(self) -> dict[str, t.Any]:
         _dict = asdict(self)
         _dict["created_at"] = self.created_at
         return {key: value for key, value in _dict.items()
                 if value is not None}
-
-    def __dict__(self):
-        return self.dict
 
     @staticmethod
     def from_dict(object: t.Dict) -> "User":
@@ -88,6 +85,7 @@ def permissions_to_list(perms: Permission) -> list[str]:
         for perm in Permission
         if perm in perms
         and perm is not Permission.ALL
+        and perm.name is not None
     ]
 
 

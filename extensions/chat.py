@@ -19,7 +19,7 @@ REST API:
 
 GET /users/me/channels      -> Get chats
 TODO: GET /channel/<id>/messages  -> Get messages
-TODO: POST /channel/<id>/messages -> Create message
+POST /channel/<id>/messages -> Create message
 POST /user/<id>/messages     -> Create channel and message
 """
 
@@ -40,7 +40,7 @@ async def get_user_channels() -> tuple[Response, int]:
                         member_id, conn,
                         minimize_info=True
                     )
-                    channel["members"].append(user.dict)
+                    channel["members"].append(user.dict)  # type: ignore
 
     return response(data={
         "channels": result
@@ -52,10 +52,10 @@ async def get_user_channels() -> tuple[Response, int]:
 async def create_message(channel_id: str) -> tuple[Response, int]:
     data: dict[str, str] = g.data
     content: str = data.get("content", "")
-    file_context_id: str = data.get("file_context_id")
+    file_context_id: str | None = data.get("file_context_id")
 
     if not content and not file_context_id:
-        raise FunctionError("INCORRECT_DATA", 400)
+        raise FunctionError("INCORRECT_DATA", 400, None)
 
     async with AutoConnection(pool) as conn:
         channel = await chat.get_user_channel(g.user_id, channel_id, conn)
@@ -79,10 +79,10 @@ async def create_message(channel_id: str) -> tuple[Response, int]:
 async def create_channel_and_message(id: str) -> tuple[Response, int]:
     data: dict[str, str] = g.data
     content: str = data.get("content", "")
-    file_context_id: str = data.get("file_context_id")
+    file_context_id: str | None = data.get("file_context_id")
 
     if not content and not file_context_id:
-        raise FunctionError("INCORRECT_DATA", 400)
+        raise FunctionError("INCORRECT_DATA", 400, None)
 
     async with AutoConnection(pool) as conn:
         channel_id = await chat.get_chat_channel_id(

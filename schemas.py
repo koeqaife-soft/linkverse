@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import TypedDict, Any
 from enum import Enum
 
 
@@ -12,7 +12,7 @@ class FollowedItem(TypedDict):
     followed_to: str
 
 
-class FollowedList(TypedDict, ListsDefault):
+class FollowedList(ListsDefault, TypedDict):
     followed: list[FollowedItem]
 
 
@@ -22,7 +22,7 @@ class FavoriteItem(TypedDict):
     created_at: str
 
 
-class FavoriteList(TypedDict, ListsDefault):
+class FavoriteList(ListsDefault, TypedDict):
     favorites: list[FavoriteItem]
 
 
@@ -33,7 +33,7 @@ class ReactionItem(TypedDict):
     is_like: bool
 
 
-class ReactionList(TypedDict, ListsDefault):
+class ReactionList(ListsDefault, TypedDict):
     reactions: list[ReactionItem]
 
 
@@ -49,7 +49,7 @@ class NotificationType(str, Enum):
     MOD_DELETED_POST = "mod_deleted_post"
 
 
-class Notification(TypedDict):
+class NotificationBase(TypedDict, total=True):
     id: str
     from_id: str
     message: str | None
@@ -58,6 +58,10 @@ class Notification(TypedDict):
     linked_id: str | None
     second_linked_id: str | None
     unread: bool
+
+
+class Notification(NotificationBase, TypedDict, total=False):
+    loaded: Any
 
 
 class NotificationList(TypedDict):

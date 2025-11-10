@@ -1,7 +1,7 @@
 import time
 import asyncpg
 from quart import Blueprint, Quart, Response
-from core import response, Global, route, FunctionError
+from core import response, route, FunctionError, Global
 from quart import g, request
 import utils.auth as auth
 from utils.cache import auth as auth_cache
@@ -226,7 +226,7 @@ async def change_email_send() -> tuple[Response, int]:
     }), 200
 
 
-def calc_pending_until(user_created_at: int) -> float:
+def calc_pending_until(user_created_at: int) -> int:
     now = time.time()
     account_age = now - user_created_at
 
@@ -237,7 +237,7 @@ def calc_pending_until(user_created_at: int) -> float:
     factor = min(account_age / max_age, 1.0)
 
     extra_time = min_seconds + (max_seconds - min_seconds) * factor
-    return now + extra_time
+    return int(now + extra_time)
 
 
 @route(bp, "/auth/change_email/check", methods=["POST"])

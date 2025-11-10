@@ -279,6 +279,8 @@ async def ws_auth(
     finally:
         state.auth_event.clear()
 
+    return False
+
 
 async def user_event(
     data: UserEvent,
@@ -340,7 +342,11 @@ async def ws() -> None:
         auth_event=asyncio.Event(),
         heartbeat_event=asyncio.Event(),
         is_auth=asyncio.Event(),
-        broker=WebSocketBroker()
+        broker=WebSocketBroker(),
+        user_id="",
+        token="",
+        token_result={},
+        session_id=""
     )
     await websocket.accept()
 

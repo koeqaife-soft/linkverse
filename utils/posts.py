@@ -46,15 +46,12 @@ class Post:
         post_dict['updated_at'] = int(self.updated_at_unix)
         return post_dict
 
-    def __dict__(self):
-        return self.dict
-
     @staticmethod
     def from_dict(object: t.Dict) -> "Post":
         return Post(**dict(object))
 
 
-class PostList(t.TypedDict, ListsDefault):
+class PostList(ListsDefault, t.TypedDict):
     posts: list[Post]
 
 
@@ -76,9 +73,6 @@ class Tag:
         post_dict = asdict(self)
         post_dict['created_at'] = int(self.created_at_unix)
         return post_dict
-
-    def __dict__(self):
-        return self.dict
 
 
 def post_query(

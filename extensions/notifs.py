@@ -1,7 +1,7 @@
 
 import asyncpg
 from quart import Blueprint, Quart, Response
-from core import response, Global, route
+from core import response, route, Global
 from quart import g
 from realtime.broker import publish_event
 import utils.notifs as notifs
@@ -87,7 +87,7 @@ async def read_all_notifications() -> tuple[Response, int]:
 
 
 @route(bp, "/users/me/notifications/web_push", methods=["POST"])
-async def web_push() -> None:
+async def web_push() -> tuple[Response, int]:
     data: dict = g.data
     sub = data["sub"]
 

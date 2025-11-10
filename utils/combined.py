@@ -10,10 +10,13 @@ import typing as t
 
 
 async def get_entity(
-    entity_type: str, user_id: str, post_id: str, conn: AutoConnection,
+    entity_type: str,
+    user_id: str,
+    post_id: str | None,
+    conn: AutoConnection,
     comment_id: str | None = None,
     users_list: dict[str, dict] | None = None,
-    loaded_entity: dict | None = None
+    loaded_entity: dict[str, t.Any] | None = None
 ) -> dict:
     if loaded_entity is None:
         fetch_func = (
@@ -28,7 +31,7 @@ async def get_entity(
             await fetch_func(post_id, comment_id, conn)  # type: ignore
             if post_id is not None
             else
-            await fetch_func(comment_id, conn)
+            await fetch_func(comment_id, conn)  # type: ignore
         )
     else:
         if (
@@ -37,6 +40,12 @@ async def get_entity(
             or loaded_entity.get("is_like") is not None
         ):
             return loaded_entity
+
+    if not loaded_entity:
+        raise RuntimeError("Loaded entity is None")
+
+    if post_id is None:
+        post_id = t.cast(str, loaded_entity["post_id"])
 
     fav, reaction = await posts.get_fav_and_reaction(
         user_id, conn, post_id, comment_id
@@ -81,7 +90,9 @@ async def get_full_post(
 
 
 async def get_full_comment(
-    user_id: str, post_id: str, comment_id: str,
+    user_id: str,
+    post_id: str | None,
+    comment_id: str,
     conn: AutoConnection,
     users_list: dict[str, dict] | None = None,
     loaded: dict | None = None

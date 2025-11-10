@@ -17,6 +17,7 @@ from utils.auth import secret_key, check_token
 from collections import OrderedDict
 from redis.asyncio import Redis
 import heapq
+import typing as t
 
 R = TypeVar('R')
 
@@ -85,7 +86,7 @@ class TTLCache:
 class Cache:
     def __init__(self, url: str = "redis://localhost:6379") -> None:
         self.url = url
-        self.cache: RedisCache = AioCache.from_url(url)
+        self.cache = t.cast(RedisCache, AioCache.from_url(url))
 
         if not isinstance(self.cache, RedisCache):
             raise ValueError("Only Redis cache is supported!")
@@ -269,7 +270,7 @@ class auth:
         cache = _cache_instance or cache_instance
         pattern = f"auth:{user_id}:*"
 
-        cursor = b"0"
+        cursor: t.Any = b"0"
         while cursor:
             cursor, keys = await redis.scan(
                 cursor=cursor, match=pattern, count=1000

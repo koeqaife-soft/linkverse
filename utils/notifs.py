@@ -206,7 +206,7 @@ async def subscribe(
 async def get_subscriptions(
     user_id: str,
     conn: AutoConnection
-) -> list[dict[str, object]]:
+) -> list[dict[str, t.Any]]:
     db = await conn.create_conn()
 
     async with db.transaction():

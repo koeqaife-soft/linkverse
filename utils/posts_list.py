@@ -1,6 +1,7 @@
 from core import FunctionError
 from utils.database import AutoConnection
 from schemas import PostsList
+import typing as t
 
 
 async def get_popular_posts(
@@ -12,11 +13,6 @@ async def get_popular_posts(
 ) -> PostsList:
     db = await conn.create_conn()
     hide_viewed = True if hide_viewed is None else hide_viewed
-
-    if cursor:
-        _popularity_score, _post_id = cursor.split(",")
-        popularity_score = int(_popularity_score)
-        post_id = int(_post_id)
 
     if not hide_viewed:
         user_id = "0"
@@ -45,6 +41,11 @@ async def get_popular_posts(
                 ((popularity_score) = $3 AND post_id::bigint < $4)
             )
         """
+
+        _popularity_score, _post_id = cursor.split(",")
+        popularity_score = int(_popularity_score)
+        post_id = int(_post_id)
+
         parameters.extend([popularity_score, post_id])
 
     query += """
@@ -208,7 +209,7 @@ async def get_tag_posts(
     conn: AutoConnection,
     limit: int = 50,
     cursor: str | None = None
-) -> list[int]:
+) -> dict[str, t.Any]:
     db = await conn.create_conn()
     query = """
         SELECT pt.post_id, p.popularity_score

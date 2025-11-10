@@ -1,6 +1,6 @@
 import asyncpg
 from quart import Blueprint, Quart, Response
-from core import response, Global, route, FunctionError
+from core import response, route, FunctionError, Global
 from quart import g
 from utils.database import AutoConnection
 from utils.storage import generate_signed_token, PUBLIC_PATH

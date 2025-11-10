@@ -1,7 +1,9 @@
+import asyncio
 from core import Global
 from redis.asyncio import Redis
 import asyncpg
 import time
+import typing as t
 
 gb = Global()
 redis: Redis = gb.redis
@@ -27,8 +29,14 @@ async def send_offline(user_id: str, session_id: str):
 
 
 async def is_online(user_id: str) -> bool:
-    session_ids = await redis.smembers(
+    v_or_cor = redis.smembers(
         f"user:{user_id}:sessions"
+    )
+    session_ids = t.cast(
+        list[str],
+        await v_or_cor
+        if asyncio.iscoroutine(v_or_cor)
+        else v_or_cor
     )
 
     if not session_ids:
@@ -44,6 +52,8 @@ async def is_online(user_id: str) -> bool:
         if last_active and now - float(last_active) < ONLINE_THRESHOLD:
             return True
         elif not last_active:
-            await redis.srem(f"user:{user_id}:sessions", sid)
+            cor = redis.srem(f"user:{user_id}:sessions", sid)
+            if asyncio.iscoroutine(cor):
+                await cor
 
     return False

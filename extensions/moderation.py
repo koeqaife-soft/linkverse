@@ -1,6 +1,6 @@
 import asyncpg
 from quart import Blueprint, Quart, Response
-from core import response, Global, route, FunctionError
+from core import response, route, FunctionError, Global
 from quart import g
 from utils.database import AutoConnection
 from utils.moderation import update_appellation_status, get_audit_data
@@ -56,7 +56,7 @@ async def assigned_resource() -> tuple[Response, int]:
             if value
         ])
         if not perms:
-            return FunctionError(403, "FORBIDDEN", None)
+            raise FunctionError("FORBIDDEN", 403, None)
         assigned = await assign_next_resource(user_id, perms, conn)
         if assigned is None:
             return response(data={}), 200
@@ -69,7 +69,7 @@ async def assigned_resource() -> tuple[Response, int]:
         for report in reports:
             report["user"] = await cache_users.get_user(
                 report["user_id"], conn, True
-            ).dict
+            )
         data["reports"] = reports
         if data["resource_type"] == "post":
             data["loaded"] = await get_full_post(
@@ -93,7 +93,7 @@ async def assigned_resource_action(
     async with AutoConnection(pool) as conn:
         assigned = await get_assigned_resource(user_id, conn)
         if assigned["resource_id"] != id:
-            raise FunctionError(400, "INVALID_STATE", None)
+            raise FunctionError("INVALID_STATE", 400, None)
         await mark_all_reports_as(
             "reviewed", assigned["resource_id"], conn
         )

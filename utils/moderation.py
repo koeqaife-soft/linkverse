@@ -73,7 +73,7 @@ async def get_audit_data(
         """, audit_id
     )
 
-    row_dict = dict(row)
+    row_dict: dict[str, t.Any] = dict(row)  # pyright: ignore
     for key in ["old_content", "metadata"]:
         if key in row_dict.keys():
             row_dict[key] = orjson.loads(row_dict[key])
@@ -178,7 +178,7 @@ async def get_assigned_resource(
     """, moderator_id)
 
     if row is None:
-        raise FunctionError(400, "NOT_ASSIGNED_ANYTHING")
+        raise FunctionError("NOT_ASSIGNED_ANYTHING", 400, None)
 
     return {
         "resource_id": row["resource_id"],

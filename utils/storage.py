@@ -34,7 +34,7 @@ def generate_signed_token(
     expires: int,
     max_size: int | None = None,
     type: str | None = None
-) -> dict[str, str]:
+) -> str:
     """Create presigned url for Cloudflare R2 Worker
 
     Args:
@@ -194,7 +194,7 @@ async def add_object_to_file(
 
 
 async def get_context(
-    context_id: int, conn: AutoConnection
+    context_id: str, conn: AutoConnection
 ) -> dict:
     db = await conn.create_conn()
     row = await db.fetchrow(

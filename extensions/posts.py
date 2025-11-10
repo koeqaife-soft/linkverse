@@ -233,7 +233,7 @@ async def get_tag_posts(name: str) -> tuple[Response, int]:
 
     async with AutoConnection(pool) as conn:
         tag = await posts.get_tag(name, conn)
-        id = tag.data.tag_id
+        id = tag.tag_id
         _posts = await posts_list.get_tag_posts(id, conn, limit, cursor)
 
     return response(data=_posts), 200
@@ -245,7 +245,7 @@ async def get_tag(name: str) -> tuple[Response, int]:
     async with AutoConnection(pool) as conn:
         tag = await posts.get_tag(name, conn)
 
-    return response(data=tag.data.dict), 200
+    return response(data=tag.dict), 200
 
 
 def load(app: Quart):

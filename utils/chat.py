@@ -61,11 +61,8 @@ async def get_user_channel(
         FROM user_channel_view
         WHERE user_id = $1 AND channel_id = $2
     """
-    rows = await db.fetch(query, user_id, channel_id)
-    return [
-        t.cast(UserChannel, dict(row))
-        for row in rows
-    ]
+    row: t.Any = await db.fetchrow(query, user_id, channel_id)
+    return t.cast(UserChannel, dict(row))
 
 
 async def create_channel(
@@ -82,7 +79,7 @@ async def create_channel(
             RETURNING channel_id
         """
         new_channel_id = str(generate_id())
-        row = await db.fetchrow(
+        row: t.Any = await db.fetchrow(
             query, type, orjson.dumps(metadata).decode(), new_channel_id
         )
         channel_id = row['channel_id']
@@ -135,7 +132,7 @@ async def ensure_membership(
     if row:
         return row['membership_id']
     else:
-        raise FunctionError("FORBIDDEN", 403)
+        raise FunctionError("FORBIDDEN", 403, None)
 
 
 async def get_chat_channel_id(
@@ -175,7 +172,7 @@ def build_message_media(media: list | None) -> list:
 async def get_message(
     message_id: str,
     conn: AutoConnection
-) -> Message | None:
+) -> Message:
     db = await conn.create_conn()
     query = """
         SELECT m.user_id, m.channel_id, m.content,
@@ -190,7 +187,7 @@ async def get_message(
     if row:
         message = t.cast(Message, dict(row))
     else:
-        raise FunctionError("MESSAGE_NOT_FOUND", 404)
+        raise FunctionError("MESSAGE_NOT_FOUND", 404, None)
 
     message['media'] = build_message_media(message.get('media'))
 

@@ -1,6 +1,6 @@
 import asyncpg
 from quart import Blueprint, Quart, Response
-from core import response, Global, route, FunctionError
+from core import response, route, FunctionError, Global
 from quart import g
 from realtime.notifs import publish_notification
 import utils.posts as posts
@@ -195,7 +195,7 @@ async def get_comments(id: str) -> tuple[Response, int]:
             )
 
             _comments.append(_temp)
-        del result["comments"]
+        del result["comments"]  # type: ignore
 
     _data = result | {"users": users, "comments": _comments}
     return response(data=_data, cache=True), 200

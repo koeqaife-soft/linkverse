@@ -4,7 +4,7 @@ import time
 from urllib.parse import urlparse
 
 import aiohttp
-from core import Global
+from core import Global, await_if_cor
 from redis.asyncio import Redis
 from core import get_proc_identity, server_id
 import orjson
@@ -29,7 +29,7 @@ CONSUMER_NAME = f"worker_{get_proc_identity()}_{server_id}"
 VAPID_PRIVATE_KEY = Vapid01.from_string(
     private_key=os.environ["VAPID_SECRET"]
 )
-VAPID_CLAIMS = {"sub": "mailto:koeqaife@sharinflame.com"}
+VAPID_CLAIMS: dict[str, t.Any] = {"sub": "mailto:koeqaife@sharinflame.com"}
 
 
 def truncate_message(msg: str, max_len: int = 100) -> str:
@@ -38,21 +38,26 @@ def truncate_message(msg: str, max_len: int = 100) -> str:
     return msg[:max_len - 1] + "…"
 
 
-class WebPushNotification(t.TypedDict):
+class WebPushNotificationBase(t.TypedDict):
     id: str
     type: str
     username: str
     avatar_url: str
     message: str
-    is_reply: bool | None = None
+
+
+class WebPushNotification(
+    WebPushNotificationBase, t.TypedDict, total=False
+):
+    is_reply: bool | None
 
 
 async def enqueue_push(
-    user_id: dict, payload: WebPushNotification
+    user_id: str, payload: WebPushNotification
 ) -> None:
     payload["message"] = truncate_message(payload["message"])
 
-    entry = {
+    entry: t.Any = {
         "user_id": orjson.dumps(user_id),
         "payload": orjson.dumps(payload)
     }
@@ -74,13 +79,17 @@ async def send_push(
     pusher = WebPusher(
         subscription, aiohttp_session=aiohttp_session
     )
-    response: aiohttp.ClientResponse = await pusher.send_async(
+    response: aiohttp.ClientResponse | str = await pusher.send_async(
         orjson.dumps(payload).decode(),
         headers=headers,
         ttl=0,
         content_encoding="aes128gcm",
         curl=False
     )
+
+    if isinstance(response, str):
+        raise RuntimeError(f"Returned unexpected value {response}")
+
     if response.status == 404 or response.status == 410:
         async with AutoConnection(pool) as conn:
             await delete_subscription(
@@ -91,7 +100,7 @@ async def send_push(
 
 
 async def send_pushes(
-    user_id: dict, payload: WebPushNotification,
+    user_id: str, payload: WebPushNotification,
     aiohttp_session: aiohttp.ClientSession,
     conn: AutoConnection
 ) -> None:
@@ -118,7 +127,10 @@ async def enqueue_pending(
             "user_id": user_id,
             "payload": payload
         }
-        await redis.rpush(f"pending:{user_id}", orjson.dumps(_dict))
+        await await_if_cor(
+            redis.rpush(f"pending:{user_id}", orjson.dumps(_dict))
+        )
+
         await redis.expire(f"pending:{user_id}", 3600)
     else:
         await send_pushes(user_id, payload, aiohttp_session, conn)
@@ -132,13 +144,17 @@ async def flush_pending(user_id: str):
 
     BATCH_SIZE = 50
     while True:
-        items = await redis.lrange(key, 0, BATCH_SIZE-1)
+        items = await await_if_cor(
+            redis.lrange(key, 0, BATCH_SIZE-1)
+        )
         if not items:
             break
         for item in items:
             payload = orjson.loads(item)
             await enqueue_push(payload["user_id"], payload["payload"])
-        await redis.ltrim(key, len(items), -1)
+        await await_if_cor(
+            redis.ltrim(key, len(items), -1)
+        )
         await asyncio.sleep(0)
     await redis.delete(key)
 
@@ -175,7 +191,7 @@ async def push_worker():
                 tasks: list[asyncio.Task[None]] = []
                 for stream, entries in msgs:
                     for msg_id, data in entries:
-                        user_id: dict = orjson.loads(data[b'user_id'])
+                        user_id: str = data[b'user_id']
                         payload: WebPushNotification = orjson.loads(
                             data[b'payload']
                         )
@@ -208,7 +224,7 @@ def generate_vapid_headers(subscription: dict) -> dict:
 
     if (
         not vapid_claims.get("exp")
-        or int(vapid_claims.get("exp")) < int(time.time())
+        or int(vapid_claims.get("exp") or "0") < int(time.time())
     ):
         vapid_claims["exp"] = int(time.time()) + 12*60*60
 

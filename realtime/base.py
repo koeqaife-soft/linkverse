@@ -9,7 +9,7 @@ from realtime.broker import WebSocketBroker
 class ClientPayload(t.TypedDict):
     type: str
     action: str
-    data: str
+    data: dict[str, str]
 
 
 class AuthPayload(t.TypedDict):
@@ -27,9 +27,9 @@ class WebSocketState:
     heartbeat_event: asyncio.Event
     is_auth: asyncio.Event
     broker: WebSocketBroker
+    user_id: str
+    token: str
+    token_result: dict[str, str]
+    session_id: str
+    last_active: float = 0.0
     closed: bool = False
-    user_id: str | None = None
-    token: str | None = None
-    token_result: dict[str] | None = None
-    session_id: str | None = None
-    last_active: int = 0

@@ -20,6 +20,7 @@ from utils.cache import auth as cache_auth
 from redis.asyncio import Redis
 from queues.scheduler import start_scheduler
 from realtime.websocket import bp as ws_bp
+import typing as t
 
 debug = os.getenv('DEBUG') == 'True'
 gb = Global()
@@ -130,14 +131,15 @@ async def before():
     params_error = (response(error=True, error_msg="INCORRECT_PARAMS"), 400)
 
     if _data.get("load_data"):
-        data = await request.get_json() or {}
+        data: dict[str, t.Any] = await request.get_json() or {}
         if "data" in _data:
             valid, modified = validate_data(
                 data, False, _data["data"], False
             )
             if not valid:
                 return data_error
-            data = modified
+            if modified:
+                data = modified
 
         if "optional_data" in _data:
             valid, modified = validate_data(
@@ -145,7 +147,8 @@ async def before():
             )
             if not valid:
                 return data_error
-            data = modified
+            if modified:
+                data = modified
 
         g.data = data
 
@@ -155,7 +158,8 @@ async def before():
         )
         if not valid:
             return params_error
-        params = modified
+        if modified:
+            params = modified
 
     if _data.get("optional_params"):
         valid, modified = validate_data(
@@ -163,7 +167,8 @@ async def before():
         )
         if not valid:
             return params_error
-        params = modified
+        if modified:
+            params = modified
 
     g.params = params
 
@@ -274,7 +279,7 @@ async def startup():
     redis_port = os.environ["REDIS_PORT"]
     url = f"redis://{redis_host}:{redis_port}"
     await cache.Cache(url).init()
-    redis = Redis(host=redis_host, port=redis_port)
+    redis = Redis(host=redis_host, port=int(redis_port))
     gb.redis = redis
 
     start_scheduler()

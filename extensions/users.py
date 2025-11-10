@@ -1,6 +1,6 @@
 import asyncpg
 from quart import Blueprint, Quart, Response
-from core import FunctionError, response, Global, route
+from core import FunctionError, response, route, Global
 from quart import g
 import utils.users as users
 import utils.posts as posts

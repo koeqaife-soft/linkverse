@@ -2,12 +2,13 @@
 
 import asyncio
 from core import remove_none_values
-from queues.web_push import enqueue_push
-from schemas import NotificationType
+from queues.web_push import enqueue_push, WebPushNotification
+from schemas import NotificationType, Notification
 from utils import combined, notifs
 from utils.database import AutoConnection
 from utils.cache import users as cache_users
 from realtime.broker import publish_event
+import typing as t
 
 
 async def publish_notification(
@@ -32,11 +33,15 @@ async def publish_notification(
         linked_type, linked_id, second_linked_id,
         unread
     )
+
+    if notification is None:
+        return
+
     notification["loaded"] = loaded  # type: ignore
     notification = await combined.preload_notification(
         user_id, conn, notification
     )
-    notification = remove_none_values(notification)
+    notification = t.cast(Notification, remove_none_values(notification))
 
     from_user = await cache_users.get_user(user_id, conn, True)
 
@@ -58,7 +63,7 @@ async def publish_notification(
         if not content:
             content = message
 
-        payload = {
+        payload = t.cast(WebPushNotification, {
             "avatar_url": from_user.avatar_url,
             "id": notification["id"],
             "message": content,
@@ -67,8 +72,11 @@ async def publish_notification(
                 from_user.display_name
                 or from_user.username
             )
-        }
-        if notification["loaded"].get("parent_comment_id"):
+        })
+        if (
+            (loaded := notification.get("loaded"))
+            and loaded.get("parent_comment_id")
+        ):
             payload["is_reply"] = True
 
         await enqueue_push(to, payload)

@@ -59,14 +59,23 @@ secret_key = os.environ["SECRET_KEY"]
 secret_refresh_key = os.environ["SECRET_REFRESH_KEY"]
 
 
-async def compress(data, algorithm: str = "br"):
+async def await_if_cor(v_or_cor: t.Awaitable[T] | T) -> T:
+    if asyncio.iscoroutine(v_or_cor):
+        return await v_or_cor
+    else:
+        return v_or_cor  # pyright: ignore[reportReturnType]
+
+
+async def compress(data, algorithm: str = "br") -> bytes:
     if algorithm == "gzip":
         return await asyncio.to_thread(compress_gzip, data)
     elif algorithm == "br":
         return await asyncio.to_thread(compress_brotli, data)
+    else:
+        raise ValueError("Unknown algorithm, available: gzip, br")
 
 
-def compress_gzip(data):
+def compress_gzip(data) -> bytes:
     gzip_buffer = BytesIO()
 
     with GzipFile(
@@ -79,7 +88,7 @@ def compress_gzip(data):
     return gzip_buffer.getvalue()
 
 
-def compress_brotli(data):
+def compress_brotli(data) -> bytes:
     return brotli.compress(data)
 
 
@@ -159,7 +168,7 @@ def response(
     return response
 
 
-def convert_datetime_to_timestamp(d):
+def convert_datetime_to_timestamp(d: t.Any) -> t.Any:
     if isinstance(d, dict):
         return {k: convert_datetime_to_timestamp(v) for k, v in d.items()}
     elif isinstance(d, list):
@@ -170,7 +179,7 @@ def convert_datetime_to_timestamp(d):
         return d
 
 
-def remove_none_values(d):
+def remove_none_values(d: t.Any) -> t.Any:
     if isinstance(d, dict):
         return {k: remove_none_values(v) for k, v in d.items()
                 if v is not None}

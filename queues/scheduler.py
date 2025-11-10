@@ -59,7 +59,7 @@ async def run_cycle() -> int:
 
         next_wait = min(next_wait, max(0, item.next_on - now))
 
-    return next_wait
+    return int(next_wait)
 
 
 async def scheduler() -> None:
