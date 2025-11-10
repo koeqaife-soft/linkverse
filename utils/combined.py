@@ -41,17 +41,17 @@ async def get_entity(
         ):
             return loaded_entity
 
-    if entity is None or loaded_entity is None:
+    if entity is None:
         raise RuntimeError("Entity is None")
 
+    data = entity.dict if loaded_entity is None else loaded_entity
+
     if post_id is None:
-        post_id = t.cast(str, loaded_entity["post_id"])
+        post_id = t.cast(str, data["post_id"])
 
     fav, reaction = await posts.get_fav_and_reaction(
         user_id, conn, post_id, comment_id
     )
-
-    data = entity.dict if loaded_entity is None else loaded_entity
 
     async def get_user():
         try:
