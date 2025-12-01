@@ -65,7 +65,6 @@ def condition(
 
 
 class AutoConnection:
-    # TODO: Transactions
     def __init__(self, pool: asyncpg.Pool) -> None:
         self.pool = pool
         self.temp_cache: defaultdict[str, t.Any] = defaultdict(lambda: None)
