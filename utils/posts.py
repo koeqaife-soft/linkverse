@@ -152,35 +152,35 @@ async def create_post(
     db = await conn.create_conn()
     post_id = str(generate_id())
     ctags = list(set([normalize_tag(tag) for tag in ctags if tag]))
-    async with db.transaction():
-        await db.execute(
-            """
-            INSERT INTO posts
-            (post_id, user_id, content, tags, file_context_id)
+    await conn.start_transaction()
+    await db.execute(
+        """
+        INSERT INTO posts
+        (post_id, user_id, content, tags, file_context_id)
 
-            VALUES ($1, $2, $3, $4, $5)
-            """, post_id, user_id, content, tags, file_context_id
+        VALUES ($1, $2, $3, $4, $5)
+        """, post_id, user_id, content, tags, file_context_id
+    )
+
+    if ctags:
+        await db.executemany(
+            """
+            INSERT INTO tags (name, tag_id)
+            VALUES ($1, $2)
+            ON CONFLICT (name) DO NOTHING
+            """,
+            [(tag, str(generate_id())) for tag in ctags]
+        )
+        await db.executemany(
+            """
+            INSERT INTO post_tags (post_id, tag_id)
+            SELECT $1, tag_id FROM tags WHERE name = $2
+            ON CONFLICT DO NOTHING
+            """,
+            [(post_id, tag) for tag in ctags]
         )
 
-        if ctags:
-            await db.executemany(
-                """
-                INSERT INTO tags (name, tag_id)
-                VALUES ($1, $2)
-                ON CONFLICT (name) DO NOTHING
-                """,
-                [(tag, str(generate_id())) for tag in ctags]
-            )
-            await db.executemany(
-                """
-                INSERT INTO post_tags (post_id, tag_id)
-                SELECT $1, tag_id FROM tags WHERE name = $2
-                ON CONFLICT DO NOTHING
-                """,
-                [(post_id, tag) for tag in ctags]
-            )
-
-        created_post = await get_post(post_id, conn, more_info=False)
+    created_post = await get_post(post_id, conn, more_info=False)
 
     return created_post.dict
 
@@ -189,14 +189,14 @@ async def delete_post(
     post_id: str, conn: AutoConnection
 ) -> None:
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            """
-            UPDATE posts
-            SET is_deleted = $1
-            WHERE post_id = $2
-            """, True, post_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        UPDATE posts
+        SET is_deleted = $1
+        WHERE post_id = $2
+        """, True, post_id
+    )
 
 
 async def update_post(
@@ -218,14 +218,14 @@ async def update_post(
             _parameters.append(value)
             _query.append(f"{key} = ${len(_parameters)}")
 
-    async with db.transaction():
-        await db.execute(
-            f"""
-            UPDATE posts
-            SET {", ".join(_query)}
-            WHERE post_id = ${len(_parameters)+1}
-            """, *_parameters, post_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        f"""
+        UPDATE posts
+        SET {", ".join(_query)}
+        WHERE post_id = ${len(_parameters)+1}
+        """, *_parameters, post_id
+    )
 
 
 async def add_reaction(
@@ -247,25 +247,25 @@ async def add_reaction(
     if result == is_like:
         return
 
-    async with db.transaction():
-        if result is None:
-            await db.execute(
-                """
-                INSERT INTO reactions (user_id, post_id, comment_id, is_like)
-                VALUES ($1, $2, $3, $4)
-                """, user_id, post_id, comment_id, is_like
-            )
-        else:
-            _condition, _params = condition(comment_id, 4)
+    await conn.start_transaction()
+    if result is None:
+        await db.execute(
+            """
+            INSERT INTO reactions (user_id, post_id, comment_id, is_like)
+            VALUES ($1, $2, $3, $4)
+            """, user_id, post_id, comment_id, is_like
+        )
+    else:
+        _condition, _params = condition(comment_id, 4)
 
-            await db.execute(
-                f"""
-                UPDATE reactions
-                SET is_like = $1
-                WHERE user_id = $2 AND post_id = $3
-                AND comment_id {_condition}
-                """, is_like, user_id, post_id, *_params
-            )
+        await db.execute(
+            f"""
+            UPDATE reactions
+            SET is_like = $1
+            WHERE user_id = $2 AND post_id = $3
+            AND comment_id {_condition}
+            """, is_like, user_id, post_id, *_params
+        )
 
 
 async def get_reaction(
@@ -301,13 +301,13 @@ async def rem_reaction(
 
     _condition, _params = condition(comment_id, 3)
 
-    async with db.transaction():
-        await db.execute(
-            f"""
-            DELETE FROM reactions
-            WHERE user_id = $1 AND post_id = $2 AND comment_id {_condition}
-            """, user_id, post_id, *_params
-        )
+    await conn.start_transaction()
+    await db.execute(
+        f"""
+        DELETE FROM reactions
+        WHERE user_id = $1 AND post_id = $2 AND comment_id {_condition}
+        """, user_id, post_id, *_params
+    )
 
 
 async def get_user_posts(

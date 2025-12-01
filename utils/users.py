@@ -171,10 +171,10 @@ async def update_user(
         ON CONFLICT (user_id)
         DO UPDATE SET {update_clause}
     """
-    async with db.transaction():
-        await db.execute(
-            query, user_id, *new_values.values()
-        )
+    await conn.start_transaction()
+    await db.execute(
+        query, user_id, *new_values.values()
+    )
 
 
 async def change_username(
@@ -182,14 +182,14 @@ async def change_username(
     conn: AutoConnection
 ) -> None:
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            """
-            UPDATE users
-            SET username = $1
-            WHERE user_id = $2
-            """, username, user_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        UPDATE users
+        SET username = $1
+        WHERE user_id = $2
+        """, username, user_id
+    )
 
 
 async def add_badge(
@@ -203,10 +203,10 @@ async def add_badge(
         ON CONFLICT (user_id)
         DO UPDATE SET badges = array_append(user_profiles.badges, $2)
     """
-    async with db.transaction():
-        await db.execute(
-            query, user_id, badge
-        )
+    await conn.start_transaction()
+    await db.execute(
+        query, user_id, badge
+    )
 
 
 async def rem_badge(
@@ -219,24 +219,24 @@ async def rem_badge(
         SET badges = array_remove(badges, $2)
         WHERE user_id = $1
     """
-    async with db.transaction():
-        await db.execute(
-            query, user_id, badge
-        )
+    await conn.start_transaction()
+    await db.execute(
+        query, user_id, badge
+    )
 
 
 async def clear_badges(
     user_id: str, conn: AutoConnection
 ) -> None:
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            """
-            UPDATE user_profiles
-            SET badges = NULL
-            WHERE user_id = $1
-            """, user_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        UPDATE user_profiles
+        SET badges = NULL
+        WHERE user_id = $1
+        """, user_id
+    )
 
 
 async def add_to_favorites(
@@ -246,14 +246,14 @@ async def add_to_favorites(
     comment_id: str | None = None
 ) -> None:
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            """
-                INSERT INTO favorites (user_id, comment_id, post_id)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (post_id, comment_id, user_id) DO NOTHING
-            """, user_id, comment_id, post_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+            INSERT INTO favorites (user_id, comment_id, post_id)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (post_id, comment_id, user_id) DO NOTHING
+        """, user_id, comment_id, post_id
+    )
 
 
 async def rem_from_favorites(
@@ -264,13 +264,13 @@ async def rem_from_favorites(
 ) -> None:
     key = "comment_id" if comment_id else "post_id"
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            f"""
-                DELETE FROM favorites
-                WHERE user_id = $1 AND {key} = $2
-            """, user_id, comment_id or post_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        f"""
+            DELETE FROM favorites
+            WHERE user_id = $1 AND {key} = $2
+        """, user_id, comment_id or post_id
+    )
 
 
 async def is_favorite(
@@ -296,14 +296,14 @@ async def follow(
     conn: AutoConnection
 ) -> None:
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            """
-            INSERT INTO followed (user_id, followed_to)
-            VALUES ($1, $2)
-            ON CONFLICT (user_id, followed_to) DO NOTHING
-            """, user_id, target_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        INSERT INTO followed (user_id, followed_to)
+        VALUES ($1, $2)
+        ON CONFLICT (user_id, followed_to) DO NOTHING
+        """, user_id, target_id
+    )
 
 
 async def unfollow(
@@ -311,13 +311,13 @@ async def unfollow(
     conn: AutoConnection
 ) -> None:
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            """
-            DELETE FROM followed
-            WHERE user_id = $1 AND followed_to = $2
-            """, user_id, target_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        DELETE FROM followed
+        WHERE user_id = $1 AND followed_to = $2
+        """, user_id, target_id
+    )
 
 
 async def is_followed(

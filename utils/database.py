@@ -1,6 +1,7 @@
 import os
 import re
 import asyncpg
+import asyncpg.transaction
 from core import worker_count, _logger
 import typing as t
 from collections import defaultdict
@@ -69,13 +70,35 @@ class AutoConnection:
         self.pool = pool
         self.temp_cache: defaultdict[str, t.Any] = defaultdict(lambda: None)
         self._conn = None
+        self._transaction: asyncpg.transaction.Transaction | None = None
+
+    async def start_transaction(self) -> None:
+        if self._transaction is not None:
+            return
+
+        db = await self.create_conn()
+        self._transaction = db.transaction()
+        await self._transaction.start()
 
     async def __aenter__(self):
         return self
 
-    async def __aexit__(self, *exc):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: BaseException | None
+    ) -> bool:
+        if self._transaction is not None:
+            if exc_type is None:
+                await self._transaction.commit()
+            else:
+                await self._transaction.rollback()
+
         if self._conn is not None:
             await self.pool.release(self._conn)
+
+        return False
 
     async def create_conn(self, **kwargs):
         if self._conn is not None and not self._conn.is_closed():

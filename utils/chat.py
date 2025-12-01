@@ -72,28 +72,29 @@ async def create_channel(
     metadata: dict[str, t.Any] = {}
 ) -> str:
     db = await conn.create_conn()
-    async with db.transaction():
-        query = """
-            INSERT INTO channels (type, metadata, channel_id)
-            VALUES ($1, $2, $3)
-            RETURNING channel_id
-        """
-        new_channel_id = str(generate_id())
-        row: t.Any = await db.fetchrow(
-            query, type, orjson.dumps(metadata).decode(), new_channel_id
-        )
-        channel_id = row['channel_id']
 
-        values = [
-            (channel_id, user_id, str(generate_id()))
-            for user_id in user_ids
-        ]
+    await conn.start_transaction()
+    query = """
+        INSERT INTO channels (type, metadata, channel_id)
+        VALUES ($1, $2, $3)
+        RETURNING channel_id
+    """
+    new_channel_id = str(generate_id())
+    row: t.Any = await db.fetchrow(
+        query, type, orjson.dumps(metadata).decode(), new_channel_id
+    )
+    channel_id = row['channel_id']
 
-        query = """
-            INSERT INTO channel_members (channel_id, user_id, membership_id)
-            VALUES ($1, $2, $3)
-        """
-        await db.executemany(query, values)
+    values = [
+        (channel_id, user_id, str(generate_id()))
+        for user_id in user_ids
+    ]
+
+    query = """
+        INSERT INTO channel_members (channel_id, user_id, membership_id)
+        VALUES ($1, $2, $3)
+    """
+    await db.executemany(query, values)
 
     return channel_id
 
@@ -105,17 +106,18 @@ async def add_channel_to_user_channels(
 ) -> bool:
     db = await conn.create_conn()
 
-    async with db.transaction():
-        membership_id = await ensure_membership(user_id, channel_id, conn)
+    await conn.start_transaction()
 
-        query = """
-            INSERT INTO user_channels (user_id, channel_id, membership_id)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (user_id, channel_id) DO NOTHING
-            RETURNING 1
-        """
-        inserted = await db.fetchval(query, user_id, channel_id, membership_id)
-        return inserted is not None
+    membership_id = await ensure_membership(user_id, channel_id, conn)
+
+    query = """
+        INSERT INTO user_channels (user_id, channel_id, membership_id)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (user_id, channel_id) DO NOTHING
+        RETURNING 1
+    """
+    inserted = await db.fetchval(query, user_id, channel_id, membership_id)
+    return inserted is not None
 
 
 async def ensure_membership(
@@ -204,22 +206,22 @@ async def create_message(
 ) -> Message:
     db = await conn.create_conn()
 
-    async with db.transaction():
-        new_message_id = str(generate_id())
-        await db.execute(
-            """
-                INSERT INTO messages (
-                    channel_id, user_id, content,
-                    content_type, file_context_id, message_id
-                )
-                VALUES ($1, $2, $3, $4, $5, $6)
-            """,
-            channel_id,
-            user_id,
-            content,
-            content_type,
-            file_context_id,
-            new_message_id
-        )
-        message = await get_message(new_message_id, conn)
-        return message
+    await conn.start_transaction()
+    new_message_id = str(generate_id())
+    await db.execute(
+        """
+            INSERT INTO messages (
+                channel_id, user_id, content,
+                content_type, file_context_id, message_id
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+        """,
+        channel_id,
+        user_id,
+        content,
+        content_type,
+        file_context_id,
+        new_message_id
+    )
+    message = await get_message(new_message_id, conn)
+    return message

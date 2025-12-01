@@ -179,13 +179,13 @@ async def mark_post_as_viewed(
     conn: AutoConnection
 ) -> None:
     db = await conn.create_conn()
-    async with db.transaction():
-        query = """
-            INSERT INTO user_post_views (user_id, post_id)
-            VALUES ($1, $2)
-            ON CONFLICT (user_id, post_id) DO NOTHING
-        """
-        await db.execute(query, user_id, str(post_id))
+    await conn.start_transaction()
+    query = """
+        INSERT INTO user_post_views (user_id, post_id)
+        VALUES ($1, $2)
+        ON CONFLICT (user_id, post_id) DO NOTHING
+    """
+    await db.execute(query, user_id, str(post_id))
 
 
 async def mark_posts_as_viewed(
@@ -199,9 +199,9 @@ async def mark_posts_as_viewed(
         VALUES ($1, $2)
         ON CONFLICT (user_id, post_id) DO NOTHING
     """
-    async with db.transaction():
-        for post_id in post_ids:
-            await db.execute(query, user_id, str(post_id))
+    await conn.start_transaction()
+    for post_id in post_ids:
+        await db.execute(query, user_id, str(post_id))
 
 
 async def get_tag_posts(

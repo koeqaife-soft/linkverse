@@ -107,14 +107,14 @@ async def create_file_context(
     db = await conn.create_conn()
     new_id = str(generate_id())
 
-    async with db.transaction():
-        await db.execute(
-            """
-            INSERT INTO files
-            (user_id, objects, allowed_count, context_id, type)
-            VALUES ($1, $2, $3, $4, $5)
-            """, user_id, objects, max_count, new_id, type
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        INSERT INTO files
+        (user_id, objects, allowed_count, context_id, type)
+        VALUES ($1, $2, $3, $4, $5)
+        """, user_id, objects, max_count, new_id, type
+    )
 
     return new_id
 
@@ -124,13 +124,13 @@ async def delete_file_context(
 ) -> None:
     db = await conn.create_conn()
 
-    async with db.transaction():
-        await db.execute(
-            """
-            DELETE FROM files
-            WHERE context_id = $1
-            """, context_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        DELETE FROM files
+        WHERE context_id = $1
+        """, context_id
+    )
 
 
 async def check_allowed_count(
@@ -160,35 +160,35 @@ async def add_object_to_file(
 ) -> None:
     db = await conn.create_conn()
 
-    async with db.transaction():
-        row = await db.fetchrow(
-            """
-            SELECT objects, allowed_count
-            FROM files
-            WHERE context_id = $1
-            FOR UPDATE
-            """,
-            context_id
-        )
+    await conn.start_transaction()
+    row = await db.fetchrow(
+        """
+        SELECT objects, allowed_count
+        FROM files
+        WHERE context_id = $1
+        FOR UPDATE
+        """,
+        context_id
+    )
 
-        if not row:
-            raise FunctionError("CONTEXT_NOT_FOUND", 404, None)
+    if not row:
+        raise FunctionError("CONTEXT_NOT_FOUND", 404, None)
 
-        if row["allowed_count"] <= 0:
-            raise FunctionError("MAX_COUNT_EXCEED", 403, None)
+    if row["allowed_count"] <= 0:
+        raise FunctionError("MAX_COUNT_EXCEED", 403, None)
 
-        objects = row["objects"] + [new_object]
-        allowed_count = row["allowed_count"] - 1
+    objects = row["objects"] + [new_object]
+    allowed_count = row["allowed_count"] - 1
 
-        await db.execute(
-            """
-            UPDATE files
-            SET objects = $1,
-                allowed_count = $2
-            WHERE context_id = $3
-            """,
-            objects, allowed_count, context_id
-        )
+    await db.execute(
+        """
+        UPDATE files
+        SET objects = $1,
+            allowed_count = $2
+        WHERE context_id = $3
+        """,
+        objects, allowed_count, context_id
+    )
 
 
 async def get_context(

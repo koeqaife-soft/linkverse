@@ -137,13 +137,13 @@ async def create_user(
     await check_email(email, conn)
     password_hash = await store_password(password)
     new_id = str(generate_id())
-    async with db.transaction():
-        await db.execute(
-            """
-            INSERT INTO users (user_id, username, email, password_hash)
-            VALUES ($1, $2, $3, $4)
-            """, new_id, username, email, password_hash
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        INSERT INTO users (user_id, username, email, password_hash)
+        VALUES ($1, $2, $3, $4)
+        """, new_id, username, email, password_hash
+    )
     return new_id
 
 
@@ -155,14 +155,14 @@ async def update_password(
     db = await conn.create_conn()
     password_hash = await store_password(password)
 
-    async with db.transaction():
-        await db.execute(
-            """
-            UPDATE users
-            SET password_hash = $1
-            WHERE user_id = $2
-            """, password_hash, user_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        UPDATE users
+        SET password_hash = $1
+        WHERE user_id = $2
+        """, password_hash, user_id
+    )
 
 
 async def close_sessions_except(
@@ -172,13 +172,13 @@ async def close_sessions_except(
 ) -> None:
     db = await conn.create_conn()
 
-    async with db.transaction():
-        await db.execute(
-            """
-            DELETE FROM auth_keys
-            WHERE user_id = $1 AND session_id != $2
-            """, user_id, session_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        DELETE FROM auth_keys
+        WHERE user_id = $1 AND session_id != $2
+        """, user_id, session_id
+    )
 
 
 async def check_email(
@@ -233,13 +233,15 @@ async def login(
         user.user_id, secret_refresh_key, True,
         new_secret, session_id
     )
-    async with db.transaction():
-        await db.execute(
-            """
-            INSERT INTO auth_keys (user_id, token_secret, session_id)
-            VALUES ($1, $2, $3)
-            """, user.user_id, new_secret, session_id
-        )
+
+    await conn.start_transaction()
+    await db.execute(
+        """
+        INSERT INTO auth_keys (user_id, token_secret, session_id)
+        VALUES ($1, $2, $3)
+        """, user.user_id, new_secret, session_id
+    )
+
     return {
         "access": access,
         "refresh": refresh
@@ -263,13 +265,15 @@ async def create_token(
         user_id, secret_refresh_key, True,
         new_secret, session_id
     )
-    async with db.transaction():
-        await db.execute(
-            """
-            INSERT INTO auth_keys (user_id, token_secret, session_id)
-            VALUES ($1, $2, $3)
-            """, user_id, new_secret, session_id
-        )
+
+    await conn.start_transaction()
+    await db.execute(
+        """
+        INSERT INTO auth_keys (user_id, token_secret, session_id)
+        VALUES ($1, $2, $3)
+        """, user_id, new_secret, session_id
+    )
+
     return {
         "access": access,
         "refresh": refresh
@@ -312,14 +316,14 @@ async def refresh(
         True, new_secret, session_id
     )
 
-    async with db.transaction():
-        await db.execute(
-            """
-            UPDATE auth_keys
-            SET token_secret = $2
-            WHERE session_id = $1
-            """, session_id, new_secret
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        UPDATE auth_keys
+        SET token_secret = $2
+        WHERE session_id = $1
+        """, session_id, new_secret
+    )
 
     return {
         "tokens": {
@@ -361,13 +365,13 @@ async def remove_secret(
     conn: AutoConnection
 ) -> None:
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            """
-            DELETE FROM auth_keys
-            WHERE user_id = $1 AND token_secret = $2;
-            """, user_id, secret
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        DELETE FROM auth_keys
+        WHERE user_id = $1 AND token_secret = $2;
+        """, user_id, secret
+    )
 
 
 async def set_pending(
@@ -380,14 +384,14 @@ async def set_pending(
         until, datetime.timezone.utc
     ) if until is not None else None
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            """
-            UPDATE users
-            SET pending_email = $1, pending_email_until = $2
-            WHERE user_id = $3
-            """, email, until_datetime, user_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        UPDATE users
+        SET pending_email = $1, pending_email_until = $2
+        WHERE user_id = $3
+        """, email, until_datetime, user_id
+    )
 
 
 async def set_email(
@@ -396,14 +400,14 @@ async def set_email(
     conn: AutoConnection
 ) -> None:
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            """
-            UPDATE users
-            SET email = $1
-            WHERE user_id = $2
-            """, email, user_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        UPDATE users
+        SET email = $1
+        WHERE user_id = $2
+        """, email, user_id
+    )
 
 
 async def set_email_verified(
@@ -412,11 +416,12 @@ async def set_email_verified(
     conn: AutoConnection
 ) -> None:
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            """
-            UPDATE users
-            SET email_verified = $1
-            WHERE user_id = $2
-            """, is_verified, user_id
-        )
+
+    await conn.start_transaction()
+    await db.execute(
+        """
+        UPDATE users
+        SET email_verified = $1
+        WHERE user_id = $2
+        """, is_verified, user_id
+    )

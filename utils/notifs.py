@@ -25,20 +25,20 @@ async def create_notification(
 
     notification_id = str(snowflake.generate())
 
-    async with db.transaction():
-        await db.execute(
-            """
-            INSERT INTO user_notifications (
-                id, user_id, type, message, from_id,
-                linked_type, linked_id, second_linked_id,
-                unread
-            ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9
-            )
-            """,
-            notification_id, user_id, type, message, from_id,
-            linked_type, linked_id, second_linked_id, unread
+    await conn.start_transaction()
+    await db.execute(
+        """
+        INSERT INTO user_notifications (
+            id, user_id, type, message, from_id,
+            linked_type, linked_id, second_linked_id,
+            unread
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9
         )
+        """,
+        notification_id, user_id, type, message, from_id,
+        linked_type, linked_id, second_linked_id, unread
+    )
 
     notification = Notification({
         "id": notification_id,
@@ -135,14 +135,14 @@ async def mark_notification_read(
     conn: AutoConnection
 ) -> None:
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            """
-            UPDATE user_notifications
-            SET unread = FALSE
-            WHERE user_id = $1 AND id = $2
-            """, user_id, notification_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        UPDATE user_notifications
+        SET unread = FALSE
+        WHERE user_id = $1 AND id = $2
+        """, user_id, notification_id
+    )
 
 
 async def mark_all_notifications_read(
@@ -150,14 +150,14 @@ async def mark_all_notifications_read(
     conn: AutoConnection
 ) -> None:
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            """
-            UPDATE user_notifications
-            SET unread = FALSE
-            WHERE user_id = $1 AND unread = TRUE
-            """, user_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        UPDATE user_notifications
+        SET unread = FALSE
+        WHERE user_id = $1 AND unread = TRUE
+        """, user_id
+    )
 
 
 async def get_unread_notifications_count(
@@ -183,24 +183,24 @@ async def subscribe(
 ) -> None:
     db = await conn.create_conn()
 
-    async with db.transaction():
-        await db.execute(
-            """
-            INSERT INTO webpush_subscriptions (
-                id, user_id, session_id, expiration_time, raw
-            )
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (session_id) DO UPDATE
-            SET updated_at = now(),
-                raw = EXCLUDED.raw,
-                expiration_time = EXCLUDED.expiration_time
-            """,
-            str(generate_id()),
-            user_id,
-            session_id,
-            subscription.get("expirationTime"),
-            orjson.dumps(subscription).decode()
+    await conn.start_transaction()
+    await db.execute(
+        """
+        INSERT INTO webpush_subscriptions (
+            id, user_id, session_id, expiration_time, raw
         )
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (session_id) DO UPDATE
+        SET updated_at = now(),
+            raw = EXCLUDED.raw,
+            expiration_time = EXCLUDED.expiration_time
+        """,
+        str(generate_id()),
+        user_id,
+        session_id,
+        subscription.get("expirationTime"),
+        orjson.dumps(subscription).decode()
+    )
 
 
 async def get_subscriptions(
@@ -209,15 +209,15 @@ async def get_subscriptions(
 ) -> list[dict[str, t.Any]]:
     db = await conn.create_conn()
 
-    async with db.transaction():
-        rows = await db.fetch(
-            """
-            SELECT session_id, expiration_time, raw
-            FROM webpush_subscriptions
-            WHERE user_id = $1
-            """,
-            user_id
-        )
+    await conn.start_transaction()
+    rows = await db.fetch(
+        """
+        SELECT session_id, expiration_time, raw
+        FROM webpush_subscriptions
+        WHERE user_id = $1
+        """,
+        user_id
+    )
 
     subscriptions = []
     for row in rows:
@@ -238,11 +238,11 @@ async def delete_subscription(
 ) -> None:
     db = await conn.create_conn()
 
-    async with db.transaction():
-        await db.execute(
-            """
-            DELETE FROM webpush_subscriptions
-            WHERE session_id = $1
-            """,
-            session_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        DELETE FROM webpush_subscriptions
+        WHERE session_id = $1
+        """,
+        session_id
+    )

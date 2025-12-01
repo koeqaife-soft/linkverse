@@ -48,27 +48,28 @@ async def create_comment(
 ) -> Comment:
     db = await conn.create_conn()
     comment_id = str(generate_id())
-    async with db.transaction():
-        await db.execute(
-            """
-            INSERT INTO comments (
-                comment_id, post_id, user_id, content, type,
-                parent_comment_id
-            )
-            VALUES ($1, $2, $3, $4, $5, $6)
-            """,
-            comment_id, post_id, user_id, content,
-            type or "comment", parent_id
+
+    await conn.start_transaction()
+    await db.execute(
+        """
+        INSERT INTO comments (
+            comment_id, post_id, user_id, content, type,
+            parent_comment_id
         )
-        comment: t.Any = await db.fetchrow(
-            """
-                SELECT comment_id, parent_comment_id, post_id, user_id,
-                       content, likes_count, dislikes_count,
-                       replies_count, type
-                FROM comments
-                WHERE post_id = $1 AND comment_id = $2
-            """, post_id, comment_id
-        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+        """,
+        comment_id, post_id, user_id, content,
+        type or "comment", parent_id
+    )
+    comment: t.Any = await db.fetchrow(
+        """
+            SELECT comment_id, parent_comment_id, post_id, user_id,
+                    content, likes_count, dislikes_count,
+                    replies_count, type
+            FROM comments
+            WHERE post_id = $1 AND comment_id = $2
+        """, post_id, comment_id
+    )
 
     return Comment.from_dict(comment)
 
@@ -121,13 +122,13 @@ async def delete_comment(
     conn: AutoConnection
 ) -> None:
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            """
-            DELETE FROM comments
-            WHERE post_id = $1 AND comment_id = $2
-            """, post_id, comment_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        DELETE FROM comments
+        WHERE post_id = $1 AND comment_id = $2
+        """, post_id, comment_id
+    )
 
 
 async def soft_delete_comment(
@@ -135,14 +136,14 @@ async def soft_delete_comment(
     conn: AutoConnection
 ) -> None:
     db = await conn.create_conn()
-    async with db.transaction():
-        await db.execute(
-            """
-            UPDATE comments
-            SET user_id = NULL, content = NULL
-            WHERE post_id = $1 AND comment_id = $2
-            """, post_id, comment_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        UPDATE comments
+        SET user_id = NULL, content = NULL
+        WHERE post_id = $1 AND comment_id = $2
+        """, post_id, comment_id
+    )
 
 
 async def get_comments(

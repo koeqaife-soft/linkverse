@@ -12,14 +12,14 @@ async def create_report(
     db = await conn.create_conn()
     new_id = str(generate_id())
 
-    async with db.transaction():
-        await db.execute(
-            """
-            INSERT INTO reports
-            (report_id, user_id, target_id, target_type, reason)
-            VALUES ($1, $2, $3, $4, $5)
-            """, new_id, user_id, target_id, target_type, reason
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        INSERT INTO reports
+        (report_id, user_id, target_id, target_type, reason)
+        VALUES ($1, $2, $3, $4, $5)
+        """, new_id, user_id, target_id, target_type, reason
+    )
 
     return new_id
 
@@ -31,14 +31,14 @@ async def mark_all_reports_as(
 ) -> None:
     db = await conn.create_conn()
 
-    async with db.transaction():
-        await db.execute(
-            """
-            UPDATE reports
-            SET status = $1
-            WHERE target_id = $2
-            """, status, target_id
-        )
+    await conn.start_transaction()
+    await db.execute(
+        """
+        UPDATE reports
+        SET status = $1
+        WHERE target_id = $2
+        """, status, target_id
+    )
 
 
 async def get_reports(
