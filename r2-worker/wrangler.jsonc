@@ -16,6 +16,15 @@
 			"bucket_name": "linkverse"
 		}
 	],
+	"routes": [
+		{
+			"pattern": "storage.sharinflame.com",
+			"zone_name": "sharinflame.com",
+			"custom_domain": true
+		}
+	],
+	"preview_urls": false,
+	"workers_dev": true,
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
